@@ -4,6 +4,7 @@ import { prisma } from '../lib/prisma.js';
 import { validate } from '../middleware/validate.js';
 import { requireAuth } from '../middleware/auth.js';
 import { NotFoundError } from '../lib/errors.js';
+import { checkAndNotifyMilestone } from '../services/notifications.js';
 
 export const readingRouter = Router();
 
@@ -67,12 +68,15 @@ readingRouter.post('/progress', validate({ body: SaveProgressSchema }), async (r
       create: { userId: user.id, chapterId, pageNumber, completed },
     });
 
-    // If chapter completed, update streak
+    // If chapter completed, update streak and check milestones
     if (completed) {
       await prisma.user.update({
         where: { id: user.id },
         data: { streakDays: { increment: 1 } },
       });
+
+      // Fire-and-forget milestone check
+      checkAndNotifyMilestone(user.id);
     }
 
     res.json({ success: true, data: progress });

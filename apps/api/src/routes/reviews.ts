@@ -5,6 +5,7 @@ import { cacheDel } from '../lib/redis.js';
 import { validate } from '../middleware/validate.js';
 import { requireAuth, optionalAuth } from '../middleware/auth.js';
 import { NotFoundError, ForbiddenError } from '../lib/errors.js';
+import { notifyReviewAdded } from '../services/notifications.js';
 
 export const reviewsRouter = Router();
 
@@ -175,7 +176,7 @@ reviewsRouter.post('/title/:slug', requireAuth, validate({ body: CreateReviewSch
 
     const user = await prisma.user.findUnique({
       where: { firebaseUid: req.user!.uid },
-      select: { id: true },
+      select: { id: true, displayName: true },
     });
     if (!user) throw new NotFoundError('User');
 
@@ -245,6 +246,9 @@ reviewsRouter.post('/title/:slug', requireAuth, validate({ body: CreateReviewSch
 
     // Clear cache for this title
     await cacheDel(`titles:list:*`);
+
+    // Notify users who bookmarked this title (fire-and-forget)
+    notifyReviewAdded(title.id, user.displayName || 'A reader', user.id, body.rating);
 
     res.status(201).json({
       success: true,

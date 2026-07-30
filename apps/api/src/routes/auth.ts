@@ -4,6 +4,7 @@ import { prisma } from '../lib/prisma.js';
 import { validate } from '../middleware/validate.js';
 import { requireAuth } from '../middleware/auth.js';
 import { ConflictError } from '../lib/errors.js';
+import { seedDemoNotifications } from '../services/notifications.js';
 
 export const authRouter = Router();
 
@@ -39,6 +40,9 @@ authRouter.post('/register', validate({ body: RegisterSchema }), async (req, res
         firebaseUid,
       },
     });
+
+    // Seed welcome notifications for new users (fire-and-forget)
+    seedDemoNotifications(user.id);
 
     res.status(201).json({
       success: true,
