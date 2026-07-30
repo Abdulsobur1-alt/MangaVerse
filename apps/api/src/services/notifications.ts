@@ -32,6 +32,36 @@ async function createNotification(params: CreateNotificationParams): Promise<voi
   }
 }
 
+// ─── Check if user has a notification type enabled ────
+
+// Map notification types to preference keys
+const NOTIF_TYPE_TO_PREF_KEY: Record<string, string> = {
+  new_chapter: 'new_chapter',
+  review_added: 'reviews',
+  review_reply: 'reviews',
+  achievement: 'achievements',
+  milestone: 'milestones',
+  system: 'system',
+};
+
+async function userHasPrefEnabled(userId: string, type: string): Promise<boolean> {
+  try {
+    const prefKey = NOTIF_TYPE_TO_PREF_KEY[type];
+    if (!prefKey || type === 'system') return true; // Unknown types + system always send
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { notificationPrefs: true },
+    });
+    if (!user) return false;
+
+    const prefs = (user.notificationPrefs as Record<string, boolean>) || {};
+    return prefs[prefKey] !== false; // Default to enabled
+  } catch {
+    return true; // On error, send the notification
+  }
+}
+
 // ─── Notify all users who bookmarked a title ─────────
 
 async function notifyBookmarkedUsers(
@@ -53,13 +83,28 @@ async function notifyBookmarkedUsers(
       ? bookmarks.filter((b) => b.userId !== excludeUserId).map((b) => b.userId)
       : bookmarks.map((b) => b.userId);
 
+    // Batch-fetch all users' preferences in one query instead of N+1
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const users = await prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: { id: true, notificationPrefs: true },
+    });
+    const eligibleUserIds = users
+      .filter((u) => {
+        const prefs = (u.notificationPrefs as Record<string, boolean>) || {};
+        const prefKey = NOTIF_TYPE_TO_PREF_KEY[type];
+        if (!prefKey || type === 'system') return true;
+        return prefs[prefKey] !== false;
+      })
+      .map((u) => u.id);
+
     // Create notifications in parallel (limit concurrency to avoid DB pressure)
     const batchSize = 20;
-    for (let i = 0; i < userIds.length; i += batchSize) {
-      const batch = userIds.slice(i, i + batchSize);
+    for (let i = 0; i < eligibleUserIds.length; i += batchSize) {
+      const batch = eligibleUserIds.slice(i, i + batchSize);
       await Promise.all(
-        batch.map((userId) =>
-          createNotification({ userId, type, title, body, link, imageUrl }),
+        batch.map((uid) =>
+          createNotification({ userId: uid, type, title, body, link, imageUrl }),
         ),
       );
     }

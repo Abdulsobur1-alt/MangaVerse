@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { TopBar } from '@/components/TopBar';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useAuthStore } from '@/store/authStore';
-import { useUpdateProfile, useDeleteAccount } from '@/lib/hooks/useSettings';
+import { useUpdateProfile, useDeleteAccount, useNotificationPrefs, useUpdateNotificationPrefs } from '@/lib/hooks/useSettings';
 
 export default function SettingsPage() {
   const { user, token } = useAuthStore();
@@ -15,6 +15,22 @@ export default function SettingsPage() {
   const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl || '');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [saved, setSaved] = useState(false);
+  const { data: notifPrefs } = useNotificationPrefs();
+  const updateNotifPrefs = useUpdateNotificationPrefs();
+  const [localPrefs, setLocalPrefs] = useState<Record<string, boolean> | null>(null);
+
+  const prefs = localPrefs || notifPrefs || {
+    new_chapter: true,
+    reviews: true,
+    milestones: true,
+    achievements: true,
+  };
+
+  const togglePref = (key: string, current: boolean) => {
+    const newPrefs = { ...prefs, [key]: !current };
+    setLocalPrefs(newPrefs);
+    updateNotifPrefs.mutate({ [key]: !current } as Record<string, boolean>);
+  };
 
   // Sync with user data when it loads
   useEffect(() => {
@@ -151,7 +167,8 @@ export default function SettingsPage() {
                   <label className="relative inline-flex cursor-pointer items-center">
                     <input
                       type="checkbox"
-                      defaultChecked
+                      checked={!!(prefs as Record<string, boolean>)[pref.id]}
+                      onChange={() => togglePref(pref.id, !!(prefs as Record<string, boolean>)[pref.id])}
                       className="peer sr-only"
                     />
                     <div className="h-5 w-9 rounded-full bg-mv-border-light after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:bg-mv-text-muted after:transition-all peer-checked:bg-mv-accent/60 peer-checked:after:translate-x-full peer-checked:after:bg-mv-accent" />

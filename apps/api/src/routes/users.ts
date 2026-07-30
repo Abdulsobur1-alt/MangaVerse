@@ -17,6 +17,20 @@ const UpdateProfileSchema = z.object({
   avatarUrl: z.string().url().max(500).nullable().optional(),
 });
 
+const UpdatePrefsSchema = z.object({
+  new_chapter: z.boolean().optional(),
+  reviews: z.boolean().optional(),
+  milestones: z.boolean().optional(),
+  achievements: z.boolean().optional(),
+});
+
+const DEFAULT_NOTIF_PREFS = {
+  new_chapter: true,
+  reviews: true,
+  milestones: true,
+  achievements: true,
+};
+
 // ─── GET /api/users/profile ───────────────────────────
 
 usersRouter.get('/profile', async (req, res, next) => {
@@ -108,6 +122,64 @@ usersRouter.put('/profile', validate({ body: UpdateProfileSchema }), async (req,
         createdAt: updated.createdAt.toISOString(),
       },
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── GET /api/users/preferences ─────────────────────
+
+usersRouter.get('/preferences', async (req, res, next) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { firebaseUid: req.user!.uid },
+      select: { notificationPrefs: true },
+    });
+    if (!user) throw new NotFoundError('User');
+
+    const prefs = user.notificationPrefs as Record<string, boolean> | null;
+
+    res.json({
+      success: true,
+      data: {
+        ...DEFAULT_NOTIF_PREFS,
+        ...(prefs || {}),
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── PUT /api/users/preferences ───────────────────────
+
+usersRouter.put('/preferences', validate({ body: UpdatePrefsSchema }), async (req, res, next) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { firebaseUid: req.user!.uid },
+      select: { id: true },
+    });
+    if (!user) throw new NotFoundError('User');
+
+    const body = req.body as z.infer<typeof UpdatePrefsSchema>;
+    const currentPrefs = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { notificationPrefs: true },
+    });
+
+    const existingPrefs = (currentPrefs?.notificationPrefs as Record<string, boolean>) || {};
+    const updatedPrefs = {
+      ...DEFAULT_NOTIF_PREFS,
+      ...existingPrefs,
+      ...body,
+    };
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { notificationPrefs: updatedPrefs as any },
+    });
+
+    res.json({ success: true, data: updatedPrefs });
   } catch (err) {
     next(err);
   }

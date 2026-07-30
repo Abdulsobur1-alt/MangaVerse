@@ -1,6 +1,6 @@
 'use client';
 
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api';
 
 // ─── Types ────────────────────────────────────────────
@@ -19,6 +19,13 @@ export interface ProfileResponse {
   subscriptionTier: string;
   streakDays: number;
   createdAt: string;
+}
+
+export interface NotificationPrefs {
+  new_chapter: boolean;
+  reviews: boolean;
+  milestones: boolean;
+  achievements: boolean;
 }
 
 // ─── Hooks ────────────────────────────────────────────
@@ -45,6 +52,28 @@ export function useDeleteAccount() {
       localStorage.removeItem('auth_token');
       queryClient.clear();
       window.location.href = '/';
+    },
+  });
+}
+
+export function useNotificationPrefs() {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+
+  return useQuery<NotificationPrefs>({
+    queryKey: ['user', 'preferences'],
+    queryFn: () => api.get<NotificationPrefs>('/users/preferences'),
+    enabled: !!token,
+  });
+}
+
+export function useUpdateNotificationPrefs() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: Partial<NotificationPrefs>) =>
+      api.put<NotificationPrefs>('/users/preferences', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user', 'preferences'] });
     },
   });
 }
