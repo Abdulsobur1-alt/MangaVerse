@@ -3,6 +3,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import { rateLimit } from 'express-rate-limit';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 
 import { errorHandler, notFoundHandler } from './middleware/error.js';
 import { authRouter } from './routes/auth.js';
@@ -55,6 +57,12 @@ app.get('/api/proxy/image', createImageProxyHandler());
 // Placeholder images are served through the proxy: /api/proxy/image?url=%2Fapi%2Fproxy%2Fplaceholder%3F...
 // The standalone /api/proxy/placeholder route is not registered to avoid 400 errors —
 // it's handled inline by createImageProxyHandler() when imageUrl includes '/api/proxy/placeholder'.
+
+// ─── Static Files (Downloads, APKs) ───────────────────
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+app.use('/api/download', express.static(join(__dirname, '../public')));
 
 // ─── Error Handling ───────────────────────────────────
 

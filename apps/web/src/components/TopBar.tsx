@@ -53,7 +53,18 @@ export function TopBar() {
         ))}
       </nav>
 
-      <div className="ml-auto flex items-center gap-3">
+      <div className="ml-auto flex items-center gap-2.5">
+        {/* Get the App button */}
+        <Link
+          href="/download"
+          className="hidden sm:flex items-center gap-1.5 rounded-full border border-mv-purple/40 bg-mv-purple/10 px-3 py-1.5 text-[10px] text-mv-purple transition-all hover:bg-mv-purple/20 hover:border-mv-purple/60"
+        >
+          <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          Get App
+        </Link>
+
         {/* Coin balance */}
         {user && (
           <div className="flex items-center gap-1.5 rounded-full border border-mv-border-light bg-mv-surface px-3 py-1.5">

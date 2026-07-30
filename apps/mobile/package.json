@@ -11,6 +11,10 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
+    "build:apk": "eas build --platform android --profile preview --local",
+    "build:apk:dev": "eas build --platform android --profile development --local",
+    "build:apk:prod": "eas build --platform android --profile production --local",
+    "build:aab": "eas build --platform android --profile production",
     "clean": "rm -rf .expo dist"
   },
   "dependencies": {

@@ -4,10 +4,12 @@
     "slug": "mangaverse",
     "version": "0.1.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/icon.svg",
     "userInterfaceStyle": "dark",
     "scheme": "mangaverse",
     "splash": {
+      "image": "./assets/splash.svg",
+      "resizeMode": "contain",
       "backgroundColor": "#0a0a14"
     },
     "ios": {
@@ -16,9 +18,21 @@
     },
     "android": {
       "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.svg",
         "backgroundColor": "#0a0a14"
       },
-      "package": "com.mangaverse.app"
+      "package": "com.mangaverse.app",
+      "permissions": [
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "ACCESS_WIFI_STATE"
+      ]
+    },
+    "extra": {
+      "updater": {
+        "enabled": false,
+        "checkAutomatically": "ON_ERROR_RECOVERY"
+      }
     },
     "experiments": {
       "typedRoutes": true

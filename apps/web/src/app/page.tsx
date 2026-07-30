@@ -109,8 +109,73 @@ export default function HomePage() {
         </section>
       </div>
 
-      <footer className="border-t border-mv-border bg-mv-darker py-8 text-center text-xs text-mv-text-muted">
-        <p>MangaVerse © {new Date().getFullYear()} — The Ultimate Reading Ecosystem</p>
+      {/* App Download CTA */}
+      <section className="py-16">
+        <div className="mx-auto max-w-4xl rounded-2xl border border-mv-border-light bg-gradient-to-br from-mv-purple/10 via-mv-darker to-mv-accent/5 p-8 text-center md:p-12">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-mv-purple/30 bg-mv-purple/10 px-4 py-1.5">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-green-400" />
+            <span className="text-[10px] font-medium text-green-400">Android APK Available</span>
+          </div>
+          <h2 className="text-2xl font-bold text-white md:text-3xl">
+            Take MangaVerse <span className="text-mv-accent">Everywhere</span>
+          </h2>
+          <p className="mx-auto mt-3 max-w-lg text-sm text-mv-text-secondary">
+            Get the native Android app for offline reading, push notifications, and a silky-smooth
+            touch experience. Your library syncs automatically.
+          </p>
+          <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
+            <Link
+              href="/download"
+              className="group flex items-center gap-3 rounded-xl bg-mv-accent px-6 py-3 text-sm font-medium text-white transition-all hover:bg-red-500 hover:scale-105"
+            >
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Download for Android
+              <span className="text-[10px] text-white/60">v0.1.0 · 18 MB</span>
+            </Link>
+            <Link
+              href="/browse"
+              className="rounded-xl border border-mv-border-light bg-mv-surface px-6 py-3 text-sm text-mv-text-secondary transition-colors hover:border-mv-accent/50 hover:text-mv-text"
+            >
+              Browse Online Instead
+            </Link>
+          </div>
+          <div className="mt-6 flex items-center justify-center gap-6 text-[10px] text-mv-text-dim">
+            <span className="flex items-center gap-1">📖 Offline reading</span>
+            <span className="flex items-center gap-1">🔔 Push notifications</span>
+            <span className="flex items-center gap-1">🔄 Auto sync</span>
+            <span className="flex items-center gap-1">⚡ Native speed</span>
+          </div>
+        </div>
+      </section>
+
+      <footer className="border-t border-mv-border bg-mv-darker py-8">
+        <div className="mx-auto max-w-7xl px-6">
+          <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
+            <div className="text-center sm:text-left">
+              <p className="text-xs text-mv-text-muted">
+                MangaVerse © {new Date().getFullYear()} — The Ultimate Reading Ecosystem
+              </p>
+              <p className="mt-1 text-[10px] text-mv-text-dim">
+                Read manga, manhwa, manhua & light novels online or on the go.
+              </p>
+            </div>
+            <div className="flex items-center gap-4">
+              <Link
+                href="/download"
+                className="flex items-center gap-1.5 rounded-lg border border-mv-purple/30 bg-mv-purple/10 px-3 py-1.5 text-[10px] text-mv-purple transition-all hover:bg-mv-purple/20 hover:border-mv-purple/50"
+              >
+                <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Download APK
+              </Link>
+              <Link href="/browse" className="text-[10px] text-mv-text-muted hover:text-mv-text transition-colors">Browse</Link>
+              <Link href="/community" className="text-[10px] text-mv-text-muted hover:text-mv-text transition-colors">Community</Link>
+            </div>
+          </div>
+        </div>
       </footer>
     </main>
   );
