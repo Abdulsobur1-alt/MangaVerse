@@ -1,85 +1,140 @@
-import { useState, useCallback } from 'react';
-import { View, Text, TextInput, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, FlatList } from 'react-native';
+import { useState, useRef } from 'react';
+import { View, Text, TextInput, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTitles, useSearch } from '../../lib/queryClient';
 import type { TitleItem } from '../../lib/api';
 
-const TAGS = ['All', 'Action', 'Romance', 'Isekai', 'Horror', 'Fantasy'];
+const FORMATS = ['All', 'manga', 'manhwa', 'manhua', 'light_novel'];
+const SORTS = ['trending', 'newest', 'rating'];
 
 export default function BrowseScreen() {
   const router = useRouter();
   const [search, setSearch] = useState('');
-  const [activeTag, setActiveTag] = useState('All');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [activeFormat, setActiveFormat] = useState('All');
+  const [sort, setSort] = useState('trending');
   const [page, setPage] = useState(1);
 
-  const isSearching = search.length > 1;
-  const { data: searchResults } = useSearch(isSearching ? search : '');
+  const isSearching = debouncedSearch.length > 1;
+  const { data: searchResults } = useSearch(isSearching ? debouncedSearch : '');
   const { data: browseData, isLoading } = useTitles({
     page,
     limit: 20,
-    genre: activeTag === 'All' ? undefined : activeTag.toLowerCase(),
+    type: activeFormat === 'All' ? undefined : activeFormat,
+    sort,
   });
 
-  const items = isSearching ? searchResults?.items : browseData?.items;
+  const items = (isSearching ? searchResults?.items : browseData?.items) as TitleItem[] | undefined;
   const total = isSearching ? searchResults?.total : browseData?.total;
 
-  const renderItem = useCallback(({ item }: { item: TitleItem }) => (
-    <TouchableOpacity
-      style={styles.gridCard}
-      onPress={() => router.push(`/title/${item.slug}` as any)}
-    >
-      <View style={[styles.gridCover, { backgroundColor: ['#2d1b69','#1a3a2d','#4e2d1a','#1a2d4e','#3a1a4e','#1a4e3a','#4e3a1a','#1a4e4e','#4e1a4e'][Math.floor(Math.random()*9)] }]} />
-      <Text style={styles.gridTitle} numberOfLines={2}>{item.title}</Text>
-      <View style={styles.typeBadge}><Text style={styles.typeText}>{item.type}</Text></View>
-    </TouchableOpacity>
-  ), [router]);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const handleSearch = (text: string) => {
+    setSearch(text);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => {
+      setDebouncedSearch(text);
+      setPage(1);
+    }, 400);
+  };
 
   return (
     <View style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
         <Text style={styles.title}>Browse</Text>
 
+        {/* Search */}
         <View style={styles.searchBar}>
           <TextInput
             style={styles.searchInput}
             placeholder="Search titles..."
             placeholderTextColor="#444"
             value={search}
-            onChangeText={setSearch}
+            onChangeText={handleSearch}
           />
         </View>
 
+        {/* Format pills */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tagRow}>
-          {TAGS.map((tag) => (
+          {FORMATS.map((f) => (
             <TouchableOpacity
-              key={tag}
-              style={[styles.tag, tag === activeTag && styles.tagActive]}
-              onPress={() => { setActiveTag(tag); setPage(1); }}
+              key={f}
+              style={[styles.tag, (f === 'All' && activeFormat === 'All') || f === activeFormat ? styles.tagActive : null]}
+              onPress={() => { setActiveFormat(f); setPage(1); }}
             >
-              <Text style={[styles.tagText, tag === activeTag && styles.tagActiveText]}>{tag}</Text>
+              <Text style={[styles.tagText, (f === 'All' && activeFormat === 'All') || f === activeFormat ? styles.tagActiveText : null]}>
+                {f === 'light_novel' ? 'Light Novel' : f.charAt(0).toUpperCase() + f.slice(1)}
+              </Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
 
+        {/* Sort + result count */}
         <View style={styles.resultBar}>
           <Text style={styles.resultCount}>{total || 0} titles</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.sortRow}>
+            {SORTS.map((s) => (
+              <TouchableOpacity
+                key={s}
+                style={[styles.sortPill, sort === s && styles.sortPillActive]}
+                onPress={() => setSort(s)}
+              >
+                <Text style={[styles.sortText, sort === s && styles.sortTextActive]}>
+                  {s.charAt(0).toUpperCase() + s.slice(1)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
         </View>
 
+        {/* Results */}
         {isLoading ? (
           <ActivityIndicator color="#e94560" style={{ padding: 20 }} />
         ) : (
-          <View style={styles.grid}>
-            {items?.map((item) => (
-              <View key={item.id} style={{ width: '30%' }}>
-                {renderItem({ item })}
-              </View>
-            ))}
+          <>
+            <View style={styles.grid}>
+              {items?.map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={styles.gridCard}
+                  onPress={() => router.push(`/title/${item.slug}` as any)}
+                >
+                  <View style={[styles.gridCover, { backgroundColor: ['#2d1b69','#1a3a2d','#4e2d1a','#1a2d4e','#3a1a4e','#1a4e3a','#4e3a1a','#1a4e4e','#4e1a4e'][Math.floor(Math.random()*9)] }]} />
+                  <Text style={styles.gridTitle} numberOfLines={2}>{item.title}</Text>
+                  <View style={styles.metaRow}>
+                    <View style={styles.typeBadge}><Text style={styles.typeText}>{item.type?.slice(0, 2)}</Text></View>
+                    {item.rating && <Text style={styles.ratingText}>⭐{item.rating.toFixed(1)}</Text>}
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+
             {items?.length === 0 && (
-              <Text style={{ color: '#666', fontSize: 12, textAlign: 'center', padding: 40, width: '100%' }}>
+              <Text style={{ color: '#666', fontSize: 12, textAlign: 'center', padding: 40 }}>
                 No titles found
               </Text>
             )}
-          </View>
+
+            {/* Pagination */}
+            {(browseData?.total || 0) > 20 && (
+              <View style={styles.pageNav}>
+                <TouchableOpacity
+                  style={[styles.pageBtn, page <= 1 && { opacity: 0.3 }]}
+                  disabled={page <= 1}
+                  onPress={() => setPage(p => Math.max(1, p - 1))}
+                >
+                  <Text style={styles.pageBtnText}>← Prev</Text>
+                </TouchableOpacity>
+                <Text style={styles.pageIndicator}>{page} / {Math.ceil((browseData?.total || 0) / 20)}</Text>
+                <TouchableOpacity
+                  style={[styles.pageBtn, !browseData?.hasMore && { opacity: 0.3 }]}
+                  disabled={!browseData?.hasMore}
+                  onPress={() => setPage(p => p + 1)}
+                >
+                  <Text style={styles.pageBtnText}>Next →</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </>
         )}
       </ScrollView>
     </View>
@@ -91,17 +146,28 @@ const styles = StyleSheet.create({
   title: { color: '#fff', fontSize: 16, fontWeight: '500', paddingHorizontal: 14, paddingTop: 10, paddingBottom: 4 },
   searchBar: { backgroundColor: '#1a1a2e', borderRadius: 10, marginHorizontal: 14, marginVertical: 10, paddingHorizontal: 12, paddingVertical: 2 },
   searchInput: { color: '#ccc', fontSize: 12, paddingVertical: 8 },
-  tagRow: { paddingHorizontal: 14, gap: 6, paddingBottom: 8 },
+  tagRow: { paddingHorizontal: 14, gap: 6, paddingBottom: 6 },
   tag: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20, backgroundColor: '#1e1e35' },
   tagActive: { backgroundColor: '#e94560' },
   tagText: { fontSize: 10, color: '#aaa' },
   tagActiveText: { color: '#fff' },
-  resultBar: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 14, paddingBottom: 8 },
-  resultCount: { color: '#888', fontSize: 10 },
+  resultBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 14, paddingBottom: 8 },
+  resultCount: { color: '#888', fontSize: 9 },
+  sortRow: { flex: 1, marginLeft: 8 },
+  sortPill: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, backgroundColor: '#1e1e35', marginRight: 4 },
+  sortPillActive: { backgroundColor: '#e9456020' },
+  sortText: { fontSize: 9, color: '#888' },
+  sortTextActive: { color: '#e94560' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 10, gap: 10 },
-  gridCard: { width: '100%' as any },
+  gridCard: { width: '30%' },
   gridCover: { width: '100%', aspectRatio: 3/4, borderRadius: 8 },
   gridTitle: { color: '#ccc', fontSize: 9, marginTop: 4, lineHeight: 12 },
-  typeBadge: { alignSelf: 'flex-start', backgroundColor: '#1e1e35', borderRadius: 4, paddingHorizontal: 5, paddingVertical: 1, marginTop: 2 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
+  typeBadge: { backgroundColor: '#1e1e35', borderRadius: 4, paddingHorizontal: 4, paddingVertical: 1 },
   typeText: { color: '#aaa', fontSize: 7 },
+  ratingText: { color: '#f0c040', fontSize: 8 },
+  pageNav: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 16, paddingVertical: 16 },
+  pageBtn: { backgroundColor: '#1e1e35', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8 },
+  pageBtnText: { color: '#888', fontSize: 11 },
+  pageIndicator: { color: '#666', fontSize: 11 },
 });

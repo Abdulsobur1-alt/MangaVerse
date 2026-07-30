@@ -7,7 +7,7 @@ import { TopBar } from '@/components/TopBar';
 import { useTitle } from '@/lib/hooks/useTitles';
 import { useAddBookmark, useRemoveBookmark } from '@/lib/hooks/useLibrary';
 import { useAuthStore } from '@/store/authStore';
-import { formatLabel } from '@mangaverse/shared';
+import { formatLabel, getPageNumbers } from '@mangaverse/shared';
 
 const CHAPTERS_PER_PAGE = 50;
 
@@ -397,15 +397,4 @@ function formatDate(dateStr: string): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-function getPageNumbers(current: number, total: number): number[] {
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
-  const pages: number[] = [];
-  pages.push(1);
-  if (current > 3) pages.push(-1);
-  for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) {
-    pages.push(i);
-  }
-  if (current < total - 2) pages.push(-1);
-  if (total > 1) pages.push(total);
-  return pages;
-}
+

@@ -85,3 +85,20 @@ export function progressPercentage(current: number, total: number): number {
   if (total === 0) return 0;
   return clamp(Math.round((current / total) * 100), 0, 100);
 }
+
+/**
+ * Generates pagination page numbers with ellipsis sentinel (-1).
+ * e.g., getPageNumbers(5, 20) → [1, -1, 4, 5, 6, -1, 20]
+ */
+export function getPageNumbers(current: number, total: number): number[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const pages: number[] = [];
+  pages.push(1);
+  if (current > 3) pages.push(-1);
+  for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) {
+    pages.push(i);
+  }
+  if (current < total - 2) pages.push(-1);
+  if (total > 1) pages.push(total);
+  return pages;
+}

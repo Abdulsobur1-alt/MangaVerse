@@ -68,6 +68,7 @@ export function useTitles(params?: {
   type?: string;
   status?: string;
   genre?: string;
+  genres?: string;
   sort?: string;
   search?: string;
 }) {
@@ -77,6 +78,7 @@ export function useTitles(params?: {
   if (params?.type) searchParams.set('type', params.type);
   if (params?.status) searchParams.set('status', params.status);
   if (params?.genre) searchParams.set('genre', params.genre);
+  if (params?.genres) searchParams.set('genres', params.genres);
   if (params?.sort) searchParams.set('sort', params.sort);
   if (params?.search) searchParams.set('search', params.search);
 

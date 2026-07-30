@@ -16,6 +16,7 @@ const ListQuerySchema = z.object({
   type: z.string().optional(),
   status: z.string().optional(),
   genre: z.string().optional(),
+  genres: z.string().optional(), // comma-separated: "action,fantasy"
   sort: z.enum(['trending', 'newest', 'rating', 'title']).default('trending'),
   search: z.string().optional(),
 });
@@ -29,14 +30,24 @@ const TitleSlugParams = z.object({
 titlesRouter.get('/', validate({ query: ListQuerySchema }), async (req, res, next) => {
   try {
     const query = req.query as unknown as z.infer<typeof ListQuerySchema>;
-    const { page, limit, type, status, genre, sort, search } = query;
+    const { page, limit, type, status, genre, genres, sort, search } = query;
     const skip = (page - 1) * limit;
 
     // Build where clause
     const where: Record<string, unknown> = {};
     if (type) where.type = type;
     if (status) where.status = status;
-    if (genre) where.genres = { has: genre };
+    if (genres) {
+      // Support comma-separated multi-genre filter: all genres must match
+      const genreList = genres.split(',').map(g => g.trim()).filter(Boolean);
+      if (genreList.length === 1) {
+        where.genres = { has: genreList[0] };
+      } else if (genreList.length > 1) {
+        where.AND = genreList.map(g => ({ genres: { has: g } }));
+      }
+    } else if (genre) {
+      where.genres = { has: genre };
+    }
     if (search) {
       where.OR = [
         { title: { contains: search, mode: 'insensitive' as const } },
