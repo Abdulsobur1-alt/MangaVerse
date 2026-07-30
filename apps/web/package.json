@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "clean": "rm -rf .next dist"
+    "clean": "rm -rf .next dist",
+    "dev:next": "next dev --turbopack"
   },
   "dependencies": {
     "@mangaverse/shared": "workspace:*",
