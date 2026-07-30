@@ -1,12 +1,14 @@
 import { config } from '../config/index.js';
 
-// Use require to avoid type export conflicts with meilisearch's namespace
+// Use dynamic import for ESM compatibility in type: "module" project
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let MeiliSearch: any;
 try {
-  MeiliSearch = require('meilisearch').default || require('meilisearch');
-} catch {
-  console.warn('⚠️  Meilisearch package not installed');
+  // Dynamic import handles ESM modules even in a CommonJS-type context
+  const mod = await import('meilisearch');
+  MeiliSearch = (mod as any).default || mod;
+} catch (err) {
+  console.warn('⚠️  Meilisearch not available:', err instanceof Error ? err.message : 'unknown error');
 }
 
 let client: any = null;
