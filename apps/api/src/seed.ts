@@ -14,12 +14,17 @@ import { meilisearch } from './services/meilisearch.js';
 async function seed() {
   console.log('🌱 Starting database seed...');
 
-  // Check if we already have data
+  // Check if we already have data (skip with --force)
+  const force = process.argv.includes('--force');
   const existingCount = await prisma.title.count();
-  if (existingCount > 10) {
+  if (!force && existingCount > 10) {
     console.log(`ℹ️  Database already has ${existingCount} titles. Skipping seed.`);
-    console.log('   To re-seed, run: npx prisma migrate reset --force && tsx src/seed.ts');
+    console.log('   To re-seed, run: pnpm --filter @mangaverse/api db:seed -- --force');
     return;
+  }
+
+  if (force && existingCount > 0) {
+    console.log(`♻️  Force mode — re-seeding ${existingCount} titles...`);
   }
 
   // Initialize Meilisearch index

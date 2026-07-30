@@ -1,8 +1,10 @@
 import { Platform } from 'react-native';
 
 // Android emulator uses 10.0.2.2 for host, iOS simulator uses localhost
-const API_HOST = Platform.OS === 'android' ? '10.0.2.2' : 'localhost';
-const API_BASE = `http://${API_HOST}:3001/api`;
+// Override with EXPO_PUBLIC_API_URL env var for custom API hosts
+const DEFAULT_HOST = Platform.OS === 'android' ? '10.0.2.2' : 'localhost';
+const DEFAULT_BASE = `http://${DEFAULT_HOST}:3001`;
+const API_BASE = (process.env.EXPO_PUBLIC_API_URL || DEFAULT_BASE) + '/api';
 
 interface ApiResponse<T> {
   success: boolean;
@@ -21,13 +23,23 @@ export class ApiError extends Error {
   }
 }
 
+// Token retrieval for authenticated requests
+// Uses global variable set by auth store — async-storage will be added in a future phase
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const globalAny = globalThis as any;
+function getToken(): string | null {
+  return globalAny.__AUTH_TOKEN__ || null;
+}
+
 async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const url = `${API_BASE}${endpoint}`;
+  const token = getToken();
 
   const res = await fetch(url, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options?.headers,
     },
   });
