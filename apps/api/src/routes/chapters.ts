@@ -4,6 +4,7 @@ import { prisma } from '../lib/prisma.js';
 import { cacheGet, cacheSet } from '../lib/redis.js';
 import { validate } from '../middleware/validate.js';
 import { NotFoundError } from '../lib/errors.js';
+import { mangadex } from '../services/mangadex.js';
 
 export const chaptersRouter = Router();
 
@@ -111,6 +112,113 @@ chaptersRouter.get('/:id', validate({ params: ChapterIdParams }), async (req, re
     await cacheSet(`chapter:${id}`, chapter, 600);
 
     res.json({ success: true, data: chapter });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── GET /api/chapters/:id/pages ───────────────────────
+// Returns page image URLs for a chapter.
+// Tries MangaDex API if sourceUrl contains a MangaDex chapter ID,
+// otherwise generates placeholder image URLs.
+
+chaptersRouter.get('/:id/pages', async (req, res, next) => {
+  try {
+    const id: string = req.params.id as string;
+
+    const chapter = await prisma.chapter.findUnique({
+      where: { id },
+      select: { id: true, number: true, pageCount: true, sourceUrl: true, titleId: true },
+    });
+
+    if (!chapter) throw new NotFoundError('Chapter', id);
+
+    const pageCount = chapter.pageCount || 12;
+
+    // Try to get real pages from MangaDex if we have a source URL
+    // MangaDex source URLs look like: https://mangadex.org/chapter/{chapterId}
+    const mangadexMatch = chapter.sourceUrl?.match(/mangadex\.org\/chapter\/([a-f0-9-]+)/i);
+    if (mangadexMatch) {
+      try {
+        const pageUrls = await mangadex.getChapterPageUrls(mangadexMatch[1]);
+        return res.json({
+          success: true,
+          data: {
+            pages: pageUrls.map((url: string, i: number) => ({
+              index: i,
+              url: `/api/proxy/image?url=${encodeURIComponent(url)}`,
+              width: 800,
+              height: 1200,
+            })),
+            total: pageUrls.length,
+            chapterId: chapter.id,
+            chapterNumber: chapter.number,
+          },
+        });
+      } catch {
+        // Fall through to placeholder generation
+      }
+    }
+
+    // Generate placeholder images wrapped through the image proxy
+    const pages = Array.from({ length: pageCount }, (_, i) => {
+      const placeholderUrl = `/api/proxy/placeholder?chapter=${chapter.number}&page=${i + 1}&total=${pageCount}`;
+      return {
+        index: i,
+        url: `/api/proxy/image?url=${encodeURIComponent(placeholderUrl)}`,
+        width: 800,
+        height: 1200,
+      };
+    });
+
+    res.json({
+      success: true,
+      data: {
+        pages,
+        total: pageCount,
+        chapterId: chapter.id,
+        chapterNumber: chapter.number,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── GET /api/chapters/:id/adjacent ────────────────────
+// Returns prev/next chapter IDs for navigation.
+
+chaptersRouter.get('/:id/adjacent', async (req, res, next) => {
+  try {
+    const id: string = req.params.id as string;
+
+    const chapter = await prisma.chapter.findUnique({
+      where: { id },
+      select: { id: true, number: true, titleId: true },
+    });
+
+    if (!chapter) throw new NotFoundError('Chapter', id);
+
+    const [prev, next] = await Promise.all([
+      prisma.chapter.findFirst({
+        where: { titleId: chapter.titleId, number: { lt: chapter.number } },
+        orderBy: { number: 'desc' },
+        select: { id: true, number: true },
+      }),
+      prisma.chapter.findFirst({
+        where: { titleId: chapter.titleId, number: { gt: chapter.number } },
+        orderBy: { number: 'asc' },
+        select: { id: true, number: true },
+      }),
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        prevChapter: prev ? { id: prev.id, number: prev.number } : null,
+        nextChapter: next ? { id: next.id, number: next.number } : null,
+      },
+    });
   } catch (err) {
     next(err);
   }

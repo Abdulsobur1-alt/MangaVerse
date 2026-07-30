@@ -72,6 +72,46 @@ export function extractOriginalUrl(proxiedUrl: string): string {
 }
 
 /**
+ * Color palette for generating placeholder manga pages.
+ * Each page gets a unique color based on its position.
+ */
+const PLACEHOLDER_COLORS = [
+  '#1a1a2e', '#16213e', '#0f3460', '#1a1a3e', '#2d1b69',
+  '#1b3a5e', '#3d1b69', '#1b5e3d', '#5e1b3a', '#3a5e1b',
+  '#1b3a2d', '#4e2d1a', '#1a2d4e', '#4e1a3a', '#2d4e1a',
+];
+
+/**
+ * Generate an SVG placeholder image for a manga page.
+ * This creates a colored page with chapter/page info displayed.
+ */
+function generatePlaceholderSvg(chapter: number, page: number, total: number): string {
+  const color = PLACEHOLDER_COLORS[(chapter * 7 + page) % PLACEHOLDER_COLORS.length];
+  const accentColor = '#e94560';
+  const progress = Math.round((page / total) * 100);
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1200" viewBox="0 0 800 1200">
+    <rect width="800" height="1200" fill="${color}"/>
+    <rect x="50" y="50" width="700" height="1100" rx="4" fill="none" stroke="${accentColor}20" stroke-width="1"/>
+    <text x="400" y="500" text-anchor="middle" fill="${accentColor}60" font-family="sans-serif" font-size="24" font-weight="300">Ch. ${chapter}</text>
+    <text x="400" y="540" text-anchor="middle" fill="${accentColor}40" font-family="sans-serif" font-size="16" font-weight="300">Page ${page} of ${total}</text>
+    <rect x="300" y="580" width="200" height="4" rx="2" fill="${accentColor}30"/>
+    <rect x="300" y="580" width="${progress * 2}" height="4" rx="2" fill="${accentColor}"/>
+    <line x1="200" y1="680" x2="600" y2="680" stroke="${accentColor}15" stroke-width="1"/>
+    <line x1="200" y1="700" x2="550" y2="700" stroke="${accentColor}10" stroke-width="1"/>
+    <line x1="200" y1="720" x2="580" y2="720" stroke="${accentColor}10" stroke-width="1"/>
+    <line x1="200" y1="740" x2="500" y2="740" stroke="${accentColor}8" stroke-width="1"/>
+    <line x1="200" y1="760" x2="560" y2="760" stroke="${accentColor}8" stroke-width="1"/>
+    <rect x="50" y="850" width="700" height="200" rx="8" fill="${accentColor}08"/>
+    <text x="400" y="920" text-anchor="middle" fill="${accentColor}30" font-family="sans-serif" font-size="12">Panel Preview</text>
+    <rect x="100" y="940" width="180" height="80" rx="4" fill="${accentColor}10"/>
+    <rect x="310" y="940" width="180" height="80" rx="4" fill="${accentColor}10"/>
+    <rect x="520" y="940" width="180" height="80" rx="4" fill="${accentColor}10"/>
+    <text x="400" y="1130" text-anchor="middle" fill="${accentColor}15" font-family="sans-serif" font-size="10">MangaVerse Reader — Placeholder Image</text>
+  </svg>`;
+}
+
+/**
  * Generate the image proxy route handler for the Express API.
  * This is used locally when Cloudflare Worker is not available.
  */
@@ -81,6 +121,20 @@ export function createImageProxyHandler() {
       const imageUrl = req.query.url as string;
       if (!imageUrl) {
         return res.status(400).json({ error: 'Missing url parameter' });
+      }
+
+      // Check if this is a placeholder request
+      if (imageUrl.includes('/api/proxy/placeholder')) {
+        const url = new URL(imageUrl, 'http://localhost');
+        const chapter = parseInt(url.searchParams.get('chapter') || '1', 10);
+        const page = parseInt(url.searchParams.get('page') || '1', 10);
+        const total = parseInt(url.searchParams.get('total') || '12', 10);
+
+        const svg = generatePlaceholderSvg(chapter, page, total);
+        res.setHeader('Content-Type', 'image/svg+xml');
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        return res.send(svg);
       }
 
       // Fetch the image from the source

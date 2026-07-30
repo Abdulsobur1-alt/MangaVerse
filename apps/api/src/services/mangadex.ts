@@ -127,11 +127,25 @@ export const mangadex = {
 
   /**
    * Get page URLs for a chapter.
+   * Returns full image URLs using the base URL and chapter hash.
    */
   async getChapterPages(chapterId: string) {
     return rateLimitedRequest<MangaDexPagesResponse>(
       `/at-home/server/${chapterId}`,
     );
+  },
+
+  /**
+   * Build full image URLs for a MangaDex chapter.
+   * @returns Array of full page image URLs
+   */
+  async getChapterPageUrls(chapterId: string, dataSaver = false): Promise<string[]> {
+    const pagesData = await this.getChapterPages(chapterId);
+    const { baseUrl, chapter } = pagesData;
+    const hash = chapter.hash;
+    const pageList = dataSaver ? chapter.dataSaver : chapter.data;
+    const qualityPath = dataSaver ? 'data-saver' : 'data';
+    return pageList.map((page) => `${baseUrl}/${qualityPath}/${hash}/${page}`);
   },
 
   /**

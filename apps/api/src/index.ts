@@ -52,6 +52,9 @@ app.use('/api/search', searchRouter);
 // ─── Image Proxy ──────────────────────────────────────
 
 app.get('/api/proxy/image', createImageProxyHandler());
+// Placeholder images are served through the proxy: /api/proxy/image?url=%2Fapi%2Fproxy%2Fplaceholder%3F...
+// The standalone /api/proxy/placeholder route is not registered to avoid 400 errors —
+// it's handled inline by createImageProxyHandler() when imageUrl includes '/api/proxy/placeholder'.
 
 // ─── Error Handling ───────────────────────────────────
 
