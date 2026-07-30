@@ -61,6 +61,8 @@ export const api = {
   get: <T>(endpoint: string) => request<T>(endpoint),
   post: <T>(endpoint: string, body?: unknown) =>
     request<T>(endpoint, { method: 'POST', body: body ? JSON.stringify(body) : undefined }),
+  patch: <T>(endpoint: string, body?: unknown) =>
+    request<T>(endpoint, { method: 'PATCH', body: body ? JSON.stringify(body) : undefined }),
   delete: <T>(endpoint: string) => request<T>(endpoint, { method: 'DELETE' }),
 };
 
@@ -122,6 +124,27 @@ export interface ReviewItem {
   createdAt: string;
   updatedAt: string;
   user: ReviewUser;
+}
+
+// ─── Notification Types ─────────────────────────
+
+export interface NotificationItem {
+  id: string;
+  type: string;
+  title: string;
+  body: string | null;
+  link: string | null;
+  imageUrl: string | null;
+  read: boolean;
+  createdAt: string;
+}
+
+export interface NotificationsResponse {
+  items: NotificationItem[];
+  total: number;
+  page: number;
+  limit: number;
+  hasMore: boolean;
 }
 
 export interface ReviewsResponse {

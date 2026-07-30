@@ -30,6 +30,7 @@ model User {
   predictions      PredictionVote[]
   readingClubs     ReadingClubMember[]
   achievements     Achievement[]
+  notifications    Notification[]
   creatorProfile   Creator?
 
   @@map("users")
@@ -268,6 +269,26 @@ model Achievement {
 
   @@unique([userId, badgeId])
   @@map("achievements")
+}
+
+// ─── Notifications ─────────────────────────────────────
+
+model Notification {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  type      String   // "new_chapter", "review_added", "review_reply", "achievement", "milestone", "system"
+  title     String
+  body      String?
+  link      String?  // Relative URL to navigate to (e.g., /title/solo-leveling/reader/abc)
+  imageUrl  String?  @map("image_url")
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@index([userId, createdAt])
+  @@map("notifications")
 }
 
 // ─── Creators ──────────────────────────────────────────

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { QueryClient, QueryClientProvider, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api, TitleItem, TitleDetail, PaginatedResult, ChapterDetail, ChapterItem, ReviewItem, ReviewsResponse } from './api';
+import { api, TitleItem, TitleDetail, PaginatedResult, ChapterDetail, ChapterItem, ReviewItem, ReviewsResponse, NotificationItem, NotificationsResponse } from './api';
 
 export function QueryProvider({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -80,6 +80,57 @@ export function useChapters(titleSlug?: string) {
     queryKey: ['chapters', titleSlug],
     queryFn: () => api.get(`/chapters?titleSlug=${titleSlug}`),
     enabled: !!titleSlug,
+  });
+}
+
+// ─── Notification Hooks ───────────────────────
+
+const globalAny = globalThis as any;
+
+function getNotifToken(): string | null {
+  return globalAny.__AUTH_TOKEN__ || null;
+}
+
+export function useUnreadCount() {
+  const token = getNotifToken();
+
+  return useQuery<{ count: number }>({
+    queryKey: ['notifications', 'unread-count'],
+    queryFn: () => api.get<{ count: number }>('/notifications/unread-count'),
+    enabled: !!token,
+    refetchInterval: 30_000,
+  });
+}
+
+export function useNotifications(page = 1, limit = 20) {
+  const token = getNotifToken();
+
+  return useQuery<NotificationsResponse>({
+    queryKey: ['notifications', page, limit],
+    queryFn: () => api.get<NotificationsResponse>(`/notifications?page=${page}&limit=${limit}`),
+    enabled: !!token,
+  });
+}
+
+export function useMarkRead() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => api.patch(`/notifications/${id}/read`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    },
+  });
+}
+
+export function useMarkAllRead() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => api.patch('/notifications/read-all', {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    },
   });
 }
 
