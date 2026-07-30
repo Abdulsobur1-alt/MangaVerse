@@ -1,0 +1,288 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Users ────────────────────────────────────────────
+
+model User {
+  id               String   @id @default(uuid()) @db.Uuid
+  email            String   @unique
+  displayName      String   @map("display_name")
+  avatarUrl        String?  @map("avatar_url")
+  firebaseUid      String?  @unique @map("firebase_uid")
+  coinBalance      Int      @default(0) @map("coin_balance")
+  subscriptionTier String   @default("free") @map("subscription_tier")
+  streakDays       Int      @default(0) @map("streak_days")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  bookmarks        Bookmark[]
+  readingProgress  ReadingProgress[]
+  coinTransactions CoinTransaction[]
+  subscriptions    Subscription[]
+  reviews          Review[]
+  wikiPages        WikiPage[]
+  predictions      PredictionVote[]
+  readingClubs     ReadingClubMember[]
+  achievements     Achievement[]
+  creatorProfile   Creator?
+
+  @@map("users")
+}
+
+// ─── Titles / Manga ────────────────────────────────────
+
+model Title {
+  id               String   @id @default(uuid()) @db.Uuid
+  slug             String   @unique
+  title            String
+  alternativeTitles String?  @map("alternative_titles")
+  type             String
+  status           String   @default("ongoing")
+  genres           String[]
+  tags             String[]
+  author           String?
+  artist           String?
+  coverUrl         String?  @map("cover_url")
+  bannerUrl        String?  @map("banner_url")
+  synopsis         String?
+  rating           Float?
+  totalChapters    Int?     @map("total_chapters")
+  releaseYear      Int?     @map("release_year")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  chapters         Chapter[]
+  bookmarks        Bookmark[]
+  reviews          Review[]
+  wikiPages        WikiPage[]
+  predictions      Prediction[]
+
+  @@index([slug])
+  @@index([type, status])
+  @@index([genres], type: Gin)
+  @@map("titles")
+}
+
+// ─── Chapters ──────────────────────────────────────────
+
+model Chapter {
+  id         String   @id @default(uuid()) @db.Uuid
+  titleId    String   @map("title_id") @db.Uuid
+  number     Float
+  title      String?
+  pageCount  Int?     @map("page_count")
+  coinLocked Boolean  @default(false) @map("coin_locked")
+  freeAt     DateTime? @map("free_at")
+  sourceUrl  String?  @map("source_url")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  series          Title             @relation(fields: [titleId], references: [id], onDelete: Cascade)
+  readingProgress ReadingProgress[]
+
+  @@unique([titleId, number])
+  @@index([titleId, number])
+  @@map("chapters")
+}
+
+// ─── Bookmarks / Library ───────────────────────────────
+
+model Bookmark {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  titleId   String   @map("title_id") @db.Uuid
+  listName  String   @default("Reading") @map("list_name")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title Title @relation(fields: [titleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, titleId])
+  @@map("bookmarks")
+}
+
+// ─── Reading Progress ──────────────────────────────────
+
+model ReadingProgress {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  chapterId  String   @map("chapter_id") @db.Uuid
+  pageNumber Int      @default(0) @map("page_number")
+  completed  Boolean  @default(false)
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chapter Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, chapterId])
+  @@map("reading_progress")
+}
+
+// ─── Coin Transactions ─────────────────────────────────
+
+model CoinTransaction {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  amount      Int
+  type        String
+  referenceId String?  @map("reference_id")
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("coin_transactions")
+}
+
+// ─── Subscriptions ─────────────────────────────────────
+
+model Subscription {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @unique @map("user_id") @db.Uuid
+  tier         String
+  stripeSubId  String?  @map("stripe_sub_id")
+  startsAt     DateTime @map("starts_at")
+  endsAt       DateTime? @map("ends_at")
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
+
+// ─── Reviews ───────────────────────────────────────────
+
+model Review {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  titleId      String   @map("title_id") @db.Uuid
+  rating       Int
+  subScores    Json?    @map("sub_scores")
+  body         String?
+  helpfulCount Int      @default(0) @map("helpful_count")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title Title @relation(fields: [titleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, titleId])
+  @@map("reviews")
+}
+
+// ─── Wiki Pages ────────────────────────────────────────
+
+model WikiPage {
+  id         String   @id @default(uuid()) @db.Uuid
+  titleId    String   @map("title_id") @db.Uuid
+  slug       String
+  contentMd  String   @map("content_md") @db.Text
+  authorId   String   @map("author_id") @db.Uuid
+  version    Int      @default(1)
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  title  Title @relation(fields: [titleId], references: [id], onDelete: Cascade)
+  author User  @relation(fields: [authorId], references: [id])
+
+  @@unique([titleId, slug])
+  @@map("wiki_pages")
+}
+
+// ─── Predictions ───────────────────────────────────────
+
+model Prediction {
+  id         String   @id @default(uuid()) @db.Uuid
+  titleId    String   @map("title_id") @db.Uuid
+  question   String
+  options    String[]
+  resolvesAt DateTime? @map("resolves_at")
+  result     String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  title Title            @relation(fields: [titleId], references: [id], onDelete: Cascade)
+  votes PredictionVote[]
+
+  @@map("predictions")
+}
+
+model PredictionVote {
+  id           String   @id @default(uuid()) @db.Uuid
+  predictionId String   @map("prediction_id") @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  option       String
+  coinsStaked  Int      @default(0) @map("coins_staked")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  prediction Prediction @relation(fields: [predictionId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([predictionId, userId])
+  @@map("prediction_votes")
+}
+
+// ─── Reading Clubs ─────────────────────────────────────
+
+model ReadingClub {
+  id               String   @id @default(uuid()) @db.Uuid
+  name             String
+  creatorId        String   @map("creator_id") @db.Uuid
+  currentChapterId String?  @map("current_chapter_id") @db.Uuid
+  memberCount      Int      @default(0) @map("member_count")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  members ReadingClubMember[]
+
+  @@map("reading_clubs")
+}
+
+model ReadingClubMember {
+  id        String   @id @default(uuid()) @db.Uuid
+  clubId    String   @map("club_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  role      String   @default("member")
+  joinedAt  DateTime @default(now()) @map("joined_at")
+
+  club ReadingClub @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  user User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([clubId, userId])
+  @@map("reading_club_members")
+}
+
+// ─── Achievements ──────────────────────────────────────
+
+model Achievement {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  badgeId   String   @map("badge_id")
+  earnedAt  DateTime @default(now()) @map("earned_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, badgeId])
+  @@map("achievements")
+}
+
+// ─── Creators ──────────────────────────────────────────
+
+model Creator {
+  id              String @id @default(uuid()) @db.Uuid
+  userId          String @unique @map("user_id") @db.Uuid
+  displayName     String @map("display_name")
+  bio             String?
+  revenueSharePct Float  @default(0.7) @map("revenue_share_pct")
+  totalEarned     Int    @default(0) @map("total_earned")
+  payoutWallet    String? @map("payout_wallet")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("creators")
+}
