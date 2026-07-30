@@ -1,35 +1,100 @@
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { useAuthStore } from '../../store/authStore';
+import { useUserStats } from '../../lib/hooks/useAuth';
 
 export default function ProfileScreen() {
+  const { user, token } = useAuthStore();
+  const { data: stats } = useUserStats();
+
+  const isLoggedIn = !!token;
+  const chaptersRead = stats?.chaptersRead || 0;
+  const totalBookmarks = stats?.totalBookmarks || 0;
+  const streakDays = stats?.streakDays || 0;
+
   return (
     <View style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={styles.profileHeader}>
-          <View style={styles.avatar}><Text style={styles.avatarText}>AJ</Text></View>
-          <Text style={styles.name}>Akin Johnson</Text>
-          <Text style={styles.email}>akin.johnson@gmail.com</Text>
-        </View>
+        {isLoggedIn && user ? (
+          <>
+            <View style={styles.profileHeader}>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>
+                  {user.displayName?.charAt(0)?.toUpperCase() || 'U'}
+                </Text>
+              </View>
+              <Text style={styles.name}>{user.displayName}</Text>
+              <Text style={styles.email}>{user.email}</Text>
+              {user.subscriptionTier === 'premium' && (
+                <View style={styles.premiumBadge}>
+                  <Text style={styles.premiumBadgeText}>⭐ Premium</Text>
+                </View>
+              )}
+            </View>
 
-        <View style={styles.statRow}>
-          <View style={styles.statBox}><Text style={styles.statNumber}>48</Text><Text style={styles.statLabel}>Reading</Text></View>
-          <View style={[styles.statBox, styles.statBoxMiddle]}><Text style={styles.statNumber}>12</Text><Text style={styles.statLabel}>Completed</Text></View>
-          <View style={styles.statBox}><Text style={styles.statNumber}>1,240</Text><Text style={styles.statLabel}>Chapters</Text></View>
-        </View>
+            <View style={styles.statRow}>
+              <View style={styles.statBox}>
+                <Text style={styles.statNumber}>{totalBookmarks}</Text>
+                <Text style={styles.statLabel}>Library</Text>
+              </View>
+              <View style={[styles.statBox, styles.statBoxMiddle]}>
+                <Text style={styles.statNumber}>{chaptersRead}</Text>
+                <Text style={styles.statLabel}>Chapters</Text>
+              </View>
+              <View style={styles.statBox}>
+                <Text style={styles.statNumber}>🔥{streakDays}</Text>
+                <Text style={styles.statLabel}>Streak</Text>
+              </View>
+            </View>
 
-        <View style={styles.coinBanner}>
-          <View><Text style={styles.coinLabel}>Coin Balance</Text><Text style={styles.coinValue}>💰 120 coins</Text></View>
-          <TouchableOpacity style={styles.coinBtn}><Text style={styles.coinBtnText}>Buy Coins</Text></TouchableOpacity>
-        </View>
+            <View style={styles.coinBanner}>
+              <View>
+                <Text style={styles.coinLabel}>Coin Balance</Text>
+                <Text style={styles.coinValue}>💰 {user.coinBalance} coins</Text>
+              </View>
+              <TouchableOpacity style={styles.coinBtn}>
+                <Text style={styles.coinBtnText}>Buy Coins</Text>
+              </TouchableOpacity>
+            </View>
+
+            {stats?.totalAchievements && stats.totalAchievements > 0 && (
+              <View style={styles.achievementBanner}>
+                <Text style={styles.achievementText}>
+                  🏆 {stats.totalAchievements} achievements earned
+                </Text>
+              </View>
+            )}
+          </>
+        ) : (
+          <View style={styles.profileHeader}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>?</Text>
+            </View>
+            <Text style={styles.name}>Guest Reader</Text>
+            <Text style={styles.email}>Sign in to get started</Text>
+            <View style={styles.coinBanner}>
+              <View>
+                <Text style={styles.coinLabel}>Coin Balance</Text>
+                <Text style={styles.coinValue}>💰 0 coins</Text>
+              </View>
+              <TouchableOpacity style={styles.coinBtn}>
+                <Text style={styles.coinBtnText}>Sign In</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         <TouchableOpacity style={styles.premiumBanner}>
-          <View><Text style={styles.premiumTitle}>Go Premium</Text><Text style={styles.premiumSub}>No ads · Offline · Early access</Text></View>
+          <View>
+            <Text style={styles.premiumTitle}>Go Premium</Text>
+            <Text style={styles.premiumSub}>No ads · Offline · Early access</Text>
+          </View>
           <Text style={styles.premiumPrice}>$3.99/mo</Text>
         </TouchableOpacity>
 
         {[
           { icon: '🕐', label: 'Reading History' },
+          { icon: '📚', label: 'My Library' },
           { icon: '🔔', label: 'Notifications' },
-          { icon: '🌙', label: 'Dark / Light Mode' },
           { icon: '⬇️', label: 'Downloads' },
           { icon: '❓', label: 'Help & Support' },
         ].map((item) => (
@@ -51,9 +116,11 @@ const styles = StyleSheet.create({
   avatarText: { color: '#fff', fontSize: 22, fontWeight: '500' },
   name: { color: '#fff', fontSize: 15, fontWeight: '500' },
   email: { color: '#666', fontSize: 10 },
+  premiumBadge: { backgroundColor: '#7b2fbe', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 2 },
+  premiumBadgeText: { color: '#fff', fontSize: 9, fontWeight: '500' },
   statRow: { flexDirection: 'row', paddingHorizontal: 14, paddingBottom: 14 },
-  statBox: { flex: 1, backgroundColor: '#1a1a2e', alignItems: 'center', paddingVertical: 10 },
-  statBoxMiddle: { borderLeftWidth: 1, borderRightWidth: 1, borderColor: '#0f0f1a' },
+  statBox: { flex: 1, backgroundColor: '#1a1a2e', alignItems: 'center', paddingVertical: 10, borderRadius: 6 },
+  statBoxMiddle: { marginHorizontal: 4 },
   statNumber: { color: '#fff', fontSize: 16, fontWeight: '500' },
   statLabel: { color: '#666', fontSize: 9, marginTop: 2 },
   coinBanner: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#1a1a2e', borderRadius: 10, marginHorizontal: 14, marginBottom: 12, padding: 12 },
@@ -61,6 +128,8 @@ const styles = StyleSheet.create({
   coinValue: { color: '#f0c040', fontSize: 18, fontWeight: '500' },
   coinBtn: { backgroundColor: '#e94560', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
   coinBtnText: { color: '#fff', fontSize: 10 },
+  achievementBanner: { backgroundColor: '#2d1b69', borderRadius: 10, marginHorizontal: 14, marginBottom: 12, padding: 10, alignItems: 'center' },
+  achievementText: { color: '#a05bdf', fontSize: 11, fontWeight: '500' },
   premiumBanner: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#e94560', borderRadius: 10, marginHorizontal: 14, marginBottom: 8, padding: 10 },
   premiumTitle: { color: '#fff', fontSize: 11, fontWeight: '500' },
   premiumSub: { color: '#ffaaaa', fontSize: 9, marginTop: 2 },

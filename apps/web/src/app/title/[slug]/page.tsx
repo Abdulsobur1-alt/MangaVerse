@@ -2,13 +2,48 @@
 
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import { useState, useEffect } from 'react';
 import { TopBar } from '@/components/TopBar';
 import { useTitle } from '@/lib/hooks/useTitles';
+import { useAddBookmark, useRemoveBookmark } from '@/lib/hooks/useLibrary';
+import { useAuthStore } from '@/store/authStore';
 import { formatLabel } from '@mangaverse/shared';
 
 export default function TitleDetailPage() {
   const { slug } = useParams<{ slug: string }>();
   const { data: title, isLoading, error } = useTitle(slug);
+  const { token } = useAuthStore();
+  const addBookmark = useAddBookmark();
+  const removeBookmark = useRemoveBookmark();
+  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [bookmarkLoading, setBookmarkLoading] = useState(false);
+
+  // Check if already bookmarked (from localStorage cache)
+  useEffect(() => {
+    if (title && token) {
+      const cached = localStorage.getItem(`bookmark_${title.id}`);
+      if (cached === 'true') setIsBookmarked(true);
+    }
+  }, [title, token]);
+
+  const handleBookmark = async () => {
+    if (!title || !token) return;
+    setBookmarkLoading(true);
+    try {
+      if (isBookmarked) {
+        await removeBookmark.mutateAsync(title.id);
+        setIsBookmarked(false);
+        localStorage.setItem(`bookmark_${title.id}`, 'false');
+      } else {
+        await addBookmark.mutateAsync({ titleId: title.id, listName: 'Reading' });
+        setIsBookmarked(true);
+        localStorage.setItem(`bookmark_${title.id}`, 'true');
+      }
+    } catch {
+      // Silently fail — user can retry
+    }
+    setBookmarkLoading(false);
+  };
 
   if (isLoading) {
     return (
@@ -59,11 +94,24 @@ export default function TitleDetailPage() {
 
             {/* Quick Actions */}
             <div className="mt-4 flex gap-2">
-              <button className="flex-1 rounded-lg bg-mv-accent py-2.5 text-xs font-medium text-white transition-colors hover:bg-red-500">
-                Start Reading
-              </button>
-              <button className="rounded-lg border border-mv-border-light bg-mv-surface px-4 py-2.5 text-xs text-mv-text-secondary transition-colors hover:border-mv-accent hover:text-mv-accent">
-                + Library
+              <Link
+                href={title.chapters?.[0] ? `/reader/${title.chapters[0].id}` : '#'}
+                className={`flex-1 rounded-lg bg-mv-accent py-2.5 text-xs font-medium text-white transition-colors hover:bg-red-500 text-center ${
+                  !title.chapters?.[0] ? 'opacity-50 pointer-events-none' : ''
+                }`}
+              >
+                {title.chapters?.[0] ? 'Start Reading' : 'No Chapters'}
+              </Link>
+              <button
+                onClick={handleBookmark}
+                disabled={bookmarkLoading || !token}
+                className={`rounded-lg border px-4 py-2.5 text-xs font-medium transition-colors ${
+                  isBookmarked
+                    ? 'border-mv-accent bg-mv-accent/20 text-mv-accent'
+                    : 'border-mv-border-light bg-mv-surface text-mv-text-secondary hover:border-mv-accent hover:text-mv-accent'
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                {bookmarkLoading ? '...' : isBookmarked ? '✓ In Library' : '+ Library'}
               </button>
             </div>
           </div>

@@ -1,107 +1,198 @@
 'use client';
 
+import { timeAgo } from '@mangaverse/shared';
+import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { TopBar } from '@/components/TopBar';
+import { useAuthStore } from '@/store/authStore';
+import { useUserStats } from '@/lib/hooks/useAuth';
+import { useReadingHistory } from '@/lib/hooks/useReading';
 
-const GENRE_DATA = [
-  { label: 'Action', pct: 78, color: '#e94560' },
-  { label: 'Fantasy', pct: 55, color: '#7b2fbe' },
-  { label: 'Romance', pct: 30, color: '#e94560' },
-  { label: 'Horror', pct: 18, color: '#7b2fbe' },
-  { label: 'Sci-Fi', pct: 12, color: '#0066ff' },
-];
-
-const ACTIVITY = [
-  { title: "Omniscient Reader's Viewpoint", detail: 'Read 28 pages · Ch. 198', time: '2h ago', color: '#2d1b69' },
-  { title: 'Solo Leveling: Ragnarök', detail: 'Read 32 pages · Ch. 44', time: '5h ago', color: '#5e1b2d' },
-  { title: 'Blue Lock', detail: 'Read 21 pages · Ch. 289', time: 'Yesterday', color: '#1b5e3d' },
-  { title: 'Chainsaw Man', detail: 'Read 18 pages · Ch. 168', time: 'Yesterday', color: '#5e1b3a' },
-];
+const GENRE_COLORS: Record<string, string> = {
+  action: '#e94560',
+  fantasy: '#7b2fbe',
+  romance: '#e94560',
+  horror: '#7b2fbe',
+  scifi: '#0066ff',
+  adventure: '#1b5e3d',
+  comedy: '#d4a017',
+  drama: '#5e1b3a',
+  thriller: '#2d1b69',
+};
 
 export default function DashboardPage() {
+  const { user } = useAuthStore();
+  const { data: stats } = useUserStats();
+  const { data: history } = useReadingHistory();
+
+  const readingData = history as {
+    id: string;
+    pageNumber: number;
+    completed: boolean;
+    chapter: { number: number; title: string | null; series: { slug: string; title: string; coverUrl: string | null } };
+    updatedAt: string;
+  }[] | undefined;
+
+  const s = stats as {
+    chaptersRead: number;
+    totalBookmarks: number;
+    totalReviews: number;
+    totalAchievements: number;
+    streakDays: number;
+    readingCalendar: { date: string; read: boolean }[];
+  } | undefined;
+
+  const recentActivity = readingData?.slice(0, 5) || [];
+  const calendarDays = s?.readingCalendar || [];
+
   return (
-    <main className="min-h-screen bg-mv-dark">
-      <TopBar />
-
-      <div className="mx-auto max-w-7xl p-6">
-        <h1 className="mb-6 text-xl font-semibold text-white">Dashboard</h1>
-
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          {/* Stats Cards */}
-          <div className="rounded-xl bg-mv-darker border border-mv-border p-5">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-mv-text-muted mb-1">Chapters Read</p>
-            <p className="text-2xl font-bold text-white">1,<span className="text-mv-accent">247</span></p>
-            <p className="text-[10px] text-mv-text-muted mt-1">+48 this week</p>
-          </div>
-          <div className="rounded-xl bg-mv-darker border border-mv-border p-5">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-mv-text-muted mb-1">Reading Streak</p>
-            <p className="text-2xl font-bold text-white">🔥 <span className="text-mv-accent">34</span></p>
-            <p className="text-[10px] text-mv-text-muted mt-1">days in a row</p>
-          </div>
-          <div className="rounded-xl bg-mv-darker border border-mv-border p-5">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-mv-text-muted mb-1">Coin Balance</p>
-            <p className="text-2xl font-bold text-mv-gold">120</p>
-            <p className="text-[10px] text-mv-text-muted mt-1">+30 earned today</p>
+    <ProtectedRoute>
+      <main className="min-h-screen bg-mv-dark">
+        <TopBar />
+        <div className="mx-auto max-w-7xl p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h1 className="text-xl font-semibold text-white">Dashboard</h1>
+              <p className="text-xs text-mv-text-muted mt-0.5">
+                Welcome back, {user?.displayName || 'Reader'}
+              </p>
+            </div>
+            {user && (
+              <div className="flex items-center gap-2 rounded-full border border-mv-border-light bg-mv-surface px-3 py-1.5">
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-mv-accent text-[10px] font-semibold text-white">
+                  {user.displayName?.charAt(0)?.toUpperCase() || 'U'}
+                </div>
+                <span className="text-xs text-mv-text-secondary">{user.email}</span>
+              </div>
+            )}
           </div>
 
-          {/* Genre Breakdown */}
-          <div className="rounded-xl bg-mv-darker border border-mv-border p-5 md:col-span-2">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-mv-text-muted mb-4">Genre Breakdown</p>
-            <div className="space-y-3">
-              {GENRE_DATA.map((genre) => (
-                <div key={genre.label} className="flex items-center gap-3">
-                  <span className="w-14 text-[10px] text-mv-text-muted flex-shrink-0">{genre.label}</span>
-                  <div className="flex-1 h-2 rounded-full bg-mv-surface overflow-hidden">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            {/* Stats Cards */}
+            <div className="rounded-xl bg-mv-darker border border-mv-border p-5">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-mv-text-muted mb-1">Chapters Read</p>
+              <p className="text-2xl font-bold text-white">
+                {s?.chaptersRead?.toLocaleString() || '0'}
+              </p>
+              {s?.streakDays && s.streakDays > 0 && (
+                <p className="text-[10px] text-mv-text-muted mt-1">🔥 {s.streakDays}-day streak</p>
+              )}
+            </div>
+            <div className="rounded-xl bg-mv-darker border border-mv-border p-5">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-mv-text-muted mb-1">Reading Streak</p>
+              <p className="text-2xl font-bold text-white">
+                🔥 <span className="text-mv-accent">{s?.streakDays || 0}</span>
+              </p>
+              <p className="text-[10px] text-mv-text-muted mt-1">days in a row</p>
+            </div>
+            <div className="rounded-xl bg-mv-darker border border-mv-border p-5">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-mv-text-muted mb-1">Coin Balance</p>
+              <p className="text-2xl font-bold text-mv-gold">{user?.coinBalance || 0}</p>
+              <p className="text-[10px] text-mv-text-muted mt-1">
+                {user?.subscriptionTier === 'premium' ? '⭐ Premium member' : 'Free tier'}
+              </p>
+            </div>
+
+            {/* Library Stats */}
+            <div className="rounded-xl bg-mv-darker border border-mv-border p-5">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-mv-text-muted mb-1">Library</p>
+              <p className="text-2xl font-bold text-white">
+                <span className="text-mv-purple">{s?.totalBookmarks || 0}</span>
+              </p>
+              <p className="text-[10px] text-mv-text-muted mt-1">books in library</p>
+            </div>
+            <div className="rounded-xl bg-mv-darker border border-mv-border p-5">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-mv-text-muted mb-1">Reviews Written</p>
+              <p className="text-2xl font-bold text-white">
+                <span className="text-mv-gold">{s?.totalReviews || 0}</span>
+              </p>
+              <p className="text-[10px] text-mv-text-muted mt-1">contributions</p>
+            </div>
+            <div className="rounded-xl bg-mv-darker border border-mv-border p-5">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-mv-text-muted mb-1">Achievements</p>
+              <p className="text-2xl font-bold text-white">
+                🏆 {s?.totalAchievements || 0}
+              </p>
+              <p className="text-[10px] text-mv-text-muted mt-1">badges earned</p>
+            </div>
+
+            {/* Streak Calendar */}
+            <div className="rounded-xl bg-mv-darker border border-mv-border p-5 md:col-span-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-mv-text-muted mb-3">
+                Reading Calendar (Last 28 Days)
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {calendarDays.length > 0 ? (
+                  calendarDays.map((day) => (
                     <div
-                      className="h-full rounded-full transition-all duration-500"
-                      style={{ width: `${genre.pct}%`, background: genre.color }}
+                      key={day.date}
+                      className="h-4 w-4 rounded-[3px] transition-colors"
+                      style={{ background: day.read ? '#2d1040' : '#1a1a2e' }}
+                      title={day.date}
                     />
-                  </div>
-                  <span className="w-8 text-right text-[10px] text-mv-text-secondary">{genre.pct}%</span>
-                </div>
-              ))}
+                  ))
+                ) : (
+                  Array.from({ length: 28 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="h-4 w-4 rounded-[3px] bg-mv-surface"
+                    />
+                  ))
+                )}
+              </div>
+              <p className="text-[9px] text-mv-text-muted mt-2">Purple = reading day</p>
             </div>
-          </div>
 
-          {/* Series Count */}
-          <div className="rounded-xl bg-mv-darker border border-mv-border p-5">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-mv-text-muted mb-1">Series In Library</p>
-            <p className="text-2xl font-bold text-white">48</p>
-            <p className="text-[10px] text-mv-text-muted mt-1">12 completed</p>
-          </div>
-
-          {/* Streak Calendar */}
-          <div className="rounded-xl bg-mv-darker border border-mv-border p-5 md:col-span-3">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-mv-text-muted mb-3">7-Day Streak Calendar</p>
-            <div className="flex flex-wrap gap-1.5">
-              {Array.from({ length: 28 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="h-4 w-4 rounded-[3px] transition-colors"
-                  style={{ background: i < 21 ? '#2d1040' : '#1a1a2e' }}
-                />
-              ))}
+            {/* Quick Links */}
+            <div className="rounded-xl bg-mv-darker border border-mv-border p-5 space-y-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-mv-text-muted mb-1">Quick Links</p>
+              <a href="/library" className="flex items-center gap-2 rounded-lg bg-mv-surface px-3 py-2 text-xs text-mv-text-secondary hover:text-mv-accent transition-colors">
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>
+                My Library
+              </a>
+              <a href="/browse" className="flex items-center gap-2 rounded-lg bg-mv-surface px-3 py-2 text-xs text-mv-text-secondary hover:text-mv-accent transition-colors">
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                Browse Titles
+              </a>
             </div>
-            <p className="text-[9px] text-mv-text-muted mt-2">Last 28 days · Purple = reading day</p>
-          </div>
 
-          {/* Recent Activity */}
-          <div className="rounded-xl bg-mv-darker border border-mv-border p-5 md:col-span-3">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-mv-text-muted mb-4">Recent Activity</p>
-            <div className="space-y-1">
-              {ACTIVITY.map((item) => (
-                <div key={item.title} className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-mv-surface transition-colors cursor-pointer">
-                  <div className="h-10 w-8 rounded bg-mv-surface flex-shrink-0" style={{ background: item.color }} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-mv-text">{item.title}</p>
-                    <p className="text-[10px] text-mv-text-muted">{item.detail}</p>
-                  </div>
-                  <span className="text-[9px] text-mv-text-dim flex-shrink-0">{item.time}</span>
+            {/* Recent Activity */}
+            <div className="rounded-xl bg-mv-darker border border-mv-border p-5 md:col-span-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-mv-text-muted mb-4">Recent Reading Activity</p>
+
+              {recentActivity.length === 0 && (
+                <div className="text-center py-8">
+                  <p className="text-xs text-mv-text-muted">No reading activity yet.</p>
+                  <p className="text-[10px] text-mv-text-muted mt-1">Start reading to see your history here.</p>
                 </div>
-              ))}
+              )}
+
+              <div className="space-y-1">
+                {recentActivity.map((entry) => (
+                  <a
+                    key={entry.id}
+                    href={`/reader/${entry.id}`}
+                    className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-mv-surface transition-colors cursor-pointer"
+                  >
+                    <div className="h-10 w-8 rounded bg-mv-surface flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-mv-text">{entry.chapter.series.title}</p>
+                      <p className="text-[10px] text-mv-text-muted">
+                        Ch. {entry.chapter.number} {entry.chapter.title ? `— ${entry.chapter.title}` : ''}
+                        {entry.completed ? ' ✅ Completed' : ''}
+                      </p>
+                    </div>
+                    <span className="text-[9px] text-mv-text-dim flex-shrink-0">
+                      {timeAgo(entry.updatedAt)}
+                    </span>
+                  </a>
+                ))}
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    </main>
+      </main>
+    </ProtectedRoute>
   );
 }
+
+
