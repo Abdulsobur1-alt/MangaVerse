@@ -56,6 +56,7 @@ model Title {
   rating           Float?
   totalChapters    Int?     @map("total_chapters")
   releaseYear      Int?     @map("release_year")
+  sourceUrl        String?  @map("source_url")
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 

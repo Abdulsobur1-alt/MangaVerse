@@ -4,6 +4,7 @@ import { config } from '../config/index.js';
 import { mangadex } from '../services/mangadex.js';
 import { prisma } from '../lib/prisma.js';
 import { meilisearch } from '../services/meilisearch.js';
+import { notifyNewChapter } from '../services/notifications.js';
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 
@@ -92,6 +93,8 @@ async function refreshPopularTitles(limit: number) {
       const slug = mangadex.normalizeTitle(manga).slug;
 
       try {
+        const sourceUrl = `https://mangadex.org/title/${manga.id}`;
+
         await prisma.title.upsert({
           where: { slug },
           update: {
@@ -105,6 +108,7 @@ async function refreshPopularTitles(limit: number) {
             coverUrl: normalized.coverUrl,
             synopsis: normalized.synopsis,
             releaseYear: normalized.releaseYear,
+            sourceUrl,
           },
           create: {
             slug,
@@ -119,6 +123,7 @@ async function refreshPopularTitles(limit: number) {
             coverUrl: normalized.coverUrl,
             synopsis: normalized.synopsis,
             releaseYear: normalized.releaseYear,
+            sourceUrl,
           },
         });
 
@@ -156,6 +161,8 @@ async function refreshPopularTitles(limit: number) {
 
 /**
  * Refresh chapters for a specific title.
+ * Fetches chapters from MangaDex and creates new ones in the database,
+ * then notifies bookmarkers about new chapters.
  */
 async function refreshChaptersForTitle(titleId: string) {
   console.log(`🔄 Refreshing chapters for title ${titleId}...`);
@@ -167,11 +174,118 @@ async function refreshChaptersForTitle(titleId: string) {
       return;
     }
 
-    // For now, we'd need the MangaDex ID — this is a placeholder
-    // In production, store mangadex_id on the title model
-    console.log(`ℹ️  Chapter refresh for ${title.title} requires MangaDex ID mapping`);
+    // Get the highest existing chapter number
+    const latestExisting = await prisma.chapter.findFirst({
+      where: { titleId },
+      orderBy: { number: 'desc' },
+      select: { number: true },
+    });
+    const maxExistingNumber = latestExisting?.number || 0;
+
+    // Fetch chapters from MangaDex
+    // Note: This requires the MangaDex ID to be stored. We'll use sourceUrl as a proxy.
+    // In a production system, a dedicated mangadex_id field on the Title model would be better.
+    if (!title.sourceUrl) {
+      console.log(`ℹ️  Title "${title.title}" has no source URL — cannot fetch chapters from MangaDex`);
+      return;
+    }
+
+    const mangadexMatch = title.sourceUrl.match(/mangadex\.org\/title\/([a-f0-9-]+)/i);
+    if (!mangadexMatch) {
+      console.log(`ℹ️  Title "${title.title}" source URL is not MangaDex — skipping chapter refresh`);
+      return;
+    }
+
+    const mangadexId = mangadexMatch[1];
+    const chapterData = await mangadex.getChapters(mangadexId, 100, 0);
+
+    let newChaptersCount = 0;
+
+    for (const ch of chapterData.data) {
+      const chapterNumber = parseFloat(ch.attributes.chapter || '0');
+
+      // Skip if chapter already exists
+      if (chapterNumber <= maxExistingNumber) continue;
+
+      try {
+        await prisma.chapter.create({
+          data: {
+            titleId,
+            number: chapterNumber,
+            title: ch.attributes.title || null,
+            pageCount: ch.attributes.pages,
+            sourceUrl: `https://mangadex.org/chapter/${ch.id}`,
+            createdAt: new Date(ch.attributes.publishAt),
+          },
+        });
+        newChaptersCount++;
+
+        // Notify bookmarkers about each new chapter
+        notifyNewChapter(titleId, chapterNumber, ch.attributes.title || null);
+      } catch {
+        // Skip duplicates (unique constraint on titleId + number)
+      }
+    }
+
+    // Update total chapters count
+    if (newChaptersCount > 0) {
+      const totalChapters = await prisma.chapter.count({ where: { titleId } });
+      await prisma.title.update({
+        where: { id: titleId },
+        data: {
+          totalChapters,
+          updatedAt: new Date(),
+        },
+      });
+    }
+
+    // Update the title source URL with the manga ID if not already set
+    if (!title.sourceUrl) {
+      await prisma.title.update({
+        where: { id: titleId },
+        data: { sourceUrl: `https://mangadex.org/title/${mangadexId}` },
+      });
+    }
+
+    console.log(`✅ Refreshed ${newChaptersCount} new chapters for "${title.title}"`);
   } catch (err) {
     console.error('❌ Failed to refresh chapters:', (err as Error).message);
+  }
+}
+
+/**
+ * Fetch and create chapters for a title from MangaDex during seeding.
+ * Returns the number of chapters created.
+ */
+async function syncChaptersFromMangaDex(titleId: string, mangadexId: string): Promise<number> {
+  try {
+    const chapterData = await mangadex.getChapters(mangadexId, 100, 0);
+    let created = 0;
+
+    for (const ch of chapterData.data) {
+      const chapterNumber = parseFloat(ch.attributes.chapter || '0');
+      if (chapterNumber === 0) continue;
+
+      try {
+        await prisma.chapter.create({
+          data: {
+            titleId,
+            number: chapterNumber,
+            title: ch.attributes.title || null,
+            pageCount: ch.attributes.pages,
+            sourceUrl: `https://mangadex.org/chapter/${ch.id}`,
+            createdAt: new Date(ch.attributes.publishAt),
+          },
+        });
+        created++;
+      } catch {
+        // Skip duplicates
+      }
+    }
+
+    return created;
+  } catch {
+    return 0;
   }
 }
 
@@ -229,10 +343,24 @@ async function seedDatabase(count: number) {
         },
       });
 
+      // Get the title's actual database ID
+      const titleRecord = await prisma.title.findUnique({ where: { slug }, select: { id: true } });
+      if (titleRecord) {
+        const mangaId = manga.id;
+        await syncChaptersFromMangaDex(titleRecord.id, mangaId);
+      }
+
       imported++;
     } catch (err) {
       // skip individual failures
     }
+  }
+
+  // Update totalChapters for all titles
+  const allTitles = await prisma.title.findMany({ select: { id: true } });
+  for (const t of allTitles) {
+    const count = await prisma.chapter.count({ where: { titleId: t.id } });
+    await prisma.title.update({ where: { id: t.id }, data: { totalChapters: count } });
   }
 
   // Index in Meilisearch
