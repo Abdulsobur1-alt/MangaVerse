@@ -1,0 +1,260 @@
+import { Queue, Worker, QueueEvents } from 'bullmq';
+import { Redis } from 'ioredis';
+import { config } from '../config/index.js';
+import { mangadex } from '../services/mangadex.js';
+import { prisma } from '../lib/prisma.js';
+import { meilisearch } from '../services/meilisearch.js';
+
+const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
+
+let connection: Redis | null = null;
+let scraperQueue: Queue | null = null;
+
+function getConnection(): Redis | null {
+  if (connection?.status === 'ready') return connection;
+  try {
+    connection = new Redis(REDIS_URL, {
+      maxRetriesPerRequest: null,
+      lazyConnect: true,
+    });
+    return connection;
+  } catch {
+    return null;
+  }
+}
+
+// ─── Queue ───────────────────────────────────────────
+
+export function getScraperQueue(): Queue | null {
+  if (scraperQueue) return scraperQueue;
+  const conn = getConnection();
+  if (!conn) {
+    console.warn('⚠️  Redis not available — scraper queue disabled');
+    return null;
+  }
+  scraperQueue = new Queue('mangaverse-scraper', {
+    connection: conn,
+    defaultJobOptions: config.bullmq.defaultJobOptions,
+  });
+  return scraperQueue;
+}
+
+// ─── Worker ──────────────────────────────────────────
+
+export function startScraperWorker(): Worker | null {
+  const conn = getConnection();
+  if (!conn) return null;
+
+  const worker = new Worker(
+    'mangaverse-scraper',
+    async (job) => {
+      switch (job.name) {
+        case 'refresh-popular':
+          await refreshPopularTitles(job.data?.limit || 50);
+          break;
+        case 'refresh-chapters':
+          await refreshChaptersForTitle(job.data?.titleId);
+          break;
+        case 'seed-database':
+          await seedDatabase(job.data?.count || 100);
+          break;
+        default:
+          console.warn(`Unknown job type: ${job.name}`);
+      }
+    },
+    { connection: conn },
+  );
+
+  worker.on('completed', (job) => {
+    console.log(`✅ Job ${job.name} completed (id: ${job.id})`);
+  });
+
+  worker.on('failed', (job, err) => {
+    console.error(`❌ Job ${job?.name} failed:`, err.message);
+  });
+
+  return worker;
+}
+
+// ─── Job Handlers ────────────────────────────────────
+
+/**
+ * Refresh popular titles from MangaDex.
+ */
+async function refreshPopularTitles(limit: number) {
+  console.log(`🔄 Refreshing popular titles (limit: ${limit})...`);
+
+  try {
+    const response = await mangadex.getPopular(limit);
+
+    for (const manga of response.data) {
+      const normalized = mangadex.normalizeTitle(manga);
+      const slug = mangadex.normalizeTitle(manga).slug;
+
+      try {
+        await prisma.title.upsert({
+          where: { slug },
+          update: {
+            title: normalized.title,
+            type: normalized.type,
+            status: normalized.status,
+            genres: normalized.genres,
+            tags: normalized.tags,
+            author: normalized.author,
+            artist: normalized.artist,
+            coverUrl: normalized.coverUrl,
+            synopsis: normalized.synopsis,
+            releaseYear: normalized.releaseYear,
+          },
+          create: {
+            slug,
+            title: normalized.title,
+            alternativeTitles: normalized.alternativeTitles,
+            type: normalized.type,
+            status: normalized.status,
+            genres: normalized.genres,
+            tags: normalized.tags,
+            author: normalized.author,
+            artist: normalized.artist,
+            coverUrl: normalized.coverUrl,
+            synopsis: normalized.synopsis,
+            releaseYear: normalized.releaseYear,
+          },
+        });
+
+        // Index in Meilisearch
+        const title = await prisma.title.findUnique({ where: { slug } });
+        if (title) {
+          await meilisearch.upsertTitle({
+            id: title.id,
+            slug: title.slug,
+            title: title.title,
+            alternativeTitles: title.alternativeTitles,
+            type: title.type,
+            genres: title.genres,
+            tags: title.tags,
+            author: title.author,
+            artist: title.artist,
+            synopsis: title.synopsis,
+            rating: title.rating,
+            totalChapters: title.totalChapters,
+            coverUrl: title.coverUrl,
+            status: title.status,
+          });
+        }
+      } catch (err) {
+        console.warn(`⚠️  Error processing title "${normalized.title}":`, (err as Error).message);
+      }
+    }
+
+    console.log(`✅ Refreshed ${response.data.length} titles`);
+  } catch (err) {
+    console.error('❌ Failed to refresh popular titles:', (err as Error).message);
+    throw err;
+  }
+}
+
+/**
+ * Refresh chapters for a specific title.
+ */
+async function refreshChaptersForTitle(titleId: string) {
+  console.log(`🔄 Refreshing chapters for title ${titleId}...`);
+
+  try {
+    const title = await prisma.title.findUnique({ where: { id: titleId } });
+    if (!title) {
+      console.warn(`⚠️  Title ${titleId} not found`);
+      return;
+    }
+
+    // For now, we'd need the MangaDex ID — this is a placeholder
+    // In production, store mangadex_id on the title model
+    console.log(`ℹ️  Chapter refresh for ${title.title} requires MangaDex ID mapping`);
+  } catch (err) {
+    console.error('❌ Failed to refresh chapters:', (err as Error).message);
+  }
+}
+
+/**
+ * Seed the database with initial content from MangaDex.
+ */
+async function seedDatabase(count: number) {
+  console.log(`🌱 Seeding database with ${count} titles from MangaDex...`);
+
+  // Fetch popular and latest
+  const [popular, latest] = await Promise.all([
+    mangadex.getPopular(count / 2),
+    mangadex.getLatest(count / 2),
+  ]);
+
+  const allManga = [...popular.data, ...latest.data];
+  const seen = new Set<string>();
+  let imported = 0;
+
+  for (const manga of allManga) {
+    if (seen.has(manga.id)) continue;
+    seen.add(manga.id);
+
+    try {
+      const normalized = mangadex.normalizeTitle(manga);
+      const slug = normalized.slug;
+
+      await prisma.title.upsert({
+        where: { slug },
+        update: {
+          title: normalized.title,
+          type: normalized.type,
+          status: normalized.status,
+          genres: normalized.genres,
+          tags: normalized.tags,
+          author: normalized.author,
+          artist: normalized.artist,
+          coverUrl: normalized.coverUrl,
+          synopsis: normalized.synopsis,
+          releaseYear: normalized.releaseYear,
+        },
+        create: {
+          slug,
+          title: normalized.title,
+          alternativeTitles: normalized.alternativeTitles,
+          type: normalized.type,
+          status: normalized.status,
+          genres: normalized.genres,
+          tags: normalized.tags,
+          author: normalized.author,
+          artist: normalized.artist,
+          coverUrl: normalized.coverUrl,
+          synopsis: normalized.synopsis,
+          releaseYear: normalized.releaseYear,
+        },
+      });
+
+      imported++;
+    } catch (err) {
+      // skip individual failures
+    }
+  }
+
+  // Index in Meilisearch
+  const titles = await prisma.title.findMany({ take: count });
+  await meilisearch.bulkUpsert(
+    titles.map((t) => ({
+      id: t.id,
+      slug: t.slug,
+      title: t.title,
+      alternativeTitles: t.alternativeTitles,
+      type: t.type,
+      genres: t.genres,
+      tags: t.tags,
+      author: t.author,
+      artist: t.artist,
+      synopsis: t.synopsis,
+      rating: t.rating,
+      totalChapters: t.totalChapters,
+      coverUrl: t.coverUrl,
+      status: t.status,
+    })),
+  );
+
+  console.log(`✅ Imported ${imported} titles and indexed in Meilisearch`);
+}

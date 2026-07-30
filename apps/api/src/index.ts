@@ -13,6 +13,9 @@ import { libraryRouter } from './routes/library.js';
 import { readingRouter } from './routes/reading.js';
 import { searchRouter } from './routes/search.js';
 import { healthRouter } from './routes/health.js';
+import { createImageProxyHandler } from './services/image-proxy.js';
+import { getScraperQueue, startScraperWorker } from './queues/scraper.js';
+import { meilisearch } from './services/meilisearch.js';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3001', 10);
@@ -46,6 +49,10 @@ app.use('/api/library', libraryRouter);
 app.use('/api/reading', readingRouter);
 app.use('/api/search', searchRouter);
 
+// ─── Image Proxy ──────────────────────────────────────
+
+app.get('/api/proxy/image', createImageProxyHandler());
+
 // ─── Error Handling ───────────────────────────────────
 
 app.use(notFoundHandler);
@@ -53,9 +60,33 @@ app.use(errorHandler);
 
 // ─── Start Server ─────────────────────────────────────
 
-app.listen(PORT, () => {
-  console.log(`⚡ MangaVerse API running on http://localhost:${PORT}`);
-  console.log(`   Health check: http://localhost:${PORT}/api/health`);
-});
+async function start() {
+  // Initialize Meilisearch index on startup
+  try {
+    await meilisearch.initIndex();
+  } catch {
+    // Meilisearch not available — DB fallback will be used
+  }
+
+  // Start the scraper worker (only if Redis is available)
+  const worker = startScraperWorker();
+  if (worker) {
+    console.log('🤖 Scraper worker started');
+
+    // Schedule initial refresh after 30 seconds
+    const queue = getScraperQueue();
+    if (queue) {
+      await queue.add('seed-database', { count: 100 }, { delay: 30_000 });
+      console.log('📅 Initial content refresh scheduled (30s delay)');
+    }
+  }
+
+  app.listen(PORT, () => {
+    console.log(`⚡ MangaVerse API running on http://localhost:${PORT}`);
+    console.log(`   Health check: http://localhost:${PORT}/api/health`);
+  });
+}
+
+start().catch(console.error);
 
 export default app;

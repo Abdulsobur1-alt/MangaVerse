@@ -26,7 +26,11 @@
     "ioredis": "^5.4.0",
     "morgan": "^1.10.0",
     "zod": "^3.24.0",
-    "@prisma/client": "^6.5.0"
+    "@prisma/client": "^6.5.0",
+    "axios": "^1.7.0",
+    "cheerio": "^1.0.0",
+    "bullmq": "^5.20.0",
+    "meilisearch": "^0.47.0"
   },
   "devDependencies": {
     "@mangaverse/typescript-config": "workspace:*",
