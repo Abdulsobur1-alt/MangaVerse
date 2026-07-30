@@ -1,12 +1,21 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { requireAuth } from '../middleware/auth.js';
 import { NotFoundError } from '../lib/errors.js';
+import { validate } from '../middleware/validate.js';
 
 export const usersRouter = Router();
 
 // All user routes require authentication
 usersRouter.use(requireAuth);
+
+// ─── Schemas ──────────────────────────────────────────
+
+const UpdateProfileSchema = z.object({
+  displayName: z.string().min(1).max(50).optional(),
+  avatarUrl: z.string().url().max(500).nullable().optional(),
+});
 
 // ─── GET /api/users/profile ───────────────────────────
 
@@ -42,6 +51,82 @@ usersRouter.get('/profile', async (req, res, next) => {
         createdAt: user.createdAt.toISOString(),
       },
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── PUT /api/users/profile ───────────────────────────
+
+usersRouter.put('/profile', validate({ body: UpdateProfileSchema }), async (req, res, next) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { firebaseUid: req.user!.uid },
+      select: { id: true },
+    });
+    if (!user) throw new NotFoundError('User');
+
+    const updates: Record<string, unknown> = {};
+    const body = req.body as z.infer<typeof UpdateProfileSchema>;
+
+    if (body.displayName !== undefined) updates.displayName = body.displayName;
+    if (body.avatarUrl !== undefined) updates.avatarUrl = body.avatarUrl;
+
+    if (Object.keys(updates).length === 0) {
+      res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'No valid fields to update' },
+      });
+      return;
+    }
+
+    const updated = await prisma.user.update({
+      where: { id: user.id },
+      data: updates,
+      select: {
+        id: true,
+        email: true,
+        displayName: true,
+        avatarUrl: true,
+        coinBalance: true,
+        subscriptionTier: true,
+        streakDays: true,
+        createdAt: true,
+      },
+    });
+
+    res.json({
+      success: true,
+      data: {
+        id: updated.id,
+        email: updated.email,
+        displayName: updated.displayName,
+        avatarUrl: updated.avatarUrl,
+        coinBalance: updated.coinBalance,
+        subscriptionTier: updated.subscriptionTier,
+        streakDays: updated.streakDays,
+        createdAt: updated.createdAt.toISOString(),
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── DELETE /api/users/account ─────────────────────────
+
+usersRouter.delete('/account', async (req, res, next) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { firebaseUid: req.user!.uid },
+      select: { id: true },
+    });
+    if (!user) throw new NotFoundError('User');
+
+    // Delete user — cascading deletes will handle related records
+    await prisma.user.delete({ where: { id: user.id } });
+
+    res.json({ success: true, data: { message: 'Account deleted successfully' } });
   } catch (err) {
     next(err);
   }
