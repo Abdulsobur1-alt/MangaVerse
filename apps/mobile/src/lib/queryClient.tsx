@@ -54,10 +54,15 @@ export function useTitles(params?: {
   });
 }
 
-export function useTitle(slug: string) {
+export function useTitle(slug: string, chaptersPage?: number, chaptersLimit?: number) {
+  const params = new URLSearchParams();
+  if (chaptersPage) params.set('chaptersPage', String(chaptersPage));
+  if (chaptersLimit) params.set('chaptersLimit', String(chaptersLimit));
+  const qs = params.toString();
+
   return useQuery<TitleDetail>({
-    queryKey: ['title', slug],
-    queryFn: () => api.get<TitleDetail>(`/titles/${slug}`),
+    queryKey: ['title', slug, chaptersPage, chaptersLimit],
+    queryFn: () => api.get<TitleDetail>(`/titles/${slug}${qs ? `?${qs}` : ''}`),
     enabled: !!slug,
   });
 }

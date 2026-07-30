@@ -19,6 +19,27 @@ export interface TitleListItem {
   createdAt: string;
 }
 
+export interface ChapterProgress {
+  pageNumber: number;
+  completed: boolean;
+}
+
+export interface TitleChapter {
+  id: string;
+  number: number;
+  title: string | null;
+  pageCount: number | null;
+  createdAt: string;
+  progress: ChapterProgress | null;
+}
+
+export interface ChapterPagination {
+  page: number;
+  limit: number;
+  total: number;
+  hasMore: boolean;
+}
+
 export interface TitleDetail extends TitleListItem {
   alternativeTitles?: string | null;
   tags: string[];
@@ -27,13 +48,8 @@ export interface TitleDetail extends TitleListItem {
   synopsis: string | null;
   releaseYear: number | null;
   _count: { chapters: number; bookmarks: number; reviews: number };
-  chapters: {
-    id: string;
-    number: number;
-    title: string | null;
-    pageCount: number | null;
-    createdAt: string;
-  }[];
+  chapters: TitleChapter[];
+  chaptersPagination: ChapterPagination;
 }
 
 export interface PaginatedResult<T> {
@@ -78,10 +94,15 @@ export function useTrendingTitles() {
   });
 }
 
-export function useTitle(slug: string) {
+export function useTitle(slug: string, chaptersPage?: number, chaptersLimit?: number) {
+  const params = new URLSearchParams();
+  if (chaptersPage) params.set('chaptersPage', String(chaptersPage));
+  if (chaptersLimit) params.set('chaptersLimit', String(chaptersLimit));
+  const qs = params.toString();
+
   return useQuery<TitleDetail>({
-    queryKey: ['title', slug],
-    queryFn: () => api.get<TitleDetail>(`/titles/${slug}`),
+    queryKey: ['title', slug, chaptersPage, chaptersLimit],
+    queryFn: () => api.get<TitleDetail>(`/titles/${slug}${qs ? `?${qs}` : ''}`),
     enabled: !!slug,
   });
 }

@@ -77,6 +77,11 @@ export interface TitleItem {
   totalChapters: number | null;
 }
 
+export interface ChapterProgress {
+  pageNumber: number;
+  completed: boolean;
+}
+
 export interface TitleDetail extends TitleItem {
   alternativeTitles?: string | null;
   tags: string[];
@@ -90,7 +95,14 @@ export interface TitleDetail extends TitleItem {
     title: string | null;
     pageCount: number | null;
     createdAt: string;
+    progress: ChapterProgress | null;
   }[];
+  chaptersPagination: {
+    page: number;
+    limit: number;
+    total: number;
+    hasMore: boolean;
+  };
 }
 
 export interface PaginatedResult<T> {

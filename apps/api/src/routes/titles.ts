@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { cacheGet, cacheSet, cacheDel } from '../lib/redis.js';
 import { validate } from '../middleware/validate.js';
+import { optionalAuth } from '../middleware/auth.js';
 import { NotFoundError } from '../lib/errors.js';
 
 export const titlesRouter = Router();
@@ -125,34 +126,78 @@ titlesRouter.get('/trending', async (_req, res, next) => {
 
 // ─── GET /api/titles/:slug ────────────────────────────
 
-titlesRouter.get('/:slug', validate({ params: TitleSlugParams }), async (req, res, next) => {
+titlesRouter.get('/:slug', optionalAuth, validate({ params: TitleSlugParams }), async (req, res, next) => {
   try {
     const params = req.params as { slug: string };
     const slug = params.slug;
 
-    const cached = await cacheGet<any>(`titles:${slug}`);
+    // Pagination for chapters
+    const chaptersPage = parseInt(req.query.chaptersPage as string) || 1;
+    const chaptersLimit = parseInt(req.query.chaptersLimit as string) || 50;
+    const chaptersSkip = (chaptersPage - 1) * chaptersLimit;
+
+    const cached = await cacheGet<any>(`titles:${slug}:${chaptersPage}:${chaptersLimit}`);
     if (cached) {
       res.json({ success: true, data: cached });
       return;
     }
 
-    const title = await prisma.title.findUnique({
-      where: { slug },
-      include: {
-        _count: { select: { chapters: true, bookmarks: true, reviews: true } },
-        chapters: {
-          orderBy: { number: 'desc' },
-          take: 5,
-          select: { id: true, number: true, title: true, pageCount: true, createdAt: true },
+    const [title, chapters, totalChapters] = await Promise.all([
+      prisma.title.findUnique({
+        where: { slug },
+        include: {
+          _count: { select: { chapters: true, bookmarks: true, reviews: true } },
         },
-      },
-    });
+      }),
+      prisma.chapter.findMany({
+        where: { series: { slug } },
+        orderBy: { number: 'desc' },
+        skip: chaptersSkip,
+        take: chaptersLimit,
+        select: { id: true, number: true, title: true, pageCount: true, createdAt: true },
+      }),
+      prisma.chapter.count({
+        where: { series: { slug } },
+      }),
+    ]);
 
     if (!title) throw new NotFoundError('Title', slug);
 
-    await cacheSet(`titles:${slug}`, title, 300);
+    // If user is authenticated (via optionalAuth middleware), fetch reading progress
+    let progressMap: Record<string, { pageNumber: number; completed: boolean }> = {};
+    try {
+      const userId = req.user?.uid;
+      if (userId && chapters.length > 0) {
+        const chapterIds = chapters.map(c => c.id);
+        const progressEntries = await prisma.readingProgress.findMany({
+          where: { userId, chapterId: { in: chapterIds } },
+          select: { chapterId: true, pageNumber: true, completed: true },
+        });
+        for (const entry of progressEntries) {
+          progressMap[entry.chapterId] = { pageNumber: entry.pageNumber, completed: entry.completed };
+        }
+      }
+    } catch {
+      // Silently fail — reading progress is a bonus feature
+    }
 
-    res.json({ success: true, data: title });
+    const result = {
+      ...title,
+      chapters: chapters.map(ch => ({
+        ...ch,
+        progress: progressMap[ch.id] || null,
+      })),
+      chaptersPagination: {
+        page: chaptersPage,
+        limit: chaptersLimit,
+        total: totalChapters,
+        hasMore: chaptersSkip + chapters.length < totalChapters,
+      },
+    };
+
+    await cacheSet(`titles:${slug}:${chaptersPage}:${chaptersLimit}`, result, 300);
+
+    res.json({ success: true, data: result });
   } catch (err) {
     next(err);
   }
