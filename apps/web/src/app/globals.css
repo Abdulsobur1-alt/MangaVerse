@@ -13,18 +13,17 @@
   --color-mv-text-secondary: #888;
   --color-mv-text-muted: #555;
   --color-mv-text-dim: #444;
-
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
 }
 
-/*
-  The default border color has changed to `currentColor` in Tailwind CSS v4,
-  so we add the base border styles.
-*/
 *,
 ::after,
 ::before {
   border-color: var(--color-gray-200);
+}
+
+html {
+  color-scheme: dark;
 }
 
 body {
@@ -35,7 +34,6 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Custom scrollbar for WebKit */
 ::-webkit-scrollbar {
   width: 4px;
 }
@@ -45,4 +43,18 @@ body {
 ::-webkit-scrollbar-thumb {
   background: #222;
   border-radius: 2px;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
 }
