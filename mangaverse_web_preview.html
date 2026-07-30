@@ -1,0 +1,510 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans)}
+.mv-wrap{display:flex;flex-direction:column;height:620px;background:#0a0a14;border-radius:var(--border-radius-lg);overflow:hidden;border:0.5px solid #1e1e35;font-size:13px}
+.topbar{height:46px;background:#0d0d1e;border-bottom:1px solid #1a1a30;display:flex;align-items:center;padding:0 16px;gap:12px;flex-shrink:0}
+.logo{color:#e94560;font-weight:600;font-size:16px;letter-spacing:-0.5px;white-space:nowrap}
+.logo span{color:#7b2fbe}
+.search-wrap{flex:1;max-width:340px;position:relative}
+.search-wrap input{width:100%;background:#1a1a2e;border:1px solid #252540;border-radius:8px;padding:6px 12px 6px 32px;color:#ccc;font-size:12px;outline:none}
+.search-wrap input::placeholder{color:#444}
+.search-wrap i{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:13px;color:#444}
+.topnav{display:flex;gap:2px;margin-left:8px}
+.tnav{padding:5px 10px;border-radius:6px;color:#666;font-size:12px;cursor:pointer;white-space:nowrap}
+.tnav:hover{background:#1a1a2e;color:#ccc}
+.tnav.active{background:#1a1a2e;color:#e94560}
+.topbar-right{display:flex;align-items:center;gap:10px;margin-left:auto}
+.coin-badge{display:flex;align-items:center;gap:4px;background:#1a1a2e;border:1px solid #252540;border-radius:20px;padding:4px 10px;cursor:pointer}
+.coin-badge span{color:#f0c040;font-size:11px;font-weight:500}
+.premium-btn{background:#e94560;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:11px;cursor:pointer;white-space:nowrap}
+.avatar-sm{width:28px;height:28px;border-radius:50%;background:#7b2fbe;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:600;flex-shrink:0;cursor:pointer}
+.main{display:flex;flex:1;overflow:hidden}
+.sidebar{width:180px;background:#0d0d1e;border-right:1px solid #1a1a30;display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto;scrollbar-width:none}
+.sidebar::-webkit-scrollbar{display:none}
+.sb-section{padding:10px 10px 4px;color:#444;font-size:9px;font-weight:600;letter-spacing:.8px;text-transform:uppercase}
+.sb-item{display:flex;align-items:center;gap:8px;padding:7px 12px;cursor:pointer;border-radius:0;margin:0 4px;border-radius:6px}
+.sb-item:hover{background:#1a1a2e}
+.sb-item.active{background:#1a1a2e;border-left:2px solid #e94560;padding-left:10px}
+.sb-item i{font-size:16px;color:#555;width:18px}
+.sb-item.active i{color:#e94560}
+.sb-item span{color:#666;font-size:12px}
+.sb-item.active span{color:#ddd}
+.sb-badge{margin-left:auto;background:#e94560;color:#fff;font-size:8px;padding:1px 5px;border-radius:10px}
+.sb-divider{height:1px;background:#1a1a30;margin:6px 12px}
+.content{flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;background:#0a0a14}
+.content::-webkit-scrollbar{display:none}
+
+.page{display:none}
+.page.active{display:block}
+
+/* HOME */
+.hero-section{position:relative;height:220px;overflow:hidden;background:#0f0820}
+.hero-gradient{position:absolute;inset:0;background:linear-gradient(105deg,#0f0820 0%,#1a0535 40%,#0d1040 100%)}
+.hero-grid{position:absolute;right:0;top:0;bottom:0;width:55%;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:10px;opacity:.7}
+.hg-card{border-radius:6px;background:var(--c)}
+.hero-content{position:absolute;left:20px;bottom:20px;top:30px;display:flex;flex-direction:column;justify-content:flex-end;max-width:240px}
+.hero-badge{display:inline-block;background:#e94560;color:#fff;font-size:8px;font-weight:600;padding:2px 8px;border-radius:20px;margin-bottom:8px;letter-spacing:.6px;text-transform:uppercase;width:fit-content}
+.hero-title{color:#fff;font-size:18px;font-weight:600;line-height:1.2;margin-bottom:6px}
+.hero-meta{color:#aaa;font-size:10px;margin-bottom:10px}
+.hero-actions{display:flex;gap:8px}
+.hero-btn-primary{background:#e94560;color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:11px;cursor:pointer}
+.hero-btn-sec{background:transparent;color:#ccc;border:1px solid #333;border-radius:6px;padding:6px 14px;font-size:11px;cursor:pointer}
+.section-wrap{padding:14px 16px}
+.sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.sec-title{color:#fff;font-size:13px;font-weight:500}
+.sec-link{color:#e94560;font-size:10px;cursor:pointer}
+.h-cards{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;padding-bottom:4px}
+.h-cards::-webkit-scrollbar{display:none}
+.v-card{flex-shrink:0;width:90px;cursor:pointer}
+.v-card:hover .vc-cover{transform:translateY(-3px)}
+.vc-cover{width:90px;height:126px;border-radius:8px;background:var(--c);transition:transform .2s;position:relative}
+.vc-badge{position:absolute;top:4px;left:4px;background:rgba(0,0,0,.7);color:#fff;font-size:7px;padding:1px 5px;border-radius:4px}
+.vc-title{color:#ccc;font-size:10px;margin-top:5px;line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.vc-ch{color:#555;font-size:9px;margin-top:2px}
+.tag-pills{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.pill{background:#1a1a2e;color:#888;font-size:10px;padding:4px 12px;border-radius:20px;cursor:pointer;border:1px solid transparent}
+.pill.active,.pill:hover{border-color:#e94560;color:#e94560}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.grid-card{cursor:pointer}
+.grid-card:hover .gc-cover{transform:scale(1.02)}
+.gc-cover{width:100%;aspect-ratio:3/4;border-radius:8px;background:var(--c);transition:transform .2s}
+.gc-title{color:#ccc;font-size:10px;margin-top:5px;line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.gc-sub{color:#555;font-size:9px;margin-top:2px}
+
+/* READER */
+.reader-wrap{display:flex;height:100%;background:#000}
+.reader-sidebar{width:200px;background:#0d0d1e;border-right:1px solid #1a1a30;display:flex;flex-direction:column;flex-shrink:0}
+.rs-header{padding:12px;border-bottom:1px solid #1a1a30}
+.rs-title{color:#fff;font-size:11px;font-weight:500;line-height:1.3}
+.rs-ch{color:#666;font-size:10px;margin-top:2px}
+.rs-controls{padding:10px 12px;border-bottom:1px solid #1a1a30;display:flex;gap:6px}
+.rs-btn{flex:1;background:#1a1a2e;border:1px solid #252540;border-radius:6px;padding:5px;color:#888;font-size:10px;cursor:pointer;text-align:center}
+.rs-btn:hover{background:#252540;color:#ccc}
+.ch-list{flex:1;overflow-y:auto;scrollbar-width:none}
+.ch-list::-webkit-scrollbar{display:none}
+.ch-item{padding:8px 12px;border-bottom:1px solid #111;cursor:pointer;display:flex;align-items:center;justify-content:space-between}
+.ch-item:hover{background:#1a1a2e}
+.ch-item.active{background:#1a1a2e;border-left:2px solid #e94560}
+.ch-num{color:#ccc;font-size:11px}
+.ch-item.active .ch-num{color:#e94560}
+.ch-date{color:#444;font-size:9px}
+.ch-lock{color:#f0c040;font-size:11px}
+.reader-main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.reader-topbar{height:40px;background:#0d0d1e;border-bottom:1px solid #1a1a30;display:flex;align-items:center;padding:0 14px;gap:10px;flex-shrink:0}
+.reader-title{color:#888;font-size:11px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.reader-tools{display:flex;gap:6px}
+.rt-btn{background:#1a1a2e;border:1px solid #252540;border-radius:5px;padding:4px 8px;color:#777;font-size:10px;cursor:pointer;display:flex;align-items:center;gap:4px}
+.rt-btn:hover{color:#ccc}
+.rt-btn i{font-size:12px}
+.reader-canvas{flex:1;overflow-y:auto;background:#111;display:flex;flex-direction:column;align-items:center;gap:0;scrollbar-width:thin;scrollbar-color:#222 #111}
+.manga-page{width:100%;max-width:700px;margin:0 auto}
+.manga-page-img{width:100%;display:block;border-radius:0}
+.page-placeholder{width:100%;height:220px;background:var(--c);display:flex;align-items:center;justify-content:center;color:#333;font-size:11px}
+.reader-bottom{height:38px;background:#0d0d1e;border-top:1px solid #1a1a30;display:flex;align-items:center;padding:0 14px;gap:10px;flex-shrink:0}
+.page-counter{color:#666;font-size:11px;white-space:nowrap}
+.progress-track{flex:1;height:3px;background:#1a1a2e;border-radius:2px;cursor:pointer}
+.progress-thumb{height:100%;border-radius:2px;background:#e94560;width:30%}
+.prev-next{display:flex;gap:6px}
+.pn-btn{background:#1a1a2e;border:1px solid #252540;border-radius:5px;padding:4px 10px;color:#777;font-size:10px;cursor:pointer}
+.pn-btn:hover{color:#fff}
+
+/* BROWSE */
+.browse-layout{display:flex;height:100%}
+.filter-panel{width:160px;border-right:1px solid #1a1a30;padding:12px;flex-shrink:0;overflow-y:auto;scrollbar-width:none}
+.filter-panel::-webkit-scrollbar{display:none}
+.fp-title{color:#888;font-size:9px;font-weight:600;letter-spacing:.7px;text-transform:uppercase;margin-bottom:6px}
+.fp-options{display:flex;flex-direction:column;gap:2px;margin-bottom:12px}
+.fp-opt{display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:5px;cursor:pointer}
+.fp-opt:hover{background:#1a1a2e}
+.fp-opt input{accent-color:#e94560}
+.fp-opt label{color:#888;font-size:10px;cursor:pointer}
+.browse-main{flex:1;overflow-y:auto;scrollbar-width:none;padding:14px}
+.browse-main::-webkit-scrollbar{display:none}
+.search-topbar{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.big-search{flex:1;background:#1a1a2e;border:1px solid #252540;border-radius:8px;padding:8px 14px 8px 32px;color:#ccc;font-size:12px;outline:none}
+.big-search-wrap{flex:1;position:relative}
+.big-search-wrap i{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#444;font-size:14px}
+.result-count{color:#555;font-size:10px;white-space:nowrap}
+.sort-sel{background:#1a1a2e;border:1px solid #252540;border-radius:6px;padding:5px 8px;color:#888;font-size:10px;outline:none}
+.browse-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+
+/* COMMUNITY */
+.community-layout{display:flex;height:100%}
+.comm-main{flex:1;overflow-y:auto;padding:14px;scrollbar-width:none}
+.comm-main::-webkit-scrollbar{display:none}
+.comm-sidebar{width:200px;border-left:1px solid #1a1a30;padding:12px;flex-shrink:0;overflow-y:auto;scrollbar-width:none}
+.comm-sidebar::-webkit-scrollbar{display:none}
+.forum-post{background:#0d0d1e;border:1px solid #1a1a30;border-radius:10px;padding:12px;margin-bottom:10px;cursor:pointer}
+.forum-post:hover{border-color:#252540}
+.fp-header{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.fp-avatar{width:28px;height:28px;border-radius:50%;background:var(--c);display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;font-weight:600;flex-shrink:0}
+.fp-meta{flex:1}
+.fp-user{color:#ccc;font-size:11px;font-weight:500}
+.fp-time{color:#555;font-size:9px}
+.fp-tag{display:inline-block;background:#1a1a2e;color:#888;font-size:8px;padding:1px 6px;border-radius:4px;margin-left:6px}
+.fp-tag.theory{background:#1a0535;color:#a05bdf}
+.fp-tag.discussion{background:#0d2035;color:#4aa0e0}
+.fp-tag.prediction{background:#1a1400;color:#d4a017}
+.fp-title-text{color:#fff;font-size:12px;font-weight:500;margin-bottom:4px;line-height:1.4}
+.fp-preview{color:#666;font-size:10px;line-height:1.5;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.fp-footer{display:flex;align-items:center;gap:12px;margin-top:8px}
+.fp-stat{display:flex;align-items:center;gap:4px;color:#555;font-size:10px}
+.fp-stat i{font-size:12px}
+.fp-upvote{display:flex;align-items:center;gap:4px;background:#1a1a2e;border-radius:6px;padding:3px 8px;cursor:pointer}
+.fp-upvote span{color:#e94560;font-size:10px;font-weight:500}
+.cs-section{margin-bottom:14px}
+.cs-hdr{color:#888;font-size:9px;font-weight:600;letter-spacing:.7px;text-transform:uppercase;margin-bottom:6px}
+.cs-item{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #111;cursor:pointer}
+.cs-rank{color:#e94560;font-size:10px;font-weight:600;width:14px}
+.cs-name{color:#ccc;font-size:10px;flex:1}
+.cs-val{color:#555;font-size:9px}
+.live-badge{display:flex;align-items:center;gap:4px;background:#1a0a0a;border:1px solid #3a1010;border-radius:6px;padding:4px 8px;margin-bottom:10px}
+.live-dot{width:6px;height:6px;border-radius:50%;background:#e94560;animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.live-text{color:#e94560;font-size:9px;font-weight:500}
+.live-count{color:#888;font-size:9px}
+
+/* DASHBOARD */
+.dash-layout{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:14px}
+.dash-card{background:#0d0d1e;border:1px solid #1a1a30;border-radius:10px;padding:12px}
+.dash-card.wide{grid-column:span 2}
+.dash-card.full{grid-column:span 3}
+.dc-label{color:#555;font-size:9px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;margin-bottom:4px}
+.dc-value{color:#fff;font-size:22px;font-weight:600}
+.dc-sub{color:#666;font-size:9px;margin-top:2px}
+.dc-accent{color:#e94560}
+.mini-bar-wrap{display:flex;flex-direction:column;gap:5px;margin-top:8px}
+.mini-bar-row{display:flex;align-items:center;gap:8px}
+.mini-bar-label{color:#666;font-size:9px;width:52px;flex-shrink:0}
+.mini-bar-track{flex:1;height:5px;background:#1a1a2e;border-radius:3px;overflow:hidden}
+.mini-bar-fill{height:100%;border-radius:3px;background:var(--c)}
+.mini-bar-val{color:#888;font-size:9px;width:22px;text-align:right}
+.streak-row{display:flex;gap:4px;margin-top:8px;flex-wrap:wrap}
+.streak-day{width:18px;height:18px;border-radius:4px;background:var(--c)}
+.activity-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #111}
+.act-cover{width:32px;height:44px;border-radius:5px;background:var(--c);flex-shrink:0}
+.act-info{flex:1}
+.act-title{color:#ccc;font-size:11px;font-weight:500}
+.act-detail{color:#555;font-size:9px;margin-top:2px}
+.act-time{color:#444;font-size:9px}
+</style>
+
+<h2 class="sr-only">MangaVerse web application preview — interactive multi-page mockup with Home, Reader, Browse, Community, and Dashboard views</h2>
+
+<div class="mv-wrap">
+  <div class="topbar">
+    <div class="logo">Manga<span>Verse</span></div>
+    <div class="search-wrap">
+      <i class="ti ti-search" aria-hidden="true"></i>
+      <input type="text" placeholder="Search 12,000+ titles...">
+    </div>
+    <div class="topnav">
+      <div class="tnav active" onclick="switchPage('home',this)">Home</div>
+      <div class="tnav" onclick="switchPage('browse',this)">Browse</div>
+      <div class="tnav" onclick="switchPage('reader',this)">Reader</div>
+      <div class="tnav" onclick="switchPage('community',this)">Community</div>
+      <div class="tnav" onclick="switchPage('dashboard',this)">Dashboard</div>
+    </div>
+    <div class="topbar-right">
+      <div class="coin-badge"><i class="ti ti-coin" style="font-size:12px;color:#f0c040" aria-hidden="true"></i><span>120</span></div>
+      <button class="premium-btn">Go Ultra</button>
+      <div class="avatar-sm">AJ</div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="sidebar">
+      <div class="sb-section">Discover</div>
+      <div class="sb-item active"><i class="ti ti-home" aria-hidden="true"></i><span>Home</span></div>
+      <div class="sb-item"><i class="ti ti-compass" aria-hidden="true"></i><span>Browse</span></div>
+      <div class="sb-item"><i class="ti ti-trending-up" aria-hidden="true"></i><span>Trending</span></div>
+      <div class="sb-item"><i class="ti ti-sparkles" aria-hidden="true"></i><span>New Releases</span><div class="sb-badge">48</div></div>
+      <div class="sb-item"><i class="ti ti-trophy" aria-hidden="true"></i><span>Rankings</span></div>
+      <div class="sb-divider"></div>
+      <div class="sb-section">My Space</div>
+      <div class="sb-item"><i class="ti ti-books" aria-hidden="true"></i><span>Library</span></div>
+      <div class="sb-item"><i class="ti ti-history" aria-hidden="true"></i><span>History</span></div>
+      <div class="sb-item"><i class="ti ti-download" aria-hidden="true"></i><span>Downloads</span></div>
+      <div class="sb-item"><i class="ti ti-chart-bar" aria-hidden="true"></i><span>My Stats</span></div>
+      <div class="sb-divider"></div>
+      <div class="sb-section">Community</div>
+      <div class="sb-item"><i class="ti ti-messages" aria-hidden="true"></i><span>Forums</span></div>
+      <div class="sb-item"><i class="ti ti-users" aria-hidden="true"></i><span>Reading Clubs</span></div>
+      <div class="sb-item"><i class="ti ti-writing" aria-hidden="true"></i><span>Wiki</span></div>
+      <div class="sb-item"><i class="ti ti-crystal-ball" aria-hidden="true"></i><span>Predictions</span></div>
+      <div class="sb-divider"></div>
+      <div class="sb-section">Creator</div>
+      <div class="sb-item"><i class="ti ti-upload" aria-hidden="true"></i><span>Upload</span></div>
+      <div class="sb-item"><i class="ti ti-dashboard" aria-hidden="true"></i><span>Analytics</span></div>
+    </div>
+
+    <div class="content">
+
+      <!-- HOME -->
+      <div class="page active" id="page-home">
+        <div class="hero-section">
+          <div class="hero-gradient"></div>
+          <div class="hero-grid">
+            <div class="hg-card" style="--c:#2d1b69"></div>
+            <div class="hg-card" style="--c:#1b3a69"></div>
+            <div class="hg-card" style="--c:#69201b"></div>
+            <div class="hg-card" style="--c:#1b6940"></div>
+            <div class="hg-card" style="--c:#5e1b69"></div>
+            <div class="hg-card" style="--c:#1b5269"></div>
+            <div class="hg-card" style="--c:#693a1b"></div>
+            <div class="hg-card" style="--c:#1b6969"></div>
+          </div>
+          <div class="hero-content">
+            <div class="hero-badge">🔥 Trending #1 Worldwide</div>
+            <div class="hero-title">Solo Leveling:<br>Ragnarök</div>
+            <div class="hero-meta">Manhwa · Action · Fantasy · Ch. 182 just dropped</div>
+            <div class="hero-actions">
+              <button class="hero-btn-primary">Read Now</button>
+              <button class="hero-btn-sec">+ Library</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-wrap">
+          <div class="sec-hdr"><span class="sec-title">Continue Reading</span><span class="sec-link">View all</span></div>
+          <div class="h-cards">
+            <div class="v-card"><div class="vc-cover" style="--c:#2d1b69"><div class="vc-badge">Ch.198</div></div><div class="vc-title">Omniscient Reader's Viewpoint</div><div class="vc-ch">2h ago · 89% done</div></div>
+            <div class="v-card"><div class="vc-cover" style="--c:#69201b"><div class="vc-badge">Ch.44</div></div><div class="vc-title">Solo Leveling: Ragnarök</div><div class="vc-ch">Just updated</div></div>
+            <div class="v-card"><div class="vc-cover" style="--c:#1b3a69"><div class="vc-badge">Vol.12</div></div><div class="vc-title">Sword Art Online LN</div><div class="vc-ch">Up to date</div></div>
+            <div class="v-card"><div class="vc-cover" style="--c:#1b6940"><div class="vc-badge">Ch.289</div></div><div class="vc-title">Blue Lock</div><div class="vc-ch">Updated 8h ago</div></div>
+            <div class="v-card"><div class="vc-cover" style="--c:#5e1b69"><div class="vc-badge">Ch.120</div></div><div class="vc-title">Chainsaw Man</div><div class="vc-ch">Updated 5h ago</div></div>
+          </div>
+        </div>
+
+        <div class="section-wrap" style="padding-top:0">
+          <div class="sec-hdr"><span class="sec-title">Browse by Genre</span></div>
+          <div class="tag-pills">
+            <div class="pill active">All</div><div class="pill">Action</div><div class="pill">Romance</div><div class="pill">Isekai</div><div class="pill">Horror</div><div class="pill">Fantasy</div><div class="pill">Cultivation</div><div class="pill">Slice of Life</div><div class="pill">Mystery</div><div class="pill">Sports</div><div class="pill">Mecha</div><div class="pill">Ecchi</div>
+          </div>
+          <div class="grid-4">
+            <div class="grid-card"><div class="gc-cover" style="--c:#2d1b69"></div><div class="gc-title">Omniscient Reader's Viewpoint</div><div class="gc-sub">Manhwa · Ch.221</div></div>
+            <div class="grid-card"><div class="gc-cover" style="--c:#1b3a5e"></div><div class="gc-title">Tower of God</div><div class="gc-sub">Manhwa · Ch.600</div></div>
+            <div class="grid-card"><div class="gc-cover" style="--c:#5e2d1b"></div><div class="gc-title">Demon Slayer</div><div class="gc-sub">Manga · Ch.205</div></div>
+            <div class="grid-card"><div class="gc-cover" style="--c:#1b5e2d"></div><div class="gc-title">Beginning After the End</div><div class="gc-sub">Manhwa · Ch.195</div></div>
+          </div>
+        </div>
+
+        <div class="section-wrap" style="padding-top:0">
+          <div class="sec-hdr"><span class="sec-title">Hot This Week</span><span class="sec-link">Full chart</span></div>
+          <div class="h-cards">
+            <div class="v-card"><div class="vc-cover" style="--c:#1b2d5e"><div class="vc-badge">#1</div></div><div class="vc-title">My Hero Academia</div><div class="vc-ch">Ch.432</div></div>
+            <div class="v-card"><div class="vc-cover" style="--c:#5e1b2d"><div class="vc-badge">#2</div></div><div class="vc-title">Jujutsu Kaisen</div><div class="vc-ch">Ch.266</div></div>
+            <div class="v-card"><div class="vc-cover" style="--c:#3d1b69"><div class="vc-badge">#3</div></div><div class="vc-title">Eleceed</div><div class="vc-ch">Ch.270</div></div>
+            <div class="v-card"><div class="vc-cover" style="--c:#1b5e3d"><div class="vc-badge">#4</div></div><div class="vc-title">Tales of Demons</div><div class="vc-ch">Ch.488</div></div>
+            <div class="v-card"><div class="vc-cover" style="--c:#5e3d1b"><div class="vc-badge">#5</div></div><div class="vc-title">One Piece</div><div class="vc-ch">Ch.1115</div></div>
+            <div class="v-card"><div class="vc-cover" style="--c:#1b3d5e"><div class="vc-badge">#6</div></div><div class="vc-title">Mercenary Enrollment</div><div class="vc-ch">Ch.154</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- READER -->
+      <div class="page" id="page-reader">
+        <div class="reader-wrap">
+          <div class="reader-sidebar">
+            <div class="rs-header">
+              <div class="rs-title">Omniscient Reader's Viewpoint</div>
+              <div class="rs-ch">Chapter 198 — The Final Scenario</div>
+            </div>
+            <div class="rs-controls">
+              <div class="rs-btn"><i class="ti ti-layout-list" style="font-size:11px" aria-hidden="true"></i> Vertical</div>
+              <div class="rs-btn"><i class="ti ti-layout-columns" style="font-size:11px" aria-hidden="true"></i> Page</div>
+            </div>
+            <div class="ch-list">
+              <div class="ch-item"><div><div class="ch-num">Ch. 200</div><div class="ch-date">2h ago</div></div><div class="ch-lock">🔒</div></div>
+              <div class="ch-item"><div><div class="ch-num">Ch. 199</div><div class="ch-date">1d ago</div></div><div class="ch-lock">🔒</div></div>
+              <div class="ch-item active"><div><div class="ch-num">Ch. 198</div><div class="ch-date">3d ago</div></div></div>
+              <div class="ch-item"><div><div class="ch-num">Ch. 197</div><div class="ch-date">1w ago</div></div></div>
+              <div class="ch-item"><div><div class="ch-num">Ch. 196</div><div class="ch-date">1w ago</div></div></div>
+              <div class="ch-item"><div><div class="ch-num">Ch. 195</div><div class="ch-date">2w ago</div></div></div>
+              <div class="ch-item"><div><div class="ch-num">Ch. 194</div><div class="ch-date">2w ago</div></div></div>
+              <div class="ch-item"><div><div class="ch-num">Ch. 193</div><div class="ch-date">3w ago</div></div></div>
+              <div class="ch-item"><div><div class="ch-num">Ch. 192</div><div class="ch-date">3w ago</div></div></div>
+              <div class="ch-item"><div><div class="ch-num">Ch. 191</div><div class="ch-date">1mo ago</div></div></div>
+            </div>
+          </div>
+          <div class="reader-main">
+            <div class="reader-topbar">
+              <span class="reader-title">Omniscient Reader · Ch.198 · The Final Scenario</span>
+              <div class="reader-tools">
+                <div class="rt-btn"><i class="ti ti-moon" aria-hidden="true"></i> Night</div>
+                <div class="rt-btn"><i class="ti ti-zoom-in" aria-hidden="true"></i> Zoom</div>
+                <div class="rt-btn"><i class="ti ti-bookmark" aria-hidden="true"></i></div>
+                <div class="rt-btn"><i class="ti ti-maximize" aria-hidden="true"></i></div>
+              </div>
+            </div>
+            <div class="reader-canvas">
+              <div class="manga-page"><div class="page-placeholder" style="--c:#141428;height:260px;color:#222">[ Page 1 — Full splash panel ]</div></div>
+              <div class="manga-page"><div class="page-placeholder" style="--c:#121220;height:240px;color:#222">[ Page 2 — Dialogue scene ]</div></div>
+              <div class="manga-page"><div class="page-placeholder" style="--c:#16141e;height:250px;color:#222">[ Page 3 — Action sequence ]</div></div>
+            </div>
+            <div class="reader-bottom">
+              <div class="pn-btn">← Prev</div>
+              <div class="page-counter">Page 3 / 28</div>
+              <div class="progress-track"><div class="progress-thumb"></div></div>
+              <div class="page-counter">Ch. 198</div>
+              <div class="pn-btn">Next →</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BROWSE -->
+      <div class="page" id="page-browse">
+        <div class="browse-layout">
+          <div class="filter-panel">
+            <div class="fp-title">Format</div>
+            <div class="fp-options">
+              <div class="fp-opt"><input type="checkbox" checked id="f1"><label for="f1">Manga</label></div>
+              <div class="fp-opt"><input type="checkbox" checked id="f2"><label for="f2">Manhwa</label></div>
+              <div class="fp-opt"><input type="checkbox" id="f3"><label for="f3">Manhua</label></div>
+              <div class="fp-opt"><input type="checkbox" id="f4"><label for="f4">Light Novel</label></div>
+            </div>
+            <div class="fp-title">Status</div>
+            <div class="fp-options">
+              <div class="fp-opt"><input type="checkbox" checked id="s1"><label for="s1">Ongoing</label></div>
+              <div class="fp-opt"><input type="checkbox" id="s2"><label for="s2">Completed</label></div>
+              <div class="fp-opt"><input type="checkbox" id="s3"><label for="s3">Hiatus</label></div>
+            </div>
+            <div class="fp-title">Genre</div>
+            <div class="fp-options">
+              <div class="fp-opt"><input type="checkbox" checked id="g1"><label for="g1">Action</label></div>
+              <div class="fp-opt"><input type="checkbox" id="g2"><label for="g2">Romance</label></div>
+              <div class="fp-opt"><input type="checkbox" checked id="g3"><label for="g3">Fantasy</label></div>
+              <div class="fp-opt"><input type="checkbox" id="g4"><label for="g4">Isekai</label></div>
+              <div class="fp-opt"><input type="checkbox" id="g5"><label for="g5">Horror</label></div>
+              <div class="fp-opt"><input type="checkbox" id="g6"><label for="g6">Sci-Fi</label></div>
+              <div class="fp-opt"><input type="checkbox" id="g7"><label for="g7">Cultivation</label></div>
+              <div class="fp-opt"><input type="checkbox" id="g8"><label for="g8">Sports</label></div>
+            </div>
+            <div class="fp-title">Rating</div>
+            <div class="fp-options">
+              <div class="fp-opt"><input type="checkbox" id="r1"><label for="r1">9+</label></div>
+              <div class="fp-opt"><input type="checkbox" checked id="r2"><label for="r2">8+</label></div>
+              <div class="fp-opt"><input type="checkbox" id="r3"><label for="r3">7+</label></div>
+            </div>
+          </div>
+          <div class="browse-main">
+            <div class="search-topbar">
+              <div class="big-search-wrap">
+                <i class="ti ti-search" aria-hidden="true"></i>
+                <input type="text" class="big-search" placeholder="Search 12,480 titles...">
+              </div>
+              <span class="result-count">12,480 results</span>
+              <select class="sort-sel"><option>Trending</option><option>Newest</option><option>Rating</option><option>A–Z</option></select>
+            </div>
+            <div class="browse-grid">
+              <div class="grid-card"><div class="gc-cover" style="--c:#2d1b69"></div><div class="gc-title">Omniscient Reader</div><div class="gc-sub">Manhwa</div></div>
+              <div class="grid-card"><div class="gc-cover" style="--c:#1b3a5e"></div><div class="gc-title">Tower of God</div><div class="gc-sub">Manhwa</div></div>
+              <div class="grid-card"><div class="gc-cover" style="--c:#5e2d1b"></div><div class="gc-title">Demon Slayer</div><div class="gc-sub">Manga</div></div>
+              <div class="grid-card"><div class="gc-cover" style="--c:#1b5e2d"></div><div class="gc-title">TBATE</div><div class="gc-sub">Manhwa</div></div>
+              <div class="grid-card"><div class="gc-cover" style="--c:#5e1b3a"></div><div class="gc-title">Chainsaw Man</div><div class="gc-sub">Manga</div></div>
+              <div class="grid-card"><div class="gc-cover" style="--c:#1b5e5e"></div><div class="gc-title">Tales of Demons</div><div class="gc-sub">Manhua</div></div>
+              <div class="grid-card"><div class="gc-cover" style="--c:#3a1b5e"></div><div class="gc-title">Solo Leveling</div><div class="gc-sub">Manhwa</div></div>
+              <div class="grid-card"><div class="gc-cover" style="--c:#5e3a1b"></div><div class="gc-title">One Piece</div><div class="gc-sub">Manga</div></div>
+              <div class="grid-card"><div class="gc-cover" style="--c:#1b3a2d"></div><div class="gc-title">Eleceed</div><div class="gc-sub">Manhwa</div></div>
+              <div class="grid-card"><div class="gc-cover" style="--c:#2d3a1b"></div><div class="gc-title">Blue Lock</div><div class="gc-sub">Manga</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- COMMUNITY -->
+      <div class="page" id="page-community">
+        <div class="community-layout">
+          <div class="comm-main">
+            <div class="live-badge"><div class="live-dot"></div><span class="live-text">Live Discussion</span><span class="live-count" style="margin-left:6px">· 1,240 online now</span></div>
+            <div class="forum-post">
+              <div class="fp-header"><div class="fp-avatar" style="--c:#2d1b69">SK</div><div class="fp-meta"><div class="fp-user">ShinKim<span class="fp-tag theory">Theory</span></div><div class="fp-time">15 minutes ago · Solo Leveling</div></div></div>
+              <div class="fp-title-text">Sung Jinwoo's shadow army will be the key to defeating the Monarchs — here's the evidence from chapter 180–182</div>
+              <div class="fp-preview">After re-reading the last 3 chapters carefully, I noticed something subtle in the panel composition. The way the artist draws Beru's eyes in the final page suggests that he's already aware of Ashborn's true plan and has been keeping a secret from Jinwoo since chapter 167...</div>
+              <div class="fp-footer"><div class="fp-stat"><i class="ti ti-message" aria-hidden="true"></i>142 replies</div><div class="fp-stat"><i class="ti ti-eye" aria-hidden="true"></i>8.4K views</div><div style="margin-left:auto"><div class="fp-upvote"><i class="ti ti-arrow-up" style="font-size:11px;color:#e94560" aria-hidden="true"></i><span>892</span></div></div></div>
+            </div>
+            <div class="forum-post">
+              <div class="fp-header"><div class="fp-avatar" style="--c:#5e1b2d">AR</div><div class="fp-meta"><div class="fp-user">Adaora_R<span class="fp-tag prediction">Prediction</span></div><div class="fp-time">1 hour ago · Omniscient Reader</div></div></div>
+              <div class="fp-title-text">Prediction Market: Will Kim Dokja reveal his true identity in the next 5 chapters? — 500 coins staked</div>
+              <div class="fp-preview">I'm going all in on YES. The narrative foreshadowing in chapters 195-198 has been building toward a massive reveal. The author has been dropping hints in every chapter and the story can't sustain the mystery much longer without losing tension...</div>
+              <div class="fp-footer"><div class="fp-stat"><i class="ti ti-coin" aria-hidden="true"></i>500 coins staked</div><div class="fp-stat"><i class="ti ti-users" aria-hidden="true"></i>234 voters</div><div style="margin-left:auto"><div class="fp-upvote"><i class="ti ti-arrow-up" style="font-size:11px;color:#e94560" aria-hidden="true"></i><span>445</span></div></div></div>
+            </div>
+            <div class="forum-post">
+              <div class="fp-header"><div class="fp-avatar" style="--c:#1b5e3d">TM</div><div class="fp-meta"><div class="fp-user">TobiM<span class="fp-tag discussion">Discussion</span></div><div class="fp-time">3 hours ago · Blue Lock</div></div></div>
+              <div class="fp-title-text">Chapter 289 discussion — Isagi's new awakening is the most insane power-up in sports manga history</div>
+              <div class="fp-preview">I've been reading sports manga for 10 years and nothing has hit me like this chapter. The way Kaneshiro-sensei visualised Isagi's meta-vision upgrade was genuinely new — using the field like a chessboard with variable piece weights...</div>
+              <div class="fp-footer"><div class="fp-stat"><i class="ti ti-message" aria-hidden="true"></i>389 replies</div><div class="fp-stat"><i class="ti ti-eye" aria-hidden="true"></i>22K views</div><div style="margin-left:auto"><div class="fp-upvote"><i class="ti ti-arrow-up" style="font-size:11px;color:#e94560" aria-hidden="true"></i><span>2,104</span></div></div></div>
+            </div>
+          </div>
+          <div class="comm-sidebar">
+            <div class="cs-section">
+              <div class="cs-hdr">Top Theories Today</div>
+              <div class="cs-item"><div class="cs-rank">#1</div><div class="cs-name">Jinwoo is Ashborn reborn</div><div class="cs-val">⬆ 892</div></div>
+              <div class="cs-item"><div class="cs-rank">#2</div><div class="cs-name">ORV true ending theory</div><div class="cs-val">⬆ 445</div></div>
+              <div class="cs-item"><div class="cs-rank">#3</div><div class="cs-name">Isagi's final form</div><div class="cs-val">⬆ 210</div></div>
+            </div>
+            <div class="cs-section">
+              <div class="cs-hdr">Active Reading Clubs</div>
+              <div class="cs-item"><div class="cs-rank"></div><div class="cs-name">ORV Deep Dive</div><div class="cs-val">840 members</div></div>
+              <div class="cs-item"><div class="cs-rank"></div><div class="cs-name">Weekly Blue Lock</div><div class="cs-val">612 members</div></div>
+              <div class="cs-item"><div class="cs-rank"></div><div class="cs-name">Manhua Monday</div><div class="cs-val">340 members</div></div>
+            </div>
+            <div class="cs-section">
+              <div class="cs-hdr">Top Predictors</div>
+              <div class="cs-item"><div class="cs-rank">#1</div><div class="cs-name">Oracle_san</div><div class="cs-val">91% acc</div></div>
+              <div class="cs-item"><div class="cs-rank">#2</div><div class="cs-name">WeebProphet</div><div class="cs-val">87% acc</div></div>
+              <div class="cs-item"><div class="cs-rank">#3</div><div class="cs-name">Adaora_R</div><div class="cs-val">83% acc</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- DASHBOARD -->
+      <div class="page" id="page-dashboard">
+        <div class="dash-layout">
+          <div class="dash-card"><div class="dc-label">Chapters Read</div><div class="dc-value">1,<span class="dc-accent">247</span></div><div class="dc-sub">+48 this week</div></div>
+          <div class="dash-card"><div class="dc-label">Reading Streak</div><div class="dc-value">🔥 <span class="dc-accent">34</span></div><div class="dc-sub">days in a row</div></div>
+          <div class="dash-card"><div class="dc-label">Coin Balance</div><div class="dc-value" style="color:#f0c040">120</div><div class="dc-sub">+30 earned today</div></div>
+          <div class="dash-card wide"><div class="dc-label">Genre Breakdown</div>
+            <div class="mini-bar-wrap" style="margin-top:10px">
+              <div class="mini-bar-row"><div class="mini-bar-label">Action</div><div class="mini-bar-track"><div class="mini-bar-fill" style="--c:#e94560;width:78%"></div></div><div class="mini-bar-val">78%</div></div>
+              <div class="mini-bar-row"><div class="mini-bar-label">Fantasy</div><div class="mini-bar-track"><div class="mini-bar-fill" style="--c:#7b2fbe;width:55%"></div></div><div class="mini-bar-val">55%</div></div>
+              <div class="mini-bar-row"><div class="mini-bar-label">Romance</div><div class="mini-bar-track"><div class="mini-bar-fill" style="--c:#e94560;width:30%"></div></div><div class="mini-bar-val">30%</div></div>
+              <div class="mini-bar-row"><div class="mini-bar-label">Horror</div><div class="mini-bar-track"><div class="mini-bar-fill" style="--c:#7b2fbe;width:18%"></div></div><div class="mini-bar-val">18%</div></div>
+              <div class="mini-bar-row"><div class="mini-bar-label">Sci-Fi</div><div class="mini-bar-track"><div class="mini-bar-fill" style="--c:#0066ff;width:12%"></div></div><div class="mini-bar-val">12%</div></div>
+            </div>
+          </div>
+          <div class="dash-card"><div class="dc-label">Series In Library</div><div class="dc-value">48</div><div class="dc-sub">12 completed</div></div>
+          <div class="dash-card full"><div class="dc-label">7-Day Streak Calendar</div>
+            <div class="streak-row" style="margin-top:10px">
+              ${Array.from({length:28},(_,i)=>`<div class="streak-day" style="--c:${i<21?'#2d1040':'#1a1a2e'}"></div>`).join('')}
+            </div>
+            <div style="color:#555;font-size:9px;margin-top:6px">Last 28 days · Green = reading day</div>
+          </div>
+          <div class="dash-card full"><div class="dc-label">Recent Activity</div>
+            <div class="activity-row" style="margin-top:8px"><div class="act-cover" style="--c:#2d1b69"></div><div class="act-info"><div class="act-title">Omniscient Reader — Ch. 198</div><div class="act-detail">Read 28 pages · Manhwa</div></div><div class="act-time">2h ago</div></div>
+            <div class="activity-row"><div class="act-cover" style="--c:#5e1b2d"></div><div class="act-info"><div class="act-title">Solo Leveling: Ragnarök — Ch. 44</div><div class="act-detail">Read 32 pages · Manhwa</div></div><div class="act-time">5h ago</div></div>
+            <div class="activity-row"><div class="act-cover" style="--c:#1b5e3d"></div><div class="act-info"><div class="act-title">Blue Lock — Ch. 289</div><div class="act-detail">Read 21 pages · Manga</div></div><div class="act-time">Yesterday</div></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+function switchPage(name, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tnav').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  if (el) el.classList.add('active');
+  const sbMap = {home:0,browse:1,reader:2,community:3,dashboard:4};
+  document.querySelectorAll('.sb-item').forEach((item,i) => item.classList.remove('active'));
+  const sbItems = document.querySelectorAll('.sb-item');
+  const idx = sbMap[name];
+  if (sbItems[idx]) sbItems[idx].classList.add('active');
+}
+</script>

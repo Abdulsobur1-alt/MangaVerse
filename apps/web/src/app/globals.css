@@ -1,0 +1,48 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-mv-dark: #0a0a14;
+  --color-mv-darker: #0d0d1e;
+  --color-mv-surface: #1a1a2e;
+  --color-mv-border: #1a1a30;
+  --color-mv-border-light: #252540;
+  --color-mv-accent: #e94560;
+  --color-mv-purple: #7b2fbe;
+  --color-mv-gold: #f0c040;
+  --color-mv-text: #ccc;
+  --color-mv-text-secondary: #888;
+  --color-mv-text-muted: #555;
+  --color-mv-text-dim: #444;
+
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+}
+
+/*
+  The default border color has changed to `currentColor` in Tailwind CSS v4,
+  so we add the base border styles.
+*/
+*,
+::after,
+::before {
+  border-color: var(--color-gray-200);
+}
+
+body {
+  background: var(--color-mv-dark);
+  color: var(--color-mv-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom scrollbar for WebKit */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #222;
+  border-radius: 2px;
+}
