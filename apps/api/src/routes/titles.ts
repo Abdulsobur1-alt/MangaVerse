@@ -136,12 +136,6 @@ titlesRouter.get('/:slug', optionalAuth, validate({ params: TitleSlugParams }), 
     const chaptersLimit = parseInt(req.query.chaptersLimit as string) || 50;
     const chaptersSkip = (chaptersPage - 1) * chaptersLimit;
 
-    const cached = await cacheGet<any>(`titles:${slug}:${chaptersPage}:${chaptersLimit}`);
-    if (cached) {
-      res.json({ success: true, data: cached });
-      return;
-    }
-
     const [title, chapters, totalChapters] = await Promise.all([
       prisma.title.findUnique({
         where: { slug },
@@ -194,8 +188,6 @@ titlesRouter.get('/:slug', optionalAuth, validate({ params: TitleSlugParams }), 
         hasMore: chaptersSkip + chapters.length < totalChapters,
       },
     };
-
-    await cacheSet(`titles:${slug}:${chaptersPage}:${chaptersLimit}`, result, 300);
 
     res.json({ success: true, data: result });
   } catch (err) {
