@@ -105,6 +105,35 @@ export interface TitleDetail extends TitleItem {
   };
 }
 
+// ─── Review Types ────────────────────────────────
+
+export interface ReviewUser {
+  id: string;
+  displayName: string;
+  avatarUrl: string | null;
+}
+
+export interface ReviewItem {
+  id: string;
+  rating: number;
+  body: string | null;
+  subScores: Record<string, number> | null;
+  helpfulCount: number;
+  createdAt: string;
+  updatedAt: string;
+  user: ReviewUser;
+}
+
+export interface ReviewsResponse {
+  items: ReviewItem[];
+  total: number;
+  page: number;
+  limit: number;
+  hasMore: boolean;
+  averageRating: number | null;
+  totalReviews: number;
+}
+
 export interface PaginatedResult<T> {
   items: T[];
   total: number;

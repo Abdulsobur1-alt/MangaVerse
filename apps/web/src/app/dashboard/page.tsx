@@ -6,6 +6,7 @@ import { TopBar } from '@/components/TopBar';
 import { useAuthStore } from '@/store/authStore';
 import { useUserStats } from '@/lib/hooks/useAuth';
 import { useReadingHistory } from '@/lib/hooks/useReading';
+import { useMyReviews } from '@/lib/hooks/useReviews';
 
 const GENRE_COLORS: Record<string, string> = {
   action: '#e94560',
@@ -23,6 +24,7 @@ export default function DashboardPage() {
   const { user } = useAuthStore();
   const { data: stats } = useUserStats();
   const { data: history } = useReadingHistory();
+  const { data: myReviews } = useMyReviews();
 
   const readingData = history as {
     id: string;
@@ -43,6 +45,7 @@ export default function DashboardPage() {
 
   const recentActivity = readingData?.slice(0, 5) || [];
   const calendarDays = s?.readingCalendar || [];
+  const recentReviews = myReviews?.slice(0, 3) || [];
 
   return (
     <ProtectedRoute>
@@ -156,6 +159,37 @@ export default function DashboardPage() {
             </div>
 
             {/* Recent Activity */}
+            {/* Recent Reviews */}
+            {recentReviews.length > 0 && (
+              <div className="rounded-xl bg-mv-darker border border-mv-border p-5 md:col-span-2">
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-mv-text-muted">Recent Reviews</p>
+                  <a href="/reviews" className="text-[9px] text-mv-accent hover:underline">View all</a>
+                </div>
+                <div className="space-y-2">
+                  {recentReviews.map((rev) => (
+                    <a
+                      key={rev.id}
+                      href={`/title/${rev.title.slug}`}
+                      className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-mv-surface transition-colors"
+                    >
+                      <div className="flex h-9 w-7 items-center justify-center rounded bg-mv-surface text-[9px]">
+                        {rev.title.type === 'MANHWA' ? '🇰🇷' : rev.title.type === 'MANHUA' ? '🇨🇳' : '📖'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-mv-text truncate">{rev.title.title}</p>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <span className="text-[9px] text-mv-gold">{'★'.repeat(rev.rating)}{'☆'.repeat(10 - rev.rating)}</span>
+                          <span className="text-[9px] text-mv-text-dim">{rev.rating}/10</span>
+                        </div>
+                      </div>
+                      <svg className="h-3 w-3 text-mv-text-dim" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="rounded-xl bg-mv-darker border border-mv-border p-5 md:col-span-3">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-mv-text-muted mb-4">Recent Reading Activity</p>
 

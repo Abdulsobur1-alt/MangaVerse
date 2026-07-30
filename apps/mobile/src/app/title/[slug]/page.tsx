@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, TextInput } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useTitle } from '../../../lib/queryClient';
+import { useTitle, useTitleReviews, useCreateReview, useDeleteReview } from '../../../lib/queryClient';
 
 const CH_PER_PAGE = 50;
 
@@ -21,7 +21,24 @@ export default function TitleDetailScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const slugStr = typeof slug === 'string' ? slug : '';
   const [chaptersPage, setChaptersPage] = useState(1);
+  const [reviewsPage, setReviewsPage] = useState(1);
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewBody, setReviewBody] = useState('');
   const { data: title, isLoading } = useTitle(slugStr, chaptersPage, CH_PER_PAGE);
+  const { data: reviewsData } = useTitleReviews(slugStr, { page: reviewsPage, limit: 5 });
+  const createReview = useCreateReview(slugStr);
+  const deleteReview = useDeleteReview();
+
+  const handleSubmitReview = async () => {
+    if (reviewBody.length < 10) return;
+    try {
+      await createReview.mutateAsync({ rating: reviewRating, body: reviewBody });
+      setShowReviewForm(false);
+      setReviewBody('');
+      setReviewRating(5);
+    } catch {}
+  };
 
   if (isLoading) {
     return (
@@ -186,6 +203,127 @@ export default function TitleDetailScreen() {
               )}
             </>
           )}
+          {/* Reviews Section */}
+          <View style={{ marginTop: 20, borderTopWidth: 1, borderTopColor: '#1a1a2e', paddingTop: 14 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <Text style={{ color: '#ccc', fontSize: 14, fontWeight: '500' }}>
+                Reviews · {reviewsData?.totalReviews || 0}
+              </Text>
+              {reviewsData?.averageRating && (
+                <Text style={{ color: '#f0c040', fontSize: 10 }}>⭐ {reviewsData.averageRating.toFixed(1)}</Text>
+              )}
+            </View>
+
+            {/* Write Review Button */}
+            <TouchableOpacity
+              style={{ backgroundColor: '#e94560', borderRadius: 8, paddingVertical: 8, alignItems: 'center', marginBottom: 12 }}
+              onPress={() => setShowReviewForm(!showReviewForm)}
+            >
+              <Text style={{ color: '#fff', fontSize: 11, fontWeight: '500' }}>
+                {showReviewForm ? 'Cancel' : 'Write Review'}
+              </Text>
+            </TouchableOpacity>
+
+            {/* Review Form */}
+            {showReviewForm && (
+              <View style={{ backgroundColor: '#1a1a2e', borderRadius: 10, padding: 12, marginBottom: 12 }}>
+                <Text style={{ color: '#fff', fontSize: 11, marginBottom: 8 }}>Rating (1-10)</Text>
+                <View style={{ flexDirection: 'row', gap: 4, marginBottom: 10 }}>
+                  {[1,2,3,4,5,6,7,8,9,10].map((r) => (
+                    <TouchableOpacity
+                      key={r}
+                      onPress={() => setReviewRating(r)}
+                      style={{
+                        width: 26, height: 26, borderRadius: 4,
+                        backgroundColor: reviewRating >= r ? '#e94560' : '#252540',
+                        justifyContent: 'center', alignItems: 'center',
+                      }}
+                    >
+                      <Text style={{ color: '#fff', fontSize: 9, fontWeight: '600' }}>{r}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <TextInput
+                  style={{ backgroundColor: '#252540', borderRadius: 8, padding: 10, color: '#ccc', fontSize: 11, minHeight: 60, textAlignVertical: 'top' }}
+                  placeholder="What did you think? (min. 10 chars)"
+                  placeholderTextColor="#555"
+                  value={reviewBody}
+                  onChangeText={setReviewBody}
+                  multiline
+                />
+                <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 8 }}>
+                  <TouchableOpacity
+                    onPress={handleSubmitReview}
+                    disabled={reviewBody.length < 10 || createReview.isPending}
+                    style={{
+                      backgroundColor: reviewBody.length >= 10 ? '#e94560' : '#252540',
+                      borderRadius: 6, paddingHorizontal: 16, paddingVertical: 7,
+                    }}
+                  >
+                    <Text style={{ color: '#fff', fontSize: 10 }}>
+                      {createReview.isPending ? '...' : 'Submit'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            {/* Reviews List */}
+            {!reviewsData || reviewsData.items.length === 0 ? (
+              <Text style={{ color: '#666', fontSize: 11, textAlign: 'center', padding: 16 }}>
+                No reviews yet. Be the first!
+              </Text>
+            ) : (
+              <>
+                {reviewsData.items.map((review) => (
+                  <View key={review.id} style={{ backgroundColor: '#1a1a2e', borderRadius: 10, padding: 12, marginBottom: 8 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#2d1040', justifyContent: 'center', alignItems: 'center' }}>
+                          <Text style={{ color: '#e94560', fontSize: 9, fontWeight: '600' }}>
+                            {review.user.displayName.charAt(0).toUpperCase()}
+                          </Text>
+                        </View>
+                        <Text style={{ color: '#ccc', fontSize: 10 }}>{review.user.displayName}</Text>
+                      </View>
+                      <Text style={{ color: '#f0c040', fontSize: 10, fontWeight: '600' }}>{review.rating}/10</Text>
+                    </View>
+                    {review.body && (
+                      <Text style={{ color: '#aaa', fontSize: 10, lineHeight: 15 }} numberOfLines={4}>
+                        {review.body}
+                      </Text>
+                    )}
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
+                      <Text style={{ color: '#555', fontSize: 8 }}>
+                        {formatDate(review.createdAt)}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+
+                {/* Review Pagination */}
+                {reviewsData.total > reviewsData.limit && (
+                  <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 12, paddingVertical: 10 }}>
+                    <TouchableOpacity
+                      onPress={() => setReviewsPage(p => Math.max(1, p - 1))}
+                      disabled={reviewsPage <= 1}
+                      style={{ opacity: reviewsPage <= 1 ? 0.3 : 1 }}
+                    >
+                      <Text style={{ color: '#888', fontSize: 11 }}>← Prev</Text>
+                    </TouchableOpacity>
+                    <Text style={{ color: '#666', fontSize: 10 }}>{reviewsPage}/{Math.ceil(reviewsData.total / reviewsData.limit)}</Text>
+                    <TouchableOpacity
+                      onPress={() => setReviewsPage(p => p + 1)}
+                      disabled={!reviewsData.hasMore}
+                      style={{ opacity: !reviewsData.hasMore ? 0.3 : 1 }}
+                    >
+                      <Text style={{ color: '#888', fontSize: 11 }}>Next →</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </>
+            )}
+          </View>
         </View>
       </ScrollView>
     </View>

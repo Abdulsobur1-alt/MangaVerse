@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
-import { api, TitleItem, TitleDetail, PaginatedResult, ChapterDetail, ChapterItem } from './api';
+import { QueryClient, QueryClientProvider, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { api, TitleItem, TitleDetail, PaginatedResult, ChapterDetail, ChapterItem, ReviewItem, ReviewsResponse } from './api';
 
 export function QueryProvider({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -80,6 +80,50 @@ export function useChapters(titleSlug?: string) {
     queryKey: ['chapters', titleSlug],
     queryFn: () => api.get(`/chapters?titleSlug=${titleSlug}`),
     enabled: !!titleSlug,
+  });
+}
+
+// ─── Reviews Hooks ────────────────────────────
+
+export function useTitleReviews(slug: string, options?: {
+  page?: number;
+  limit?: number;
+  sort?: string;
+}) {
+  const params = new URLSearchParams();
+  if (options?.page) params.set('page', String(options.page));
+  if (options?.limit) params.set('limit', String(options.limit));
+  if (options?.sort) params.set('sort', options.sort);
+
+  return useQuery<ReviewsResponse>({
+    queryKey: ['reviews', slug, options],
+    queryFn: () => api.get<ReviewsResponse>(`/reviews/title/${slug}?${params}`),
+    enabled: !!slug,
+  });
+}
+
+export function useCreateReview(slug: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: { rating: number; body: string }) =>
+      api.post(`/reviews/title/${slug}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reviews', slug] });
+      queryClient.invalidateQueries({ queryKey: ['title', slug] });
+    },
+  });
+}
+
+export function useDeleteReview() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/reviews/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reviews'] });
+      queryClient.invalidateQueries({ queryKey: ['title'] });
+    },
   });
 }
 

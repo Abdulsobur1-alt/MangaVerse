@@ -7,6 +7,7 @@ import { TopBar } from '@/components/TopBar';
 import { useTitle } from '@/lib/hooks/useTitles';
 import { useAddBookmark, useRemoveBookmark } from '@/lib/hooks/useLibrary';
 import { useAuthStore } from '@/store/authStore';
+import { useTitleReviews, useCreateReview, useDeleteReview } from '@/lib/hooks/useReviews';
 import { formatLabel, getPageNumbers } from '@mangaverse/shared';
 
 const CHAPTERS_PER_PAGE = 50;
@@ -20,6 +21,37 @@ export default function TitleDetailPage() {
   const removeBookmark = useRemoveBookmark();
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [bookmarkLoading, setBookmarkLoading] = useState(false);
+  const [reviewsPage, setReviewsPage] = useState(1);
+  const [sortReviews, setSortReviews] = useState('newest');
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewBody, setReviewBody] = useState('');
+  const [hoverRating, setHoverRating] = useState(0);
+
+  const { data: reviewsData } = useTitleReviews(slug, { page: reviewsPage, limit: 5, sort: sortReviews });
+  const createReview = useCreateReview(slug);
+  const deleteReview = useDeleteReview();
+
+  const handleSubmitReview = async () => {
+    if (!token || reviewBody.length < 10) return;
+    try {
+      await createReview.mutateAsync({ rating: reviewRating, body: reviewBody });
+      setShowReviewForm(false);
+      setReviewBody('');
+      setReviewRating(5);
+    } catch {
+      // Error handled by mutation
+    }
+  };
+
+  const handleDeleteReview = async (reviewId: string) => {
+    if (!token) return;
+    try {
+      await deleteReview.mutateAsync(reviewId);
+    } catch {
+      // Error handled by mutation
+    }
+  };
 
   // Check if already bookmarked
   useEffect(() => {
@@ -378,6 +410,204 @@ export default function TitleDetailPage() {
                   </>
                 )}
               </div>
+
+              {/* ─── Reviews Section ──────────────── */}
+              <div className="mt-12 border-t border-mv-border pt-8">
+                <div className="mb-6 flex items-center justify-between">
+                  <div>
+                    <h2 className="text-base font-medium text-white">
+                      Reviews
+                      <span className="ml-2 text-xs text-mv-text-muted font-normal">
+                        ({reviewsData?.totalReviews || title._count?.reviews || 0} total)
+                      </span>
+                    </h2>
+                    {reviewsData?.averageRating && (
+                      <p className="mt-1 text-xs text-mv-text-muted">
+                        Community rating: <span className="text-mv-gold font-medium">⭐ {reviewsData.averageRating.toFixed(1)}</span>
+                        / 10
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    {/* Sort */}
+                    <select
+                      value={sortReviews}
+                      onChange={(e) => { setSortReviews(e.target.value); setReviewsPage(1); }}
+                      className="rounded-lg border border-mv-border-light bg-mv-surface px-2.5 py-1.5 text-[10px] text-mv-text-secondary outline-none focus:border-mv-accent"
+                    >
+                      <option value="newest">Newest</option>
+                      <option value="highest">Highest Rated</option>
+                      <option value="lowest">Lowest Rated</option>
+                      <option value="helpful">Most Helpful</option>
+                    </select>
+
+                    {/* Write Review */}
+                    {token && (
+                      <button
+                        onClick={() => setShowReviewForm(!showReviewForm)}
+                        className="rounded-lg bg-mv-accent px-3.5 py-1.5 text-[10px] font-medium text-white transition-colors hover:bg-red-500"
+                      >
+                        {showReviewForm ? 'Cancel' : 'Write Review'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Review Form */}
+                {showReviewForm && (
+                  <div className="mb-6 rounded-xl border border-mv-border-light bg-mv-darker p-5 animate-fade-in">
+                    <h3 className="text-xs font-medium text-white mb-3">Write Your Review</h3>
+
+                    {/* Rating Stars */}
+                    <div className="mb-4">
+                      <p className="text-[10px] text-mv-text-muted mb-2">Rating (out of 10)</p>
+                      <div className="flex gap-1.5">
+                        {Array.from({ length: 10 }, (_, i) => i + 1).map((r) => (
+                          <button
+                            key={r}
+                            type="button"
+                            onClick={() => setReviewRating(r)}
+                            onMouseEnter={() => setHoverRating(r)}
+                            onMouseLeave={() => setHoverRating(0)}
+                            className={`flex h-8 w-8 items-center justify-center rounded-md text-xs font-bold transition-all ${
+                              (hoverRating || reviewRating) >= r
+                                ? 'bg-mv-accent text-white scale-110'
+                                : 'bg-mv-surface text-mv-text-dim hover:bg-mv-border-light'
+                            }`}
+                          >
+                            {r}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Review Body */}
+                    <textarea
+                      value={reviewBody}
+                      onChange={(e) => setReviewBody(e.target.value)}
+                      placeholder="What did you think? (min. 10 characters)"
+                      rows={4}
+                      className="w-full rounded-lg border border-mv-border-light bg-mv-surface px-3 py-2 text-xs text-mv-text placeholder:text-mv-text-dim outline-none focus:border-mv-accent resize-none"
+                    />
+
+                    <div className="mt-3 flex items-center justify-between">
+                      <span className="text-[9px] text-mv-text-dim">
+                        {reviewBody.length < 10 ? `${10 - reviewBody.length} more chars needed` : 'Ready to submit!'}
+                      </span>
+                      <button
+                        onClick={handleSubmitReview}
+                        disabled={reviewBody.length < 10 || createReview.isPending}
+                        className="rounded-lg bg-mv-accent px-4 py-2 text-[10px] font-medium text-white transition-colors hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {createReview.isPending ? 'Submitting...' : 'Submit Review'}
+                      </button>
+                    </div>
+
+                    {createReview.isError && (
+                      <p className="mt-2 text-[10px] text-red-400">Failed to submit review. You may have already reviewed this title.</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Reviews List */}
+                {!reviewsData || reviewsData.items.length === 0 ? (
+                  <div className="rounded-xl border border-mv-border bg-mv-darker p-8 text-center">
+                    <p className="text-xs text-mv-text-muted">No reviews yet. Be the first to share your thoughts!</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-4">
+                      {reviewsData.items.map((review) => (
+                        <div
+                          key={review.id}
+                          className="rounded-xl border border-mv-border bg-mv-darker p-4 transition-all hover:border-mv-border-light"
+                        >
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex items-center gap-2.5">
+                              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-mv-accent/20 text-[10px] font-semibold text-mv-accent">
+                                {review.user.displayName.charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <p className="text-xs font-medium text-mv-text">{review.user.displayName}</p>
+                                <p className="text-[9px] text-mv-text-dim">{formatReviewDate(review.createdAt)}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="flex gap-0.5">
+                                {Array.from({ length: 10 }, (_, i) => i + 1).map((r) => (
+                                  <span
+                                    key={r}
+                                    className={`text-[9px] ${r <= review.rating ? 'text-mv-gold' : 'text-mv-text-dim'}`}
+                                  >
+                                    ★
+                                  </span>
+                                ))}
+                              </div>
+                              <span className="text-[10px] font-bold text-mv-gold ml-1">{review.rating}</span>
+                            </div>
+                          </div>
+
+                          {review.body && (
+                            <p className="text-xs text-mv-text-secondary leading-relaxed">{review.body}</p>
+                          )}
+
+                          {review.subScores && (
+                            <div className="mt-2 flex flex-wrap gap-3">
+                              {Object.entries(review.subScores).map(([key, val]) => (
+                                val && (
+                                  <span key={key} className="rounded bg-mv-surface px-2 py-0.5 text-[9px] text-mv-text-dim">
+                                    {key.charAt(0).toUpperCase() + key.slice(1)}: {val}/10
+                                  </span>
+                                )
+                              ))}
+                            </div>
+                          )}
+
+                          <div className="mt-2 flex items-center gap-3 text-[9px] text-mv-text-dim">
+                            <span className="flex items-center gap-1">
+                              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" /></svg>
+                              {review.helpfulCount} helpful
+                            </span>
+                            {user?.email && review.user?.id === user.id && (
+                              <button
+                                onClick={() => handleDeleteReview(review.id)}
+                                disabled={deleteReview.isPending}
+                                className="text-red-400/50 hover:text-red-400 transition-colors disabled:opacity-30"
+                              >
+                                {deleteReview.isPending ? '...' : 'Delete'}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Review Pagination */}
+                    {reviewsData.total > reviewsData.limit && (
+                      <div className="mt-6 flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => setReviewsPage(p => Math.max(1, p - 1))}
+                          disabled={reviewsPage === 1}
+                          className="rounded-lg border border-mv-border-light bg-mv-surface px-3 py-1.5 text-[10px] text-mv-text-secondary transition-colors hover:text-mv-text disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          ← Prev
+                        </button>
+                        <span className="text-[10px] text-mv-text-muted">
+                          Page {reviewsPage} of {Math.ceil(reviewsData.total / reviewsData.limit)}
+                        </span>
+                        <button
+                          onClick={() => setReviewsPage(p => p + 1)}
+                          disabled={!reviewsData.hasMore}
+                          className="rounded-lg border border-mv-border-light bg-mv-surface px-3 py-1.5 text-[10px] text-mv-text-secondary transition-colors hover:text-mv-text disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          Next →
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -395,6 +625,18 @@ function formatDate(dateStr: string): string {
   if (days === 1) return 'Yesterday';
   if (days < 7) return `${days}d ago`;
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function formatReviewDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  const now = new Date();
+  const diff = now.getTime() - d.getTime();
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  if (days === 0) return 'Today';
+  if (days === 1) return 'Yesterday';
+  if (days < 7) return `${days}d ago`;
+  if (days < 30) return `${Math.floor(days / 7)}w ago`;
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 
