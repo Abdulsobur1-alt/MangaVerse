@@ -232,6 +232,173 @@ export function useAchievements() {
   });
 }
 
+// ─── Community Hooks ─────────────────────────
+
+export interface CommunityPost {
+  id: string;
+  title: string;
+  body: string;
+  tag: string;
+  tagColor: string;
+  views: number;
+  createdAt: string;
+  updatedAt: string;
+  author: { id: string; displayName: string; avatarUrl: string | null };
+  series: { slug: string; title: string; coverUrl: string | null } | null;
+  upvotes: number;
+  comments: number;
+  voted: boolean;
+}
+
+export interface ReadingClub {
+  id: string;
+  name: string;
+  memberCount: number;
+  createdAt: string;
+  joined: boolean;
+}
+
+export interface PredictionItem {
+  id: string;
+  question: string;
+  options: string[];
+  resolvesAt: string | null;
+  result: string | null;
+  createdAt: string;
+  title: { slug: string; title: string; coverUrl: string | null } | null;
+  optionStakes: Record<string, number>;
+  totalStaked: number;
+  totalVotes: number;
+  myVote: { option: string; coinsStaked: number } | null;
+}
+
+export function useCommunityPosts() {
+  return useQuery<{ items: CommunityPost[]; total: number; page: number; limit: number; hasMore: boolean }>({
+    queryKey: ['community', 'posts'],
+    queryFn: () => api.get(`/community/posts`),
+  });
+}
+
+export function useCreatePost() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: { title: string; body: string; tag: string }) =>
+      api.post('/community/posts', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['community', 'posts'] });
+    },
+  });
+}
+
+export interface PostComment {
+  id: string;
+  body: string;
+  createdAt: string;
+  author: { id: string; displayName: string; avatarUrl: string | null };
+}
+
+export interface PostDetail extends Omit<CommunityPost, 'comments'> {
+  comments: PostComment[];
+}
+
+export function useCommunityPost(id: string) {
+  return useQuery<PostDetail>({
+    queryKey: ['community', 'post', id],
+    queryFn: () => api.get<PostDetail>(`/community/posts/${id}`),
+    enabled: !!id,
+  });
+}
+
+export function useVotePost() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (postId: string) => api.post(`/community/posts/${postId}/vote`),
+    onSuccess: (_data, postId) => {
+      queryClient.invalidateQueries({ queryKey: ['community', 'post', postId] });
+      queryClient.invalidateQueries({ queryKey: ['community', 'posts'] });
+    },
+  });
+}
+
+export function useAddComment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: { postId: string; body: string }) =>
+      api.post(`/community/posts/${data.postId}/comments`, { body: data.body }),
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['community', 'post', vars.postId] });
+      queryClient.invalidateQueries({ queryKey: ['community', 'posts'] });
+    },
+  });
+}
+
+export function useReadingClubs() {
+  return useQuery<{ items: ReadingClub[] }>({
+    queryKey: ['community', 'clubs'],
+    queryFn: () => api.get(`/community/clubs`),
+  });
+}
+
+export function useCreateClub() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (name: string) => api.post('/community/clubs', { name }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['community', 'clubs'] });
+    },
+  });
+}
+
+export function useJoinClub() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (clubId: string) => api.post(`/community/clubs/${clubId}/join`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['community', 'clubs'] });
+    },
+  });
+}
+
+export function useLeaveClub() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (clubId: string) => api.post(`/community/clubs/${clubId}/leave`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['community', 'clubs'] });
+    },
+  });
+}
+
+export function usePredictions() {
+  return useQuery<{ items: PredictionItem[] }>({
+    queryKey: ['community', 'predictions'],
+    queryFn: () => api.get(`/community/predictions`),
+    staleTime: 60 * 1000,
+  });
+}
+
+export function useVotePrediction() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: { predictionId: string; option: string; coins: number }) =>
+      api.post(`/community/predictions/${data.predictionId}/vote`, {
+        option: data.option,
+        coins: data.coins,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['community', 'predictions'] });
+      queryClient.invalidateQueries({ queryKey: ['coins'] });
+    },
+  });
+}
+
 // ─── Reviews Hooks ────────────────────────────
 
 export function useTitleReviews(slug: string, options?: {

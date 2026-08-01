@@ -11,6 +11,7 @@ import { useTitleReviews, useCreateReview, useDeleteReview } from '@/lib/hooks/u
 import { formatLabel, getPageNumbers } from '@mangaverse/shared';
 import { COIN_UNLOCK_COST } from '@mangaverse/shared';
 import { useCoinBalance } from '@/lib/hooks/useCoins';
+import { useWiki, useUpsertWiki } from '@/lib/hooks/useCommunity';
 
 const CHAPTERS_PER_PAGE = 50;
 
@@ -34,6 +35,23 @@ export default function TitleDetailPage() {
   const createReview = useCreateReview(slug);
   const deleteReview = useDeleteReview();
   const { data: coinData } = useCoinBalance();
+  const { data: wikiData } = useWiki(slug);
+  const upsertWiki = useUpsertWiki();
+  const [editingWiki, setEditingWiki] = useState(false);
+  const [wikiContent, setWikiContent] = useState('');
+  const [wikiSaving, setWikiSaving] = useState(false);
+
+  const handleSaveWiki = async () => {
+    if (!token || wikiContent.trim().length < 1) return;
+    setWikiSaving(true);
+    try {
+      await upsertWiki.mutateAsync({ slug, contentMd: wikiContent.trim() });
+      setEditingWiki(false);
+    } catch {
+      // Error handled by mutation
+    }
+    setWikiSaving(false);
+  };
 
   const handleSubmitReview = async () => {
     if (!token || reviewBody.length < 10) return;
@@ -295,6 +313,71 @@ export default function TitleDetailPage() {
                   </div>
                 </div>
               )}
+
+              {/* ─── Wiki Section ────────────────────── */}
+              <div className="mt-8">
+                <div className="mb-3 flex items-center justify-between">
+                  <h2 className="text-base font-medium text-white">📖 Community Wiki</h2>
+                  <div className="flex items-center gap-2">
+                    {wikiData?.wiki && (
+                      <span className="text-[9px] text-mv-text-dim">v{wikiData.wiki.version}</span>
+                    )}
+                    {token && (
+                      <button
+                        onClick={() => {
+                          if (!editingWiki) setWikiContent(wikiData?.wiki?.contentMd || '');
+                          setEditingWiki(!editingWiki);
+                        }}
+                        className="rounded-lg border border-mv-border-light bg-mv-surface px-2.5 py-1 text-[9px] text-mv-text-secondary transition-colors hover:border-mv-accent hover:text-mv-accent"
+                      >
+                        {editingWiki ? 'Cancel' : wikiData?.wiki ? 'Edit' : 'Create'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {editingWiki ? (
+                  <div className="rounded-xl border border-mv-border-light bg-mv-darker p-4 animate-fade-in">
+                    <textarea
+                      value={wikiContent}
+                      onChange={(e) => setWikiContent(e.target.value)}
+                      placeholder="Write the community wiki for this title (markdown supported)..."
+                      rows={8}
+                      className="w-full rounded-lg border border-mv-border-light bg-mv-surface px-3 py-2 text-xs text-mv-text placeholder:text-mv-text-dim outline-none focus:border-mv-accent resize-none font-mono"
+                    />
+                    <div className="mt-3 flex items-center justify-between">
+                      <span className="text-[9px] text-mv-text-dim">
+                        {wikiData?.wiki ? `Editing v${wikiData.wiki.version} — save creates v${wikiData.wiki.version + 1}` : 'Creating a new wiki page'}
+                      </span>
+                      <button
+                        onClick={handleSaveWiki}
+                        disabled={wikiContent.trim().length < 1 || wikiSaving || upsertWiki.isPending}
+                        className="rounded-lg bg-mv-accent px-4 py-2 text-[10px] font-medium text-white transition-colors hover:bg-red-500 disabled:opacity-50"
+                      >
+                        {wikiSaving || upsertWiki.isPending ? 'Saving...' : 'Save Wiki'}
+                      </button>
+                    </div>
+                  </div>
+                ) : wikiData?.wiki ? (
+                  <div className="rounded-xl border border-mv-border bg-mv-darker p-5">
+                    <div className="mb-3 flex items-center justify-between">
+                      <p className="text-[9px] text-mv-text-dim">
+                        Last edited by <span className="text-mv-text-secondary">{wikiData.wiki.author.displayName}</span> · {formatDate(wikiData.wiki.updatedAt)}
+                      </p>
+                    </div>
+                    <div className="prose prose-invert prose-sm max-w-none text-mv-text-secondary whitespace-pre-wrap text-xs leading-relaxed">
+                      {wikiData.wiki.contentMd}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-mv-border bg-mv-darker p-8 text-center">
+                    <p className="text-xs text-mv-text-muted">No wiki page yet</p>
+                    <p className="text-[10px] text-mv-text-dim mt-1">
+                      {token ? 'Be the first to write it!' : 'Sign in to contribute to the community wiki.'}
+                    </p>
+                  </div>
+                )}
+              </div>
 
               {/* ─── Chapter List ────────────────────── */}
               <div className="mt-8">
