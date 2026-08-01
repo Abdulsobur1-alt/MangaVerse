@@ -231,39 +231,58 @@ export default function CommunityScreen() {
             <Text style={styles.emptyText}>No predictions open</Text>
           </View>
         ) : (
-          predictions.slice(0, 3).map((pred) => (
-            <View key={pred.id} style={styles.predCard}>
-              <Text style={styles.predQuestion}>{pred.question}</Text>
-              {pred.title && (
-                <Text style={styles.predTitleLink}>{pred.title.title}</Text>
-              )}
-              <View style={{ marginTop: 8, gap: 6 }}>
-                {pred.options.slice(0, 2).map((opt) => {
-                  const stake = pred.optionStakes[opt] || 0;
-                  const pct = pred.totalStaked > 0 ? Math.round((stake / pred.totalStaked) * 100) : 0;
-                  return (
-                    <TouchableOpacity
-                      key={opt}
-                      disabled={!token || !!pred.myVote}
-                      onPress={() => votePrediction.mutate({ predictionId: pred.id, option: opt, coins: 5 })}
-                      style={styles.predOption}
-                    >
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                        <Text style={styles.predOptionText} numberOfLines={1}>{opt}</Text>
-                        <Text style={styles.predPct}>{pct}%</Text>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
-                <Text style={styles.predMeta}>🪙 {pred.totalStaked.toLocaleString()} staked</Text>
-                {pred.myVote && (
-                  <Text style={styles.predMyVote}>Your vote: {pred.myVote.option}</Text>
+          predictions.slice(0, 3).map((pred) => {
+            const closed = !!pred.result;
+            return (
+              <View key={pred.id} style={styles.predCard}>
+                <Text style={styles.predQuestion}>{pred.question}</Text>
+                {pred.title && (
+                  <Text style={styles.predTitleLink}>{pred.title.title}</Text>
                 )}
+                {pred.result && (
+                  <View style={styles.predResolvedBanner}>
+                    <Text style={styles.predResolvedText}>✓ Resolved: {pred.result}</Text>
+                  </View>
+                )}
+                <View style={{ marginTop: 8, gap: 6 }}>
+                  {pred.options.slice(0, 2).map((opt) => {
+                    const stake = pred.optionStakes[opt] || 0;
+                    const pct = pred.totalStaked > 0 ? Math.round((stake / pred.totalStaked) * 100) : 0;
+                    const isWinner = pred.result === opt;
+                    return (
+                      <TouchableOpacity
+                        key={opt}
+                        disabled={!token || !!pred.myVote || closed}
+                        onPress={() => votePrediction.mutate({ predictionId: pred.id, option: opt, coins: 5 })}
+                        style={[styles.predOption, isWinner && styles.predOptionWinner, closed && !isWinner && styles.predOptionClosed]}
+                      >
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                          <Text style={[styles.predOptionText, isWinner && styles.predOptionWinnerText]} numberOfLines={1}>
+                            {opt}{isWinner ? ' ✓' : ''}
+                          </Text>
+                          <Text style={styles.predPct}>{pct}%</Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
+                  <Text style={styles.predMeta}>🪙 {pred.totalStaked.toLocaleString()} staked</Text>
+                  {pred.myVote && pred.result && pred.myVote.won ? (
+                    <Text style={styles.predWon}>
+                      {pred.myVote.payout && pred.myVote.payout > 0
+                        ? `You won +${pred.myVote.payout} 🪙`
+                        : 'Your pick won 🎉'}
+                    </Text>
+                  ) : pred.myVote && pred.result ? (
+                    <Text style={styles.predLost}>You lost · {pred.myVote.option}</Text>
+                  ) : pred.myVote ? (
+                    <Text style={styles.predMyVote}>Your vote: {pred.myVote.option}</Text>
+                  ) : null}
+                </View>
               </View>
-            </View>
-          ))
+            );
+          })
         )}
         <View style={{ height: 80 }} />
       </ScrollView>
@@ -314,11 +333,18 @@ const styles = StyleSheet.create({
   predCard: { backgroundColor: '#14142a', borderRadius: 12, marginHorizontal: 16, marginBottom: 8, padding: 12 },
   predQuestion: { color: '#ddd', fontSize: 11, lineHeight: 16 },
   predTitleLink: { color: '#e94560', fontSize: 9, marginTop: 4 },
+  predResolvedBanner: { marginTop: 8, borderRadius: 6, borderWidth: 1, borderColor: '#22c55e33', backgroundColor: '#22c55e0d', paddingHorizontal: 8, paddingVertical: 4 },
+  predResolvedText: { color: '#4ade80', fontSize: 8, fontWeight: '600' },
   predOption: { backgroundColor: '#1a1a30', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7 },
+  predOptionWinner: { backgroundColor: '#22c55e14', borderWidth: 1, borderColor: '#22c55e55' },
+  predOptionClosed: { backgroundColor: '#1a1a3022', opacity: 0.6 },
   predOptionText: { color: '#bbb', fontSize: 10, flex: 1 },
+  predOptionWinnerText: { color: '#4ade80', fontWeight: '500' },
   predPct: { color: '#d4a017', fontSize: 10, fontWeight: '500' },
   predMeta: { color: '#666', fontSize: 9 },
   predMyVote: { color: '#d4a017', fontSize: 9 },
+  predWon: { color: '#4ade80', fontSize: 9, fontWeight: '600' },
+  predLost: { color: '#f87171', fontSize: 9 },
   emptyCard: { backgroundColor: '#14142a', borderRadius: 12, marginHorizontal: 16, marginBottom: 8, padding: 20, alignItems: 'center' },
   emptyText: { color: '#888', fontSize: 12 },
   emptySub: { color: '#555', fontSize: 10, marginTop: 4, textAlign: 'center' },

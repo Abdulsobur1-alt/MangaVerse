@@ -2,7 +2,7 @@ import { prisma } from '../lib/prisma.js';
 
 // ─── Types ────────────────────────────────────────────
 
-type NotificationType = 'new_chapter' | 'review_added' | 'review_reply' | 'achievement' | 'milestone' | 'system' | 'comment';
+type NotificationType = 'new_chapter' | 'review_added' | 'review_reply' | 'achievement' | 'milestone' | 'system' | 'comment' | 'prediction';
 
 interface CreateNotificationParams {
   userId: string;
@@ -43,6 +43,7 @@ const NOTIF_TYPE_TO_PREF_KEY: Record<string, string> = {
   milestone: 'milestones',
   system: 'system',
   comment: 'community',
+  prediction: 'community',
 };
 
 async function userHasPrefEnabled(userId: string, type: string): Promise<boolean> {
@@ -194,6 +195,30 @@ export async function notifyCommentAdded(
       title: `💬 ${commenterDisplayName} commented on your post`,
       body: `\"${postTitle}\"`,
       link: `/community/${postId}`,
+    });
+  } catch {
+    // Silently fail — notifications are non-critical
+  }
+}
+
+// ─── Prediction resolved notification ────────────────
+
+/** Notify a voter that a prediction market resolved (won or lost). */
+export async function notifyPredictionResolved(
+  userId: string,
+  question: string,
+  winningOption: string,
+  won: boolean,
+  winnings: number,
+): Promise<void> {
+  try {
+    if (!(await userHasPrefEnabled(userId, 'prediction'))) return;
+    await createNotification({
+      userId,
+      type: 'prediction',
+      title: won ? `🎉 You won ${winnings} coins on a prediction!` : '🔮 Prediction resolved',
+      body: `\"${question}\" — ${winningOption} won`,
+      link: '/community',
     });
   } catch {
     // Silently fail — notifications are non-critical

@@ -319,19 +319,35 @@ export default function CommunityPage() {
                         {pred.title.title}
                       </Link>
                     )}
+
+                    {/* Resolved banner */}
+                    {pred.result && (
+                      <div className="mt-2 rounded border border-green-500/30 bg-green-500/5 px-2 py-1">
+                        <span className="text-[8px] font-medium text-green-400">✓ Resolved: {pred.result}</span>
+                      </div>
+                    )}
+
                     <div className="mt-2 space-y-1">
                       {pred.options.slice(0, 2).map((opt) => {
                         const stake = pred.optionStakes[opt] || 0;
                         const pct = pred.totalStaked > 0 ? Math.round((stake / pred.totalStaked) * 100) : 0;
+                        const isWinner = pred.result === opt;
+                        const closed = !!pred.result;
                         return (
                           <div key={opt} className="flex items-center gap-2">
                             <button
                               onClick={() => handleVote(pred.id, opt, 5)}
-                              disabled={!token || !!pred.myVote}
-                              className="flex-1 rounded bg-mv-surface px-2 py-1 text-left text-[9px] text-mv-text-secondary transition-colors hover:bg-mv-accent/20 hover:text-mv-accent disabled:opacity-50"
+                              disabled={!token || !!pred.myVote || closed}
+                              className={`flex-1 rounded px-2 py-1 text-left text-[9px] transition-colors disabled:opacity-50 ${
+                                isWinner
+                                  ? 'bg-green-500/10 border border-green-500/40 text-green-400'
+                                  : closed
+                                  ? 'bg-mv-surface/50 text-mv-text-dim'
+                                  : 'bg-mv-surface text-mv-text-secondary hover:bg-mv-accent/20 hover:text-mv-accent'
+                              }`}
                             >
                               <span className="flex justify-between">
-                                <span className="truncate">{opt}</span>
+                                <span className="truncate">{opt}{isWinner ? ' ✓' : ''}</span>
                                 <span className="text-mv-gold">{pct}%</span>
                               </span>
                             </button>
@@ -343,9 +359,17 @@ export default function CommunityPage() {
                       <span className="text-[8px] text-mv-text-dim">
                         🪙 {pred.totalStaked.toLocaleString()} staked · {pred.totalVotes} votes
                       </span>
-                      {pred.myVote && (
+                      {pred.myVote && pred.result && pred.myVote.won ? (
+                        <span className="text-[8px] font-medium text-green-400">
+                          {pred.myVote.payout && pred.myVote.payout > 0
+                            ? `You won +${pred.myVote.payout} 🪙`
+                            : 'Your pick won 🎉'}
+                        </span>
+                      ) : pred.myVote && pred.result ? (
+                        <span className="text-[8px] text-red-400">You lost · {pred.myVote.option}</span>
+                      ) : pred.myVote ? (
                         <span className="text-[8px] text-mv-gold">Your vote: {pred.myVote.option}</span>
-                      )}
+                      ) : null}
                     </div>
                   </div>
                 ))}

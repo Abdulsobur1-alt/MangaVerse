@@ -7,6 +7,7 @@ import { NotFoundError, ForbiddenError, ConflictError } from '../lib/errors.js';
 import { resolveUserId, spendCoins } from '../services/coins.js';
 import { checkAndAwardAchievements } from '../services/achievements.js';
 import { notifyCommentAdded } from '../services/notifications.js';
+import { resolveDuePredictions, computePredictionReturn } from '../services/predictions.js';
 
 export const communityRouter = Router();
 
@@ -473,6 +474,15 @@ communityRouter.post('/clubs/:id/leave', requireAuth, validate({ params: ClubPar
 
 communityRouter.get('/predictions', optionalAuth, async (req, res, next) => {
   try {
+    // Lazily resolve any due prediction markets before serving the list.
+    // (The scheduled BullMQ job is the primary driver; this is a safety net
+    // so results always surface even if the worker is down.)
+    try {
+      await resolveDuePredictions();
+    } catch {
+      // Resolution is best-effort — serve current state on failure
+    }
+
     const predictions = await prisma.prediction.findMany({
       orderBy: { createdAt: 'desc' },
       take: 20,
@@ -506,6 +516,20 @@ communityRouter.get('/predictions', optionalAuth, async (req, res, next) => {
             optionMap.set(v.option, (optionMap.get(v.option) || 0) + v.coinsStaked);
           }
           const totalStaked = [...optionMap.values()].reduce((a, b) => a + b, 0);
+
+          // If resolved, report the user's outcome + winnings on their vote
+          let myVote: { option: string; coinsStaked: number; won?: boolean; payout?: number } | null =
+            myVotes.get(p.id) || null;
+          if (myVote && p.result) {
+            const winningPool = optionMap.get(p.result) || 0;
+            const loserPool = totalStaked - winningPool;
+            const won = myVote.option === p.result;
+            const payout = won
+              ? computePredictionReturn(myVote.coinsStaked, winningPool, loserPool) - myVote.coinsStaked
+              : 0;
+            myVote = { ...myVote, won, payout };
+          }
+
           return {
             id: p.id,
             question: p.question,
@@ -517,7 +541,7 @@ communityRouter.get('/predictions', optionalAuth, async (req, res, next) => {
             optionStakes: Object.fromEntries(optionMap),
             totalStaked,
             totalVotes: p.votes.length,
-            myVote: myVotes.get(p.id) || null,
+            myVote,
           };
         }),
       },

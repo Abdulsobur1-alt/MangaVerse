@@ -22,6 +22,7 @@ import { communityRouter } from './routes/community.js';
 import { healthRouter } from './routes/health.js';
 import { createImageProxyHandler } from './services/image-proxy.js';
 import { getScraperQueue, startScraperWorker } from './queues/scraper.js';
+import { startPredictionsWorker } from './queues/predictions.js';
 import { meilisearch } from './services/meilisearch.js';
 
 const app = express();
@@ -103,6 +104,16 @@ async function start() {
       await queue.add('seed-database', { count: 100 }, { delay: 30_000 });
       console.log('📅 Initial content refresh scheduled (30s delay)');
     }
+  }
+
+  // Start the prediction-resolution worker (recurring job resolves due markets)
+  try {
+    const pWorker = await startPredictionsWorker();
+    if (pWorker) {
+      console.log('🔮 Predictions worker started (resolves due markets every 15m)');
+    }
+  } catch {
+    // Redis unavailable — GET /predictions still lazily resolves due markets
   }
 
   app.listen(PORT, () => {

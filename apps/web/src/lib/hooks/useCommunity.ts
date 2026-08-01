@@ -71,7 +71,7 @@ export interface PredictionItem {
   optionStakes: Record<string, number>;
   totalStaked: number;
   totalVotes: number;
-  myVote: { option: string; coinsStaked: number } | null;
+  myVote: { option: string; coinsStaked: number; won?: boolean; payout?: number } | null;
 }
 
 export interface WikiData {

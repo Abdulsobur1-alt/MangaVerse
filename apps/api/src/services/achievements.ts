@@ -13,7 +13,8 @@ export type AchievementMetric =
   | 'posts_written'
   | 'comments_written'
   | 'clubs_joined'
-  | 'wiki_edits';
+  | 'wiki_edits'
+  | 'predictions_won';
 
 export interface AchievementBadge {
   id: string;
@@ -67,6 +68,8 @@ export const ACHIEVEMENT_CATALOG: AchievementBadge[] = [
   { id: 'club_hopper_5', name: 'Club Hopper', emoji: '🪩', description: 'Join 5 reading clubs', category: 'community', metric: 'clubs_joined', threshold: 5 },
   { id: 'wiki_editor', name: 'Lore Keeper', emoji: '📜', description: 'Contribute to a series wiki page', category: 'community', metric: 'wiki_edits', threshold: 1 },
   { id: 'wiki_scribe_5', name: 'Scribe', emoji: '✒️', description: 'Contribute to 5 different wiki pages', category: 'community', metric: 'wiki_edits', threshold: 5 },
+  { id: 'first_win', name: 'Crystal Ball', emoji: '🔮', description: 'Win your first prediction market', category: 'community', metric: 'predictions_won', threshold: 1 },
+  { id: 'sharpshooter_5', name: 'Sharpshooter', emoji: '🎯', description: 'Win 5 prediction markets', category: 'community', metric: 'predictions_won', threshold: 5 },
 ];
 
 const CATEGORY_LABELS: Record<AchievementBadge['category'], string> = {
@@ -92,11 +95,12 @@ export interface AchievementStats {
   comments_written: number;
   clubs_joined: number;
   wiki_edits: number;
+  predictions_won: number;
 }
 
 /** Aggregate a user's stats used to evaluate badge conditions. */
 export async function getUserAchievementStats(dbUserId: string): Promise<AchievementStats> {
-  const [user, chaptersCompleted, seriesProgress, reviewsWritten, librarySize, coinsAgg, postsWritten, commentsWritten, clubsJoined, wikiEdits] = await Promise.all([
+  const [user, chaptersCompleted, seriesProgress, reviewsWritten, librarySize, coinsAgg, postsWritten, commentsWritten, clubsJoined, wikiEdits, resolvedVotes] = await Promise.all([
     prisma.user.findUnique({
       where: { id: dbUserId },
       select: { streakDays: true },
@@ -119,7 +123,16 @@ export async function getUserAchievementStats(dbUserId: string): Promise<Achieve
     prisma.postComment.count({ where: { authorId: dbUserId } }),
     prisma.readingClubMember.count({ where: { userId: dbUserId } }),
     prisma.wikiPage.count({ where: { authorId: dbUserId } }),
+    prisma.predictionVote.findMany({
+      where: { userId: dbUserId, prediction: { result: { not: null } } },
+      select: { option: true, prediction: { select: { result: true } } },
+    }),
   ]);
+
+  // Count predictions where the user's option matches the resolved result
+  const predictionsWon = resolvedVotes.filter(
+    (v) => v.option === v.prediction.result,
+  ).length;
 
   const seriesRead = new Set(seriesProgress.map((s) => s.chapter.titleId)).size;
 
@@ -134,6 +147,7 @@ export async function getUserAchievementStats(dbUserId: string): Promise<Achieve
     comments_written: commentsWritten,
     clubs_joined: clubsJoined,
     wiki_edits: wikiEdits,
+    predictions_won: predictionsWon,
   };
 }
 
