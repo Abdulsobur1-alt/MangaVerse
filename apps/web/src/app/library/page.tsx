@@ -6,6 +6,7 @@ import { TopBar } from '@/components/TopBar';
 import Link from 'next/link';
 import { useLibrary, useRemoveBookmark, type BookmarkItem } from '@/lib/hooks/useLibrary';
 import { useReadingProgress } from '@/lib/hooks/useReading';
+import { useAuthStore } from '@/store/authStore';
 
 const LIST_NAMES = ['Reading', 'Plan to Read', 'Completed', 'On Hold', 'Dropped'];
 
@@ -17,8 +18,9 @@ function getProgressPercent(titleId: string, progress: Record<string, { chapters
 
 export default function LibraryPage() {
   const [activeList, setActiveList] = useState('Reading');
+  const { token } = useAuthStore();
   const { data: libraryData, isLoading } = useLibrary();
-  const { data: readingData } = useReadingProgress();
+  const { data: readingData } = useReadingProgress(!!token);
   const removeBookmark = useRemoveBookmark();
   const [removing, setRemoving] = useState<string | null>(null);
 

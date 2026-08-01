@@ -58,3 +58,20 @@ body {
 .animate-fade-in {
   animation: fadeIn 0.3s ease-out;
 }
+
+/* ─── Utility classes ────────────────────────────────── */
+
+/* Hide scrollbars on horizontal carousels */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* Fade image into the background from the right (hero covers) */
+.mask-gradient-to-l {
+  -webkit-mask-image: linear-gradient(to left, rgba(0, 0, 0, 1) 30%, transparent 100%);
+  mask-image: linear-gradient(to left, rgba(0, 0, 0, 1) 30%, transparent 100%);
+}

@@ -15,6 +15,7 @@ export default function SettingsPage() {
   const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl || '');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [previewError, setPreviewError] = useState(false);
   const { data: notifPrefs } = useNotificationPrefs();
   const updateNotifPrefs = useUpdateNotificationPrefs();
   const [localPrefs, setLocalPrefs] = useState<Record<string, boolean> | null>(null);
@@ -74,9 +75,29 @@ export default function SettingsPage() {
           {/* ─── Profile Section ──────────────────── */}
           <section className="mb-8">
             <div className="flex items-center gap-4 mb-6">
-              <div className="relative">
-                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-mv-accent to-mv-purple text-xl font-bold text-white">
-                  {displayName?.charAt(0)?.toUpperCase() || 'U'}
+              <div className="relative group">
+                {/* Live avatar preview with gradient fallback */}
+                {avatarUrl && !previewError ? (
+                  <div className="relative h-16 w-16 overflow-hidden rounded-full ring-2 ring-mv-border-light group-hover:ring-mv-accent/50 transition-all">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={avatarUrl}
+                      alt="Avatar preview"
+                      className="h-full w-full object-cover"
+                      onError={() => setPreviewError(true)}
+                      onLoad={() => setPreviewError(false)}
+                    />
+                  </div>
+                ) : (
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-mv-accent to-mv-purple text-xl font-bold text-white ring-2 ring-mv-border-light group-hover:ring-mv-accent/50 transition-all">
+                    {displayName?.charAt(0)?.toUpperCase() || 'U'}
+                  </div>
+                )}
+                {/* Hover tooltip */}
+                <div className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-mv-accent text-[8px] text-white opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
                 </div>
               </div>
               <div>
@@ -118,14 +139,40 @@ export default function SettingsPage() {
                 <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-mv-text-muted">
                   Avatar URL
                 </label>
-                <input
-                  type="url"
-                  value={avatarUrl}
-                  onChange={(e) => setAvatarUrl(e.target.value)}
-                  className="w-full rounded-lg border border-mv-border-light bg-mv-surface px-3 py-2 text-xs text-mv-text placeholder:text-mv-text-dim outline-none focus:border-mv-accent transition-colors"
-                  placeholder="https://example.com/avatar.jpg"
-                />
-                <p className="mt-1 text-[9px] text-mv-text-dim">Leave empty for default avatar</p>
+                <div className="relative">
+                  <input
+                    type="url"
+                    value={avatarUrl}
+                    onChange={(e) => { setAvatarUrl(e.target.value); setPreviewError(false); }}
+                    className={`w-full rounded-lg border px-9 py-2 text-xs text-mv-text placeholder:text-mv-text-dim outline-none transition-colors resize-none ${
+                      avatarUrl && !previewError
+                        ? 'border-green-500/30 bg-green-500/5'
+                        : avatarUrl && previewError
+                        ? 'border-red-500/30 bg-red-500/5'
+                        : 'border-mv-border-light bg-mv-surface focus:border-mv-accent'
+                    }`}
+                    placeholder="https://example.com/avatar.jpg"
+                  />
+                  {/* Status indicator */}
+                  <div className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2">
+                    {avatarUrl && !previewError && (
+                      <svg className="h-4 w-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                    {avatarUrl && previewError && (
+                      <svg className="h-4 w-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                    )}
+                  </div>
+                </div>
+                <p className="mt-1 text-[9px] text-mv-text-dim">
+                  {avatarUrl && previewError
+                    ? 'Image could not be loaded — check the URL'
+                    : 'Enter a URL or leave empty for a gradient initial avatar'
+                  }
+                </p>
               </div>
 
               {/* Save Button */}

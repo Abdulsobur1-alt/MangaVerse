@@ -121,6 +121,7 @@ titlesRouter.get('/trending', async (_req, res, next) => {
         slug: true,
         title: true,
         type: true,
+        genres: true,
         coverUrl: true,
         rating: true,
         totalChapters: true,
@@ -130,6 +131,53 @@ titlesRouter.get('/trending', async (_req, res, next) => {
     await cacheSet('titles:trending', titles, 600);
 
     res.json({ success: true, data: titles });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── GET /api/titles/recently-updated ─────────────────
+// Returns titles with their latest chapter info for "New Updates" section
+
+titlesRouter.get('/recently-updated', async (_req, res, next) => {
+  try {
+    const cached = await cacheGet<any[]>('titles:recently-updated');
+    if (cached) {
+      res.json({ success: true, data: cached });
+      return;
+    }
+
+    const titles = await prisma.title.findMany({
+      where: { status: 'ongoing' },
+      orderBy: { updatedAt: 'desc' },
+      take: 12,
+      select: {
+        id: true,
+        slug: true,
+        title: true,
+        type: true,
+        genres: true,
+        coverUrl: true,
+        rating: true,
+        totalChapters: true,
+        _count: { select: { chapters: true } },
+        // Latest chapter per title in a single query — avoids N+1
+        chapters: {
+          orderBy: { number: 'desc' },
+          take: 1,
+          select: { number: true, createdAt: true },
+        },
+      },
+    });
+
+    const titlesWithChapters = titles.map(({ chapters, ...t }) => ({
+      ...t,
+      latestChapter: chapters[0] || null,
+    }));
+
+    await cacheSet('titles:recently-updated', titlesWithChapters, 300);
+
+    res.json({ success: true, data: titlesWithChapters });
   } catch (err) {
     next(err);
   }

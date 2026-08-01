@@ -88,6 +88,27 @@ export function useTitles(params?: {
   });
 }
 
+export interface RecentlyUpdatedTitle {
+  id: string;
+  slug: string;
+  title: string;
+  type: string;
+  genres: string[];
+  coverUrl: string | null;
+  rating: number | null;
+  totalChapters: number | null;
+  _count: { chapters: number };
+  latestChapter: { number: number; createdAt: string } | null;
+}
+
+export function useRecentlyUpdated() {
+  return useQuery<RecentlyUpdatedTitle[]>({
+    queryKey: ['titles', 'recently-updated'],
+    queryFn: () => api.get<RecentlyUpdatedTitle[]>('/titles/recently-updated'),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
 export function useTrendingTitles() {
   return useQuery<TitleListItem[]>({
     queryKey: ['titles', 'trending'],
