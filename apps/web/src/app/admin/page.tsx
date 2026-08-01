@@ -16,9 +16,11 @@ import {
   useAdminDeleteWiki,
   useAdminClubs,
   useAdminDeleteClub,
+  useAdminReports,
+  useAdminUpdateReport,
 } from '@/lib/hooks/useAdmin';
 
-const TABS = ['Overview', 'Users', 'Posts', 'Comments', 'Wiki', 'Clubs'] as const;
+const TABS = ['Overview', 'Users', 'Reports', 'Posts', 'Comments', 'Wiki', 'Clubs'] as const;
 type Tab = (typeof TABS)[number];
 
 const ROLE_BADGE: Record<string, string> = {
@@ -72,6 +74,9 @@ export default function AdminPage() {
   const deleteWiki = useAdminDeleteWiki();
   const { data: clubsData } = useAdminClubs(undefined, isMod && tab === 'Clubs');
   const deleteClub = useAdminDeleteClub();
+  const [reportStatus, setReportStatus] = useState<string | undefined>('pending');
+  const { data: reportsData } = useAdminReports({ status: reportStatus }, isMod && tab === 'Reports');
+  const updateReport = useAdminUpdateReport();
 
   const handleRoleChange = (userId: string, role: string) => {
     setRole.mutate({ userId, role });
@@ -137,8 +142,140 @@ export default function AdminPage() {
                       <StatCard label="Wiki Pages" value={stats.wikiPages} />
                       <StatCard label="Predictions" value={stats.predictions} />
                       <StatCard label="Open Markets" value={stats.openPredictions} accent="text-mv-gold" />
+                      {stats.pendingReports > 0 && (
+                        <StatCard label="Pending Reports" value={stats.pendingReports} accent="text-red-400" />
+                      )}
                       <StatCard label="Reviews" value={stats.reviews} />
                       <StatCard label="Chapters" value={stats.chapters} />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ─── Reports (flags) ──────────────── */}
+              {tab === 'Reports' && (
+                <div>
+                  <div className="mb-4 flex items-center gap-2">
+                    {['pending', 'resolved', 'dismissed'].map((s) => (
+                      <button
+                        key={s}
+                        onClick={() => setReportStatus(s)}
+                        className={`rounded-full px-3 py-1 text-[10px] transition-colors ${
+                          reportStatus === s
+                            ? 'bg-mv-accent text-white'
+                            : 'bg-mv-surface text-mv-text-secondary hover:text-mv-text'
+                        }`}
+                      >
+                        {s.charAt(0).toUpperCase() + s.slice(1)}
+                        {s === 'pending' && stats?.pendingReports ? (
+                          <span className="ml-1 text-mv-gold">({stats.pendingReports})</span>
+                        ) : null}
+                      </button>
+                    ))}
+                  </div>
+
+                  {!reportsData ? (
+                    <div className="flex items-center justify-center py-16">
+                      <div className="h-7 w-7 animate-spin rounded-full border-2 border-mv-accent border-t-transparent" />
+                    </div>
+                  ) : reportsData.items.length === 0 ? (
+                    <p className="rounded-xl border border-mv-border bg-mv-darker p-8 text-center text-xs text-mv-text-dim">
+                      No {reportStatus} reports
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {reportsData.items.map((r) => {
+                        const typeEmoji = r.contentType === 'post' ? '📝' : r.contentType === 'comment' ? '💬' : '📖';
+                        return (
+                          <div key={r.id} className="rounded-xl border border-mv-border bg-mv-darker p-4">
+                            <div className="flex items-start gap-3">
+                              <span className="mt-0.5 text-sm">{typeEmoji}</span>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs font-medium text-mv-text">
+                                  {r.contentType.charAt(0).toUpperCase() + r.contentType.slice(1)} report
+                                  <span className="ml-2 rounded bg-red-900/30 px-1.5 py-0.5 text-[8px] font-medium text-red-400">{r.reason}</span>
+                                </p>
+
+                                {/* Target preview */}
+                                {r.target && r.contentType === 'post' && (
+                                  <p className="mt-1.5 text-[10px] text-mv-text-secondary">
+                                    <span className="text-mv-text">{r.target.title}</span> — {r.target.bodyPreview}…
+                                    <span className="ml-1 text-mv-text-dim">by {r.target.authorName}</span>
+                                  </p>
+                                )}
+                                {r.target && r.contentType === 'comment' && (
+                                  <p className="mt-1.5 text-[10px] text-mv-text-secondary">
+                                    “{r.target.bodyPreview}…”
+                                    <span className="ml-1 text-mv-text-dim">by {r.target.authorName} on “{r.target.postTitle}”</span>
+                                  </p>
+                                )}
+                                {r.target && r.contentType === 'wiki' && (
+                                  <p className="mt-1.5 text-[10px] text-mv-text-secondary">
+                                    Wiki page <span className="text-mv-text">{r.target.titleName}</span>
+                                    <span className="ml-1 text-mv-text-dim">/ {r.target.slug}</span>
+                                  </p>
+                                )}
+                                {!r.target && (
+                                  <p className="mt-1.5 text-[10px] text-red-400/70">⚠ Target content no longer exists</p>
+                                )}
+
+                                {r.details && (
+                                  <p className="mt-1 text-[9px] italic text-mv-text-muted">“{r.details}”</p>
+                                )}
+
+                                <p className="mt-1.5 text-[9px] text-mv-text-dim">
+                                  Reported by {r.reporter.displayName} · {new Date(r.createdAt).toLocaleString()}
+                                  {r.resolver && <> · handled by {r.resolver.displayName}</>}
+                                </p>
+                              </div>
+
+                              {/* Actions */}
+                              <div className="flex shrink-0 flex-col items-end gap-1.5">
+                                {r.target && r.contentType === 'post' && (
+                                  <a
+                                    href={`/community/${r.target.id}`}
+                                    className="text-[9px] text-mv-accent hover:underline"
+                                  >
+                                    View post →
+                                  </a>
+                                )}
+                                {r.target && r.contentType === 'wiki' && (
+                                  <a
+                                    href={`/title/${r.target.titleSlug}`}
+                                    className="text-[9px] text-mv-accent hover:underline"
+                                  >
+                                    View wiki →
+                                  </a>
+                                )}
+                                {r.status === 'pending' ? (
+                                  <div className="mt-1 flex gap-1.5">
+                                    <button
+                                      onClick={() => updateReport.mutate({ reportId: r.id, status: 'resolved' })}
+                                      disabled={updateReport.isPending}
+                                      className="rounded-md border border-green-900/30 bg-green-500/10 px-2 py-1 text-[8px] font-medium text-green-400 transition-colors hover:bg-green-500/20 disabled:opacity-50"
+                                    >
+                                      Resolve
+                                    </button>
+                                    <button
+                                      onClick={() => updateReport.mutate({ reportId: r.id, status: 'dismissed' })}
+                                      disabled={updateReport.isPending}
+                                      className="rounded-md border border-mv-border-light bg-mv-surface px-2 py-1 text-[8px] font-medium text-mv-text-dim transition-colors hover:text-mv-text disabled:opacity-50"
+                                    >
+                                      Dismiss
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <span className={`text-[8px] font-medium ${
+                                    r.status === 'resolved' ? 'text-green-400' : 'text-mv-text-dim'
+                                  }`}>
+                                    {r.status === 'resolved' ? '✓ Resolved' : '✕ Dismissed'}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -230,8 +367,13 @@ export default function AdminPage() {
 
               {/* ─── Posts moderation ─────────────── */}
               {tab === 'Posts' && (
+                !postsData ? (
+                  <div className="flex items-center justify-center py-16">
+                    <div className="h-7 w-7 animate-spin rounded-full border-2 border-mv-accent border-t-transparent" />
+                  </div>
+                ) : (
                 <div className="space-y-2">
-                  {postsData?.items.map((p) => (
+                  {postsData.items.map((p) => (
                     <div key={p.id} className="flex items-start gap-3 rounded-xl border border-mv-border bg-mv-darker p-4">
                       <div className="min-w-0 flex-1">
                         <p className="text-xs font-medium text-mv-text truncate">{p.title}</p>
@@ -249,14 +391,20 @@ export default function AdminPage() {
                       </button>
                     </div>
                   ))}
-                  {postsData?.items.length === 0 && <p className="text-center py-10 text-xs text-mv-text-dim">No posts yet</p>}
+                  {postsData.items.length === 0 && <p className="text-center py-10 text-xs text-mv-text-dim">No posts yet</p>}
                 </div>
+                )
               )}
 
               {/* ─── Comments moderation ─────────── */}
               {tab === 'Comments' && (
+                !commentsData ? (
+                  <div className="flex items-center justify-center py-16">
+                    <div className="h-7 w-7 animate-spin rounded-full border-2 border-mv-accent border-t-transparent" />
+                  </div>
+                ) : (
                 <div className="space-y-2">
-                  {commentsData?.items.map((c) => (
+                  {commentsData.items.map((c) => (
                     <div key={c.id} className="flex items-start gap-3 rounded-xl border border-mv-border bg-mv-darker p-4">
                       <div className="min-w-0 flex-1">
                         <p className="text-[10px] text-mv-text-muted line-clamp-2">{c.body}</p>
@@ -273,14 +421,20 @@ export default function AdminPage() {
                       </button>
                     </div>
                   ))}
-                  {commentsData?.items.length === 0 && <p className="text-center py-10 text-xs text-mv-text-dim">No comments yet</p>}
+                  {commentsData.items.length === 0 && <p className="text-center py-10 text-xs text-mv-text-dim">No comments yet</p>}
                 </div>
+                )
               )}
 
               {/* ─── Wiki moderation ─────────────── */}
               {tab === 'Wiki' && (
+                !wikiData ? (
+                  <div className="flex items-center justify-center py-16">
+                    <div className="h-7 w-7 animate-spin rounded-full border-2 border-mv-accent border-t-transparent" />
+                  </div>
+                ) : (
                 <div className="space-y-2">
-                  {wikiData?.items.map((w) => (
+                  {wikiData.items.map((w) => (
                     <div key={w.id} className="flex items-start gap-3 rounded-xl border border-mv-border bg-mv-darker p-4">
                       <div className="min-w-0 flex-1">
                         <p className="text-xs font-medium text-mv-text truncate">
@@ -300,14 +454,20 @@ export default function AdminPage() {
                       </button>
                     </div>
                   ))}
-                  {wikiData?.items.length === 0 && <p className="text-center py-10 text-xs text-mv-text-dim">No wiki pages yet</p>}
+                  {wikiData.items.length === 0 && <p className="text-center py-10 text-xs text-mv-text-dim">No wiki pages yet</p>}
                 </div>
+                )
               )}
 
               {/* ─── Clubs moderation ─────────────── */}
               {tab === 'Clubs' && (
+                !clubsData ? (
+                  <div className="flex items-center justify-center py-16">
+                    <div className="h-7 w-7 animate-spin rounded-full border-2 border-mv-accent border-t-transparent" />
+                  </div>
+                ) : (
                 <div className="space-y-2">
-                  {clubsData?.items.map((c) => (
+                  {clubsData.items.map((c) => (
                     <div key={c.id} className="flex items-start gap-3 rounded-xl border border-mv-border bg-mv-darker p-4">
                       <div className="min-w-0 flex-1">
                         <p className="text-xs font-medium text-mv-text">{c.name}</p>
@@ -324,8 +484,9 @@ export default function AdminPage() {
                       </button>
                     </div>
                   ))}
-                  {clubsData?.items.length === 0 && <p className="text-center py-10 text-xs text-mv-text-dim">No clubs yet</p>}
+                  {clubsData.items.length === 0 && <p className="text-center py-10 text-xs text-mv-text-dim">No clubs yet</p>}
                 </div>
+                )
               )}
             </>
           )}

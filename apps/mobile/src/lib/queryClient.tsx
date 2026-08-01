@@ -399,6 +399,17 @@ export function useVotePrediction() {
   });
 }
 
+export function useCreateReport() {
+  return useMutation({
+    mutationFn: (data: {
+      contentType: 'post' | 'comment' | 'wiki';
+      targetId: string;
+      reason: 'spam' | 'harassment' | 'spoiler' | 'misinformation' | 'other';
+      details?: string;
+    }) => api.post('/community/reports', data),
+  });
+}
+
 // ─── Reviews Hooks ────────────────────────────
 
 export function useTitleReviews(slug: string, options?: {

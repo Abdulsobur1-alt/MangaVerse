@@ -5,8 +5,16 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuthStore } from '../../../store/authStore';
 import {
-  useCommunityPost, useVotePost, useAddComment,
+  useCommunityPost, useVotePost, useAddComment, useCreateReport,
 } from '../../../lib/queryClient';
+
+const REPORT_REASONS = [
+  { id: 'spam', label: 'Spam', emoji: '📣' },
+  { id: 'harassment', label: 'Harassment', emoji: '🚫' },
+  { id: 'spoiler', label: 'Spoiler', emoji: '🙈' },
+  { id: 'misinformation', label: 'Misinformation', emoji: '🤥' },
+  { id: 'other', label: 'Other', emoji: '📝' },
+] as const;
 
 export default function CommunityPostScreen() {
   const router = useRouter();
@@ -15,7 +23,12 @@ export default function CommunityPostScreen() {
   const { data: post, isLoading } = useCommunityPost(id || '');
   const votePost = useVotePost();
   const addComment = useAddComment();
+  const createReport = useCreateReport();
   const [commentBody, setCommentBody] = useState('');
+  const [reportTarget, setReportTarget] = useState<{ contentType: 'post' | 'comment'; targetId: string } | null>(null);
+  const [reportReason, setReportReason] = useState<string | null>(null);
+  const [reportError, setReportError] = useState<string | null>(null);
+  const [reportDone, setReportDone] = useState(false);
 
   if (isLoading) {
     return (
@@ -55,6 +68,28 @@ export default function CommunityPostScreen() {
     }
   };
 
+  const openReport = (contentType: 'post' | 'comment', targetId: string) => {
+    setReportTarget({ contentType, targetId });
+    setReportReason(null);
+    setReportError(null);
+    setReportDone(false);
+  };
+
+  const submitReport = async () => {
+    if (!reportTarget || !reportReason) return;
+    setReportError(null);
+    try {
+      await createReport.mutateAsync({
+        contentType: reportTarget.contentType,
+        targetId: reportTarget.targetId,
+        reason: reportReason as any,
+      });
+      setReportDone(true);
+    } catch (e: any) {
+      setReportError(e?.message || 'Could not submit report');
+    }
+  };
+
   return (
     <View style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 60 }}>
@@ -85,16 +120,64 @@ export default function CommunityPostScreen() {
           <Text style={styles.postTitle}>{post.title}</Text>
           <Text style={styles.postBody}>{post.body}</Text>
 
-          <TouchableOpacity
-            onPress={handleVote}
-            disabled={!token || votePost.isPending}
-            style={[styles.voteBtn, post.voted && styles.voteBtnActive]}
-          >
-            <Text style={[styles.voteBtnText, post.voted && styles.voteBtnTextActive]}>
-              {post.voted ? '▲ Upvoted' : '▲ Upvote'} · {post.upvotes}
-            </Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <TouchableOpacity
+              onPress={handleVote}
+              disabled={!token || votePost.isPending}
+              style={[styles.voteBtn, post.voted && styles.voteBtnActive]}
+            >
+              <Text style={[styles.voteBtnText, post.voted && styles.voteBtnTextActive]}>
+                {post.voted ? '▲ Upvoted' : '▲ Upvote'} · {post.upvotes}
+              </Text>
+            </TouchableOpacity>
+            {token && !reportDone && (
+              <TouchableOpacity onPress={() => openReport('post', post.id)} style={styles.reportBtn}>
+                <Text style={styles.reportBtnText}>🚩 Report</Text>
+              </TouchableOpacity>
+            )}
+            {token && reportDone && (
+              <Text style={styles.reportDoneText}>Reported — thanks!</Text>
+            )}
+          </View>
         </View>
+
+        {/* Report panel */}
+        {reportTarget && !reportDone && (
+          <View style={styles.reportPanel}>
+            <Text style={styles.reportPanelTitle}>Report this {reportTarget.contentType}</Text>
+            <View style={styles.reportReasons}>
+              {REPORT_REASONS.map((r) => (
+                <TouchableOpacity
+                  key={r.id}
+                  onPress={() => setReportReason(r.id)}
+                  style={[
+                    styles.reportReasonChip,
+                    reportReason === r.id && styles.reportReasonChipActive,
+                  ]}
+                >
+                  <Text style={[styles.reportReasonText, reportReason === r.id && styles.reportReasonTextActive]}>
+                    {r.emoji} {r.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            {reportError && <Text style={styles.reportError}>{reportError}</Text>}
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 10 }}>
+              <TouchableOpacity onPress={() => setReportTarget(null)} style={styles.reportCancel}>
+                <Text style={styles.reportCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={submitReport}
+                disabled={!reportReason || createReport.isPending}
+                style={[styles.reportSubmit, (!reportReason || createReport.isPending) && styles.btnDisabled]}
+              >
+                <Text style={styles.reportSubmitText}>
+                  {createReport.isPending ? 'Submitting…' : 'Submit'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         {/* Comments */}
         <Text style={styles.sectionTitle}>💬 Replies ({post.comments.length})</Text>
@@ -137,6 +220,11 @@ export default function CommunityPostScreen() {
                 <Text style={styles.commentAuthor}>{comment.author.displayName}</Text>
               </View>
               <Text style={styles.commentBody}>{comment.body}</Text>
+              {token && (
+                <TouchableOpacity onPress={() => openReport('comment', comment.id)} style={styles.commentReportBtn}>
+                  <Text style={styles.commentReportText}>🚩 Flag</Text>
+                </TouchableOpacity>
+              )}
             </View>
           ))
         )}
@@ -179,4 +267,21 @@ const styles = StyleSheet.create({
   commentBody: { color: '#999', fontSize: 11, lineHeight: 17 },
   emptyCard: { backgroundColor: '#14142a', borderRadius: 12, marginHorizontal: 16, padding: 20, alignItems: 'center' },
   emptyText: { color: '#888', fontSize: 11 },
+  reportBtn: { backgroundColor: '#1e1e35', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 7, marginTop: 12 },
+  reportBtnText: { color: '#888', fontSize: 10 },
+  reportDoneText: { color: '#4ade80', fontSize: 10, marginTop: 14 },
+  reportPanel: { backgroundColor: '#14142a', borderRadius: 12, marginHorizontal: 16, marginTop: 8, padding: 12, borderWidth: 1, borderColor: '#2a2a45' },
+  reportPanelTitle: { color: '#ddd', fontSize: 11, fontWeight: '500', marginBottom: 8 },
+  reportReasons: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  reportReasonChip: { backgroundColor: '#1e1e35', borderRadius: 16, paddingHorizontal: 10, paddingVertical: 4 },
+  reportReasonChipActive: { backgroundColor: '#e94560' },
+  reportReasonText: { color: '#888', fontSize: 9 },
+  reportReasonTextActive: { color: '#fff', fontWeight: '500' },
+  reportError: { color: '#f87171', fontSize: 9, marginTop: 8 },
+  reportCancel: { paddingHorizontal: 10, paddingVertical: 5 },
+  reportCancelText: { color: '#888', fontSize: 10 },
+  reportSubmit: { backgroundColor: '#e94560', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 6 },
+  reportSubmitText: { color: '#fff', fontSize: 10, fontWeight: '500' },
+  commentReportBtn: { alignSelf: 'flex-end', marginTop: 6 },
+  commentReportText: { color: '#666', fontSize: 9 },
 });

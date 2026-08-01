@@ -39,6 +39,8 @@ model User {
   communityPosts   CommunityPost[]
   postVotes        PostVote[]
   postComments     PostComment[]
+  reportsMade      ContentReport[] @relation("ContentReportsMade")
+  reportsResolved  ContentReport[] @relation("ContentReportsResolved")
 
   @@map("users")
 }
@@ -197,6 +199,31 @@ model PostComment {
 
   @@index([postId])
   @@map("post_comments")
+}
+
+// ─── Content Reports (Flags) ──────────────────────────
+// Users flag abusive posts, comments, and wiki pages for review. One report
+// per (reporter, contentType, target) — duplicates are rejected with 409.
+// Moderators move reports through pending → resolved | dismissed.
+
+model ContentReport {
+  id           String    @id @default(uuid()) @db.Uuid
+  reporterId   String    @map("reporter_id") @db.Uuid
+  contentType  String    @map("content_type") // post | comment | wiki
+  targetId     String    @map("target_id") @db.Uuid
+  reason       String
+  details      String?
+  status       String    @default("pending") // pending | resolved | dismissed
+  createdAt    DateTime  @default(now()) @map("created_at")
+  resolvedAt   DateTime? @map("resolved_at")
+  resolvedById String?   @map("resolved_by_id") @db.Uuid
+
+  reporter User  @relation("ContentReportsMade", fields: [reporterId], references: [id], onDelete: Cascade)
+  resolver User? @relation("ContentReportsResolved", fields: [resolvedById], references: [id], onDelete: SetNull)
+
+  @@unique([reporterId, contentType, targetId])
+  @@index([status, createdAt])
+  @@map("content_reports")
 }
 
 // ─── Subscriptions ─────────────────────────────────────

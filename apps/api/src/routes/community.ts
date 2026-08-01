@@ -64,6 +64,13 @@ const RevertWikiSchema = z.object({
   version: z.number().int().positive(),
 });
 
+const CreateReportSchema = z.object({
+  contentType: z.enum(['post', 'comment', 'wiki']),
+  targetId: z.string().uuid(),
+  reason: z.enum(['spam', 'harassment', 'spoiler', 'misinformation', 'other']),
+  details: z.string().max(2000).optional(),
+});
+
 // ─── Helpers ──────────────────────────────────────────
 
 const POST_TAG_COLORS: Record<string, string> = {
@@ -76,6 +83,63 @@ const POST_TAG_COLORS: Record<string, string> = {
 function postTagColor(tag: string): string {
   return POST_TAG_COLORS[tag] || POST_TAG_COLORS.discussion;
 }
+
+// ─── POST /api/community/reports ─────────────────────
+// User-flagging: report a post, comment, or wiki page for moderation.
+
+communityRouter.post('/reports', requireAuth, validate({ body: CreateReportSchema }), async (req, res, next) => {
+  try {
+    const dbUserId = await resolveUserId(req.user!.uid);
+    const body = req.body as z.infer<typeof CreateReportSchema>;
+
+    // Validate the reported target actually exists so a bad id doesn't create
+    // a dangling report row. (Branched explicitly — a union-typed delegate is
+    // not callable in TS.)
+    let targetExists = false;
+    if (body.contentType === 'post') {
+      targetExists = !!(await prisma.communityPost.findUnique({
+        where: { id: body.targetId },
+        select: { id: true },
+      }));
+    } else if (body.contentType === 'comment') {
+      targetExists = !!(await prisma.postComment.findUnique({
+        where: { id: body.targetId },
+        select: { id: true },
+      }));
+    } else {
+      targetExists = !!(await prisma.wikiPage.findUnique({
+        where: { id: body.targetId },
+        select: { id: true },
+      }));
+    }
+    if (!targetExists) throw new NotFoundError('Reported content', body.targetId);
+
+    try {
+      const report = await prisma.contentReport.create({
+        data: {
+          reporterId: dbUserId,
+          contentType: body.contentType,
+          targetId: body.targetId,
+          reason: body.reason,
+          details: body.details || null,
+        },
+        select: { id: true, status: true, createdAt: true },
+      });
+      res.status(201).json({
+        success: true,
+        data: { id: report.id, status: report.status, createdAt: report.createdAt.toISOString() },
+      });
+    } catch (err) {
+      // P2002: this user already reported this target — clean 409, not a crash.
+      if ((err as { code?: string })?.code === 'P2002') {
+        throw new ConflictError('You have already reported this content');
+      }
+      throw err;
+    }
+  } catch (err) {
+    next(err);
+  }
+});
 
 // ─── GET /api/community/posts ─────────────────────────
 

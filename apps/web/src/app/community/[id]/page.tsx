@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation';
 import { TopBar } from '@/components/TopBar';
 import { useAuthStore } from '@/store/authStore';
 import { useCommunityPost, useVotePost, useAddComment } from '@/lib/hooks/useCommunity';
+import ReportButton from '@/components/ReportButton';
 import { timeAgo } from '@mangaverse/shared';
 
 export default function PostDetailPage() {
@@ -115,9 +116,12 @@ export default function PostDetailPage() {
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
               {post.comments.length} replies
             </span>
-            {!token && (
-              <Link href="/login" className="ml-auto text-[10px] text-mv-accent hover:underline">Sign in to upvote & comment</Link>
-            )}
+            <div className="ml-auto flex items-center gap-3">
+              <ReportButton contentType="post" targetId={post.id} />
+              {!token && (
+                <Link href="/login" className="text-[10px] text-mv-accent hover:underline">Sign in to upvote & comment</Link>
+              )}
+            </div>
           </div>
         </div>
 
@@ -167,6 +171,9 @@ export default function PostDetailPage() {
                     <p className="text-[9px] text-mv-text-dim">{timeAgo(comment.createdAt)}</p>
                   </div>
                   <p className="text-xs text-mv-text-secondary leading-relaxed">{comment.body}</p>
+                  <div className="mt-2 flex justify-end">
+                    <ReportButton contentType="comment" targetId={comment.id} label="Flag" />
+                  </div>
                 </div>
               ))}
             </div>

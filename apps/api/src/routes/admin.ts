@@ -31,6 +31,16 @@ const WikiParams = z.object({
   slug: z.string().min(1),
 });
 
+const ReportsQuery = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  status: z.enum(['pending', 'resolved', 'dismissed']).optional(),
+});
+
+const ResolveReportSchema = z.object({
+  status: z.enum(['resolved', 'dismissed']),
+});
+
 // ─── GET /api/admin/stats ─────────────────────────────
 
 adminRouter.get('/stats', async (_req, res, next) => {
@@ -45,6 +55,7 @@ adminRouter.get('/stats', async (_req, res, next) => {
       openPredictions,
       reviews,
       chapters,
+      pendingReports,
     ] = await Promise.all([
       prisma.user.count(),
       prisma.communityPost.count(),
@@ -55,6 +66,7 @@ adminRouter.get('/stats', async (_req, res, next) => {
       prisma.prediction.count({ where: { result: null, resolvesAt: { gt: new Date() } } }),
       prisma.review.count(),
       prisma.chapter.count(),
+      prisma.contentReport.count({ where: { status: 'pending' } }),
     ]);
 
     res.json({
@@ -69,6 +81,7 @@ adminRouter.get('/stats', async (_req, res, next) => {
         openPredictions,
         reviews,
         chapters,
+        pendingReports,
       },
     });
   } catch (err) {
@@ -207,6 +220,140 @@ adminRouter.get('/posts', validate({ query: ListQuery }), async (req, res, next)
         limit,
         hasMore: skip + posts.length < total,
       },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── Moderation: content reports (flags) ─────────────
+
+// List content reports with optional status filter
+adminRouter.get('/reports', validate({ query: ReportsQuery }), async (req, res, next) => {
+  try {
+    const query = req.query as unknown as z.infer<typeof ReportsQuery>;
+    const { page, limit, status } = query;
+    const skip = (page - 1) * limit;
+
+    const where: Record<string, unknown> = {};
+    if (status) where.status = status;
+
+    // Newest first. The UI always passes a status filter (defaulting to
+    // 'pending') so the queue is surfaced pending-first by construction.
+    const [reports, total] = await Promise.all([
+      prisma.contentReport.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+        include: {
+          reporter: { select: { id: true, displayName: true, email: true } },
+          resolver: { select: { id: true, displayName: true, email: true } },
+        },
+      }),
+      prisma.contentReport.count({ where }),
+    ]);
+
+    // Attach a preview of the reported content by type (batched, no N+1)
+    const postIds = reports.filter((r) => r.contentType === 'post').map((r) => r.targetId);
+    const commentIds = reports.filter((r) => r.contentType === 'comment').map((r) => r.targetId);
+    const wikiIds = reports.filter((r) => r.contentType === 'wiki').map((r) => r.targetId);
+
+    const [posts, comments, wikis] = await Promise.all([
+      postIds.length
+        ? prisma.communityPost.findMany({
+            where: { id: { in: postIds } },
+            select: { id: true, title: true, body: true, author: { select: { displayName: true } } },
+          })
+        : Promise.resolve([] as { id: string; title: string; body: string; author: { displayName: string } }[]),
+      commentIds.length
+        ? prisma.postComment.findMany({
+            where: { id: { in: commentIds } },
+            select: { id: true, body: true, author: { select: { displayName: true } }, post: { select: { title: true } } },
+          })
+        : Promise.resolve([] as { id: string; body: string; author: { displayName: string }; post: { title: string } }[]),
+      wikiIds.length
+        ? prisma.wikiPage.findMany({
+            where: { id: { in: wikiIds } },
+            select: { id: true, slug: true, title: { select: { slug: true, title: true } } },
+          })
+        : Promise.resolve([] as { id: string; slug: string; title: { slug: string; title: string } }[]),
+    ]);
+
+    const postMap = new Map(posts.map((p) => [p.id, p]));
+    const commentMap = new Map(comments.map((c) => [c.id, c]));
+    const wikiMap = new Map(wikis.map((w) => [w.id, w]));
+
+    res.json({
+      success: true,
+      data: {
+        items: reports.map((r) => {
+          let target: Record<string, unknown> | null = null;
+          if (r.contentType === 'post') {
+            const p = postMap.get(r.targetId);
+            if (p) target = { id: p.id, title: p.title, bodyPreview: p.body.slice(0, 200), authorName: p.author.displayName };
+          } else if (r.contentType === 'comment') {
+            const c = commentMap.get(r.targetId);
+            if (c) target = { id: c.id, bodyPreview: c.body.slice(0, 200), authorName: c.author.displayName, postTitle: c.post.title };
+          } else {
+            const w = wikiMap.get(r.targetId);
+            if (w) target = { id: w.id, slug: w.slug, titleSlug: w.title.slug, titleName: w.title.title };
+          }
+
+          return {
+            id: r.id,
+            contentType: r.contentType,
+            targetId: r.targetId,
+            reason: r.reason,
+            details: r.details,
+            status: r.status,
+            createdAt: r.createdAt.toISOString(),
+            resolvedAt: r.resolvedAt ? r.resolvedAt.toISOString() : null,
+            reporter: r.reporter,
+            resolver: r.resolver,
+            target,
+          };
+        }),
+        total,
+        page,
+        limit,
+        hasMore: skip + reports.length < total,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Update a report's status (moderator+)
+adminRouter.patch('/reports/:id', validate({ params: IdParams, body: ResolveReportSchema }), async (req, res, next) => {
+  try {
+    const id = req.params.id as string;
+    const body = req.body as z.infer<typeof ResolveReportSchema>;
+
+    // Resolve the acting user's DB id from their firebase uid
+    const acting = await prisma.user.findUnique({
+      where: { firebaseUid: req.user!.uid },
+      select: { id: true },
+    });
+    if (!acting) throw new NotFoundError('User');
+
+    const report = await prisma.contentReport.findUnique({ where: { id }, select: { id: true, status: true } });
+    if (!report) throw new NotFoundError('Report', id);
+
+    const updated = await prisma.contentReport.update({
+      where: { id },
+      data: {
+        status: body.status,
+        resolvedById: acting.id,
+        resolvedAt: new Date(),
+      },
+      select: { id: true, status: true, resolvedAt: true },
+    });
+
+    res.json({
+      success: true,
+      data: { id: updated.id, status: updated.status, resolvedAt: updated.resolvedAt?.toISOString() || null },
     });
   } catch (err) {
     next(err);

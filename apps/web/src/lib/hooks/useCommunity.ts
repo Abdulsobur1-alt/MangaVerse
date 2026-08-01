@@ -258,3 +258,18 @@ export function useRevertWiki() {
     },
   });
 }
+
+// ─── Report / Flag ────────────────────────────────────
+
+export interface CreateReportInput {
+  contentType: 'post' | 'comment' | 'wiki';
+  targetId: string;
+  reason: 'spam' | 'harassment' | 'spoiler' | 'misinformation' | 'other';
+  details?: string;
+}
+
+export function useCreateReport() {
+  return useMutation({
+    mutationFn: (data: CreateReportInput) => api.post('/community/reports', data),
+  });
+}

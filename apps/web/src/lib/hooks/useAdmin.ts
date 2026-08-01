@@ -15,6 +15,7 @@ export interface AdminStats {
   openPredictions: number;
   reviews: number;
   chapters: number;
+  pendingReports: number;
 }
 
 export interface AdminUser {
@@ -62,6 +63,29 @@ export interface AdminClub {
   name: string;
   memberCount: number;
   createdAt: string;
+}
+
+export interface AdminReport {
+  id: string;
+  contentType: 'post' | 'comment' | 'wiki';
+  targetId: string;
+  reason: string;
+  details: string | null;
+  status: 'pending' | 'resolved' | 'dismissed';
+  createdAt: string;
+  resolvedAt: string | null;
+  reporter: { id: string; displayName: string; email: string };
+  resolver: { id: string; displayName: string; email: string } | null;
+  target: {
+    id: string;
+    title?: string;
+    bodyPreview?: string;
+    authorName?: string;
+    postTitle?: string;
+    slug?: string;
+    titleSlug?: string;
+    titleName?: string;
+  } | null;
 }
 
 interface Paginated<T> {
@@ -204,6 +228,33 @@ export function useAdminDeleteClub() {
     mutationFn: (clubId: string) => api.delete(`/admin/clubs/${clubId}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'clubs'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'stats'] });
+    },
+  });
+}
+
+// ─── Content reports (flags) ─────────────────────────
+
+export function useAdminReports(params?: { page?: number; status?: string }, enabled = true) {
+  const sp = new URLSearchParams();
+  if (params?.page) sp.set('page', String(params.page));
+  if (params?.status) sp.set('status', params.status);
+
+  return useQuery<Paginated<AdminReport>>({
+    queryKey: ['admin', 'reports', params],
+    queryFn: () => api.get<Paginated<AdminReport>>(`/admin/reports?${sp}`),
+    enabled,
+  });
+}
+
+export function useAdminUpdateReport() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: { reportId: string; status: 'resolved' | 'dismissed' }) =>
+      api.patch<AdminReport>(`/admin/reports/${data.reportId}`, { status: data.status }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'reports'] });
       queryClient.invalidateQueries({ queryKey: ['admin', 'stats'] });
     },
   });

@@ -12,6 +12,7 @@ import { formatLabel, getPageNumbers } from '@mangaverse/shared';
 import { COIN_UNLOCK_COST } from '@mangaverse/shared';
 import { useCoinBalance } from '@/lib/hooks/useCoins';
 import { useWiki, useUpsertWiki, useRevertWiki } from '@/lib/hooks/useCommunity';
+import ReportButton from '@/components/ReportButton';
 
 const CHAPTERS_PER_PAGE = 50;
 
@@ -324,6 +325,9 @@ export default function TitleDetailPage() {
                   <div className="flex items-center gap-2">
                     {wikiData?.wiki && (
                       <span className="text-[9px] text-mv-text-dim">v{wikiData.wiki.version}</span>
+                    )}
+                    {wikiData?.wiki && (
+                      <ReportButton contentType="wiki" targetId={wikiData.wiki.id} label="Flag wiki" />
                     )}
                     {wikiData?.wiki && wikiData.wiki.revisions.length > 0 && (
                       <button
