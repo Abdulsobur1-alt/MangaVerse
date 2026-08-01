@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import { UnauthorizedError } from '../lib/errors.js';
+import { UnauthorizedError, ForbiddenError } from '../lib/errors.js';
+import { prisma } from '../lib/prisma.js';
 
 // Extend Express Request to include user info
 declare global {
@@ -14,6 +15,8 @@ declare global {
     }
   }
 }
+
+export type UserRole = 'user' | 'moderator' | 'admin';
 
 /**
  * Middleware that requires a valid Firebase auth token.
@@ -61,6 +64,33 @@ export function optionalAuth(req: Request, _res: Response, next: NextFunction) {
     };
   }
   next();
+}
+
+/**
+ * Require the authenticated user to hold one of the given roles.
+ * Must be composed AFTER requireAuth (or optionalAuth) — reads req.user.uid.
+ */
+export function requireRole(...roles: UserRole[]) {
+  return async (req: Request, _res: Response, next: NextFunction) => {
+    try {
+      if (!req.user?.uid) {
+        return next(new UnauthorizedError('Missing or invalid authorization header'));
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { firebaseUid: req.user.uid },
+        select: { role: true },
+      });
+
+      if (!user || !roles.includes(user.role as UserRole)) {
+        return next(new ForbiddenError('You do not have permission to perform this action'));
+      }
+
+      next();
+    } catch (err) {
+      next(err);
+    }
+  };
 }
 
 function extractToken(req: Request): string | null {

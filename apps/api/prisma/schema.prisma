@@ -16,6 +16,7 @@ model User {
   avatarUrl        String?  @map("avatar_url")
   firebaseUid      String?  @unique @map("firebase_uid")
   coinBalance      Int      @default(0) @map("coin_balance")
+  role             String   @default("user") // user | moderator | admin
   subscriptionTier String   @default("free") @map("subscription_tier")
   notificationPrefs Json?   @default("{\"new_chapter\":true,\"reviews\":true,\"milestones\":true,\"achievements\":true}") @map("notification_prefs")
   streakDays       Int      @default(0) @map("streak_days")

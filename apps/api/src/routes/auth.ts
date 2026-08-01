@@ -132,6 +132,7 @@ authRouter.get('/me', requireAuth, async (req, res, next) => {
         displayName: user.displayName,
         avatarUrl: user.avatarUrl,
         coinBalance: user.coinBalance,
+        role: user.role,
         subscriptionTier: user.subscriptionTier,
         streakDays: user.streakDays,
         libraryCount: user._count.bookmarks,

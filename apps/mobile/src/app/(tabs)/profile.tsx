@@ -26,11 +26,20 @@ export default function ProfileScreen() {
               </View>
               <Text style={styles.name}>{user.displayName}</Text>
               <Text style={styles.email}>{user.email}</Text>
-              {user.subscriptionTier === 'premium' && (
-                <View style={styles.premiumBadge}>
-                  <Text style={styles.premiumBadgeText}>⭐ Premium</Text>
-                </View>
-              )}
+              <View style={{ flexDirection: 'row', gap: 6 }}>
+                {user.subscriptionTier === 'premium' && (
+                  <View style={styles.premiumBadge}>
+                    <Text style={styles.premiumBadgeText}>⭐ Premium</Text>
+                  </View>
+                )}
+                {(user.role === 'moderator' || user.role === 'admin') && (
+                  <View style={[styles.premiumBadge, { backgroundColor: '#7b2fbe' }]}>
+                    <Text style={styles.premiumBadgeText}>
+                      {user.role === 'admin' ? '🛡️ Admin' : '🛡️ Moderator'}
+                    </Text>
+                  </View>
+                )}
+              </View>
             </View>
 
             <View style={styles.statRow}>
