@@ -2,6 +2,7 @@
 
 import { create } from 'zustand';
 import { api } from '@/lib/api';
+import { firebaseSignIn, firebaseSignUp, firebaseAuthConfigured } from '@/lib/firebaseClient';
 
 // ─── Types ────────────────────────────────────────────
 
@@ -62,18 +63,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  login: async (email: string, _password: string) => {
+  login: async (email: string, password: string) => {
     set({ isLoading: true });
 
     try {
+      // Production: sign in with Firebase, send the ID token to our API.
+      // Dev fallback (Firebase not configured): email acts as the identifier.
+      const firebaseToken = firebaseAuthConfigured()
+        ? await firebaseSignIn(email, password)
+        : email;
+
       const data = await api.post<{
         id: string;
         email: string;
         displayName: string;
         token: string;
-      }>('/auth/login', {
-        firebaseToken: email, // Dev mode: email acts as identifier
-      });
+      }>('/auth/login', { firebaseToken });
 
       localStorage.setItem('auth_token', data.token);
       set({
@@ -98,17 +103,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  register: async (email: string, _password: string, displayName: string) => {
+  register: async (email: string, password: string, displayName: string) => {
     try {
       set({ isLoading: true });
+
+      if (firebaseAuthConfigured()) {
+        // Production: create the Firebase account, then log in with its token
+        const firebaseToken = await firebaseSignUp(email, password, displayName);
+        await get().loginWithToken(firebaseToken);
+        return;
+      }
+
+      // Dev fallback: legacy register + auto-login
       await api.post<AuthUser>('/auth/register', {
         email,
-        password: _password,
+        password,
         displayName,
       });
-
-      // Auto-login after registration
-      await get().login(email, _password);
+      await get().login(email, password);
     } catch (err) {
       set({ isLoading: false });
       throw err;

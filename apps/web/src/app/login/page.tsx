@@ -100,9 +100,10 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Dev hint */}
         <p className="mt-4 text-center text-[10px] text-mv-text-dim">
-          Dev mode: enter any email to sign in (first registered user)
+          {process.env.NEXT_PUBLIC_FIREBASE_API_KEY
+            ? 'Secure sign-in powered by Firebase'
+            : 'Dev mode: enter any email to sign in (first registered user)'}
         </p>
       </div>
     </main>

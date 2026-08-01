@@ -1,10 +1,12 @@
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../store/authStore';
 import { useUserStats } from '../../lib/hooks/useAuth';
 import { useAchievements } from '../../lib/queryClient';
 
 export default function ProfileScreen() {
-  const { user, token } = useAuthStore();
+  const router = useRouter();
+  const { user, token, logout } = useAuthStore();
   const { data: stats } = useUserStats();
   const { data: achievements } = useAchievements();
 
@@ -67,6 +69,10 @@ export default function ProfileScreen() {
               </TouchableOpacity>
             </View>
 
+            <TouchableOpacity onPress={logout} style={styles.signOutBtn}>
+              <Text style={styles.signOutText}>Sign Out</Text>
+            </TouchableOpacity>
+
             {achievements && achievements.items.length > 0 && (
               <View style={styles.achievementsSection}>
                 <View style={styles.achievementsHeader}>
@@ -124,7 +130,7 @@ export default function ProfileScreen() {
                 <Text style={styles.coinLabel}>Coin Balance</Text>
                 <Text style={styles.coinValue}>💰 0 coins</Text>
               </View>
-              <TouchableOpacity style={styles.coinBtn}>
+              <TouchableOpacity style={styles.coinBtn} onPress={() => router.push('/login' as any)}>
                 <Text style={styles.coinBtnText}>Sign In</Text>
               </TouchableOpacity>
             </View>
@@ -192,6 +198,8 @@ const styles = StyleSheet.create({
   badgeNameEarned: { color: '#d4a017', fontWeight: '500' },
   badgeNameLocked: { color: '#666' },
   badgeProgress: { color: '#555', fontSize: 8, marginTop: 2 },
+  signOutBtn: { alignSelf: 'center', marginTop: 4, marginBottom: 12, paddingHorizontal: 18, paddingVertical: 8, borderWidth: 1, borderColor: '#2a2a45', borderRadius: 20 },
+  signOutText: { color: '#f87171', fontSize: 10, fontWeight: '500' },
   premiumBanner: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#e94560', borderRadius: 10, marginHorizontal: 14, marginBottom: 8, padding: 10 },
   premiumTitle: { color: '#fff', fontSize: 11, fontWeight: '500' },
   premiumSub: { color: '#ffaaaa', fontSize: 9, marginTop: 2 },

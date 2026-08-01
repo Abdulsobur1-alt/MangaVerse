@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { UnauthorizedError, ForbiddenError } from '../lib/errors.js';
 import { prisma } from '../lib/prisma.js';
+import { verifyFirebaseToken, firebaseConfigured } from '../lib/firebase.js';
 
 // Extend Express Request to include user info
 declare global {
@@ -21,47 +22,73 @@ export type UserRole = 'user' | 'moderator' | 'admin';
 /**
  * Middleware that requires a valid Firebase auth token.
  * The token must be sent as `Authorization: Bearer <token>`.
+ *
+ * In production the token is a Firebase ID token verified via firebase-admin.
+ * In development (without Firebase credentials) a `dev_<uid>` token is
+ * accepted so the full stack remains testable locally.
  */
-export function requireAuth(req: Request, _res: Response, next: NextFunction) {
+export async function requireAuth(req: Request, _res: Response, next: NextFunction) {
   const token = extractToken(req);
   if (!token) {
     return next(new UnauthorizedError('Missing or invalid authorization header'));
   }
 
-  // TODO: Verify Firebase token when Firebase is configured
-  // For now, extract the user ID from a dev token format
-  if (process.env.NODE_ENV === 'development' && token.startsWith('dev_')) {
+  try {
+    // Dev token flow (only when Firebase isn't configured — local dev)
+    if (!firebaseConfigured() && token.startsWith('dev_')) {
+      req.user = {
+        uid: token.replace('dev_', ''),
+        email: 'dev@mangaverse.app',
+        displayName: 'Developer',
+      };
+      return next();
+    }
+
+    // Production: verify the Firebase ID token
+    const decoded = await verifyFirebaseToken(token);
+    if (!decoded) {
+      return next(new UnauthorizedError('Invalid or expired token'));
+    }
     req.user = {
-      uid: token.replace('dev_', ''),
-      email: 'dev@mangaverse.app',
-      displayName: 'Developer',
+      uid: decoded.uid,
+      email: decoded.email || '',
+      displayName: decoded.name || undefined,
     };
-    return next();
+    next();
+  } catch {
+    next(new UnauthorizedError('Invalid or expired token'));
   }
-
-  // In production with Firebase configured:
-  // try {
-  //   const decoded = await admin.auth().verifyIdToken(token);
-  //   req.user = { uid: decoded.uid, email: decoded.email || '', displayName: decoded.name };
-  //   next();
-  // } catch {
-  //   next(new UnauthorizedError('Invalid or expired token'));
-  // }
-
-  next(new UnauthorizedError('Authentication not configured yet'));
 }
 
 /**
- * Optional auth — attaches user if token present, but doesn't block.
+ * Optional auth — attaches user if a valid token is present, but never blocks.
  */
-export function optionalAuth(req: Request, _res: Response, next: NextFunction) {
+export async function optionalAuth(req: Request, _res: Response, next: NextFunction) {
   const token = extractToken(req);
-  if (token && process.env.NODE_ENV === 'development' && token.startsWith('dev_')) {
-    req.user = {
-      uid: token.replace('dev_', ''),
-      email: 'dev@mangaverse.app',
-      displayName: 'Developer',
-    };
+  if (!token) {
+    next();
+    return;
+  }
+
+  try {
+    if (!firebaseConfigured() && token.startsWith('dev_')) {
+      req.user = {
+        uid: token.replace('dev_', ''),
+        email: 'dev@mangaverse.app',
+        displayName: 'Developer',
+      };
+    } else {
+      const decoded = await verifyFirebaseToken(token);
+      if (decoded) {
+        req.user = {
+          uid: decoded.uid,
+          email: decoded.email || '',
+          displayName: decoded.name || undefined,
+        };
+      }
+    }
+  } catch {
+    // Invalid token — treat as anonymous
   }
   next();
 }

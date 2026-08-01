@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { api } from '../lib/api';
+import { firebaseSignIn, firebaseSignUp, firebaseAuthConfigured } from '../lib/firebaseClient';
 
 export interface AuthUser {
   id: string;
@@ -13,16 +15,54 @@ export interface AuthUser {
   createdAt: string;
 }
 
+// The API client reads the token from a global (no async-storage yet), so
+// login must mirror the token there as well as in the store.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const globalAny = globalThis as any;
+
+interface LoginResponse {
+  id: string;
+  email: string;
+  displayName: string;
+  avatarUrl: string | null;
+  coinBalance: number;
+  role?: string;
+  subscriptionTier: string;
+  streakDays?: number;
+  token: string;
+}
+
 interface AuthState {
   user: AuthUser | null;
   token: string | null;
   isLoading: boolean;
   isInitialized: boolean;
 
+  login: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string, displayName: string) => Promise<void>;
   setAuth: (user: AuthUser, token: string) => void;
   setLoading: (loading: boolean) => void;
   setInitialized: (initialized: boolean) => void;
   logout: () => void;
+}
+
+function persistAuth(data: LoginResponse) {
+  globalAny.__AUTH_TOKEN__ = data.token;
+  useAuthStore.setState({
+    token: data.token,
+    user: {
+      id: data.id,
+      email: data.email,
+      displayName: data.displayName,
+      avatarUrl: data.avatarUrl,
+      coinBalance: data.coinBalance,
+      role: data.role,
+      subscriptionTier: data.subscriptionTier,
+      streakDays: data.streakDays,
+      createdAt: new Date().toISOString(),
+    },
+    isLoading: false,
+  });
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -31,8 +71,51 @@ export const useAuthStore = create<AuthState>((set) => ({
   isLoading: false,
   isInitialized: false,
 
-  setAuth: (user, token) => set({ user, token, isLoading: false }),
+  login: async (email: string, password: string) => {
+    set({ isLoading: true });
+    try {
+      // Production: sign in with Firebase, send the ID token to our API.
+      // Dev fallback (Firebase not configured): email acts as the identifier.
+      const firebaseToken = firebaseAuthConfigured()
+        ? await firebaseSignIn(email, password)
+        : email;
+
+      const data = await api.post<LoginResponse>('/auth/login', { firebaseToken });
+      persistAuth(data);
+    } catch (err) {
+      set({ isLoading: false });
+      throw err;
+    }
+  },
+
+  register: async (email: string, password: string, displayName: string) => {
+    set({ isLoading: true });
+    try {
+      if (firebaseAuthConfigured()) {
+        const firebaseToken = await firebaseSignUp(email, password, displayName);
+        const data = await api.post<LoginResponse>('/auth/login', { firebaseToken });
+        persistAuth(data);
+        return;
+      }
+
+      // Dev fallback: legacy register + auto-login
+      await api.post('/auth/register', { email, password, displayName });
+      const data = await api.post<LoginResponse>('/auth/login', { firebaseToken: email });
+      persistAuth(data);
+    } catch (err) {
+      set({ isLoading: false });
+      throw err;
+    }
+  },
+
+  setAuth: (user, token) => {
+    globalAny.__AUTH_TOKEN__ = token;
+    set({ user, token, isLoading: false });
+  },
   setLoading: (isLoading) => set({ isLoading }),
   setInitialized: (isInitialized) => set({ isInitialized }),
-  logout: () => set({ user: null, token: null, isLoading: false }),
+  logout: () => {
+    globalAny.__AUTH_TOKEN__ = null;
+    set({ user: null, token: null, isLoading: false });
+  },
 }));
