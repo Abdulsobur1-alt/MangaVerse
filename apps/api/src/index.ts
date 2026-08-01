@@ -17,6 +17,7 @@ import { searchRouter } from './routes/search.js';
 import { reviewsRouter } from './routes/reviews.js';
 import { notificationsRouter } from './routes/notifications.js';
 import { coinsRouter } from './routes/coins.js';
+import { achievementsRouter } from './routes/achievements.js';
 import { healthRouter } from './routes/health.js';
 import { createImageProxyHandler } from './services/image-proxy.js';
 import { getScraperQueue, startScraperWorker } from './queues/scraper.js';
@@ -56,6 +57,7 @@ app.use('/api/search', searchRouter);
 app.use('/api/reviews', reviewsRouter);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/coins', coinsRouter);
+app.use('/api/achievements', achievementsRouter);
 
 // Reviews are also accessible via titles: GET/POST /api/titles/:slug/reviews
 // The reviews router handles /title/:slug internally

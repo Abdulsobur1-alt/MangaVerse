@@ -197,6 +197,41 @@ export function useUnlockChapter() {
   });
 }
 
+// ─── Achievement Hooks ─────────────────────────
+
+export interface AchievementItem {
+  id: string;
+  name: string;
+  emoji: string;
+  description: string;
+  category: string;
+  metric: string;
+  threshold: number;
+  current: number;
+  target: number;
+  progress: number;
+  earned: boolean;
+  earnedAt: string | null;
+}
+
+export interface AchievementsData {
+  items: AchievementItem[];
+  total: number;
+  earned: number;
+  categories: { key: string; label: string }[];
+}
+
+export function useAchievements() {
+  const token = getNotifToken();
+
+  return useQuery<AchievementsData>({
+    queryKey: ['achievements'],
+    queryFn: () => api.get<AchievementsData>('/achievements'),
+    enabled: !!token,
+    staleTime: 60 * 1000,
+  });
+}
+
 // ─── Reviews Hooks ────────────────────────────
 
 export function useTitleReviews(slug: string, options?: {

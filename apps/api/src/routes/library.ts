@@ -4,6 +4,7 @@ import { prisma } from '../lib/prisma.js';
 import { validate } from '../middleware/validate.js';
 import { requireAuth } from '../middleware/auth.js';
 import { NotFoundError, ConflictError } from '../lib/errors.js';
+import { checkAndAwardAchievements } from '../services/achievements.js';
 
 export const libraryRouter = Router();
 
@@ -98,6 +99,9 @@ libraryRouter.post('/', validate({ body: AddBookmarkSchema }), async (req, res, 
     const bookmark = await prisma.bookmark.create({
       data: { userId: user.id, titleId, listName },
     });
+
+    // Check for library-related achievements (fire-and-forget)
+    checkAndAwardAchievements(user.id).catch(() => {});
 
     res.status(201).json({ success: true, data: bookmark });
   } catch (err) {

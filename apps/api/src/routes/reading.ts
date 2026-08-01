@@ -6,6 +6,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { NotFoundError } from '../lib/errors.js';
 import { checkAndNotifyMilestone } from '../services/notifications.js';
 import { earnCoins, COIN_CHAPTER_REWARD } from '../services/coins.js';
+import { checkAndAwardAchievements } from '../services/achievements.js';
 
 export const readingRouter = Router();
 
@@ -88,8 +89,9 @@ readingRouter.post('/progress', validate({ body: SaveProgressSchema }), async (r
       // Award coins for completing a chapter (fire-and-forget)
       earnCoins(user.id, COIN_CHAPTER_REWARD, 'reward', chapterId, 'Completed a chapter').catch(() => {});
 
-      // Fire-and-forget milestone check
+      // Fire-and-forget milestone + achievement checks
       checkAndNotifyMilestone(user.id);
+      checkAndAwardAchievements(user.id).catch(() => {});
     }
 
     res.json({ success: true, data: progress });

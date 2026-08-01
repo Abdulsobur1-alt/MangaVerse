@@ -7,6 +7,16 @@ import { useAuthStore } from '@/store/authStore';
 import { useUserStats } from '@/lib/hooks/useAuth';
 import { useReadingHistory } from '@/lib/hooks/useReading';
 import { useMyReviews } from '@/lib/hooks/useReviews';
+import { useAchievements } from '@/lib/hooks/useAchievements';
+
+const CATEGORY_COLORS: Record<string, string> = {
+  reading: '#e94560',
+  streak: '#f59e0b',
+  exploration: '#7b2fbe',
+  social: '#0066ff',
+  library: '#1b5e3d',
+  coins: '#d4a017',
+};
 
 const GENRE_COLORS: Record<string, string> = {
   action: '#e94560',
@@ -25,6 +35,7 @@ export default function DashboardPage() {
   const { data: stats } = useUserStats();
   const { data: history } = useReadingHistory();
   const { data: myReviews } = useMyReviews();
+  const { data: achievements } = useAchievements();
 
   const readingData = history as {
     id: string;
@@ -116,6 +127,79 @@ export default function DashboardPage() {
                 🏆 {s?.totalAchievements || 0}
               </p>
               <p className="text-[10px] text-mv-text-muted mt-1">badges earned</p>
+            </div>
+
+            {/* Achievements */}
+            <div className="rounded-xl bg-mv-darker border border-mv-border p-5 md:col-span-3">
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-mv-text-muted">Achievements</p>
+                <span className="text-[10px] text-mv-text-secondary">
+                  🏆 {achievements?.earned || 0} / {achievements?.total || 0} unlocked
+                </span>
+              </div>
+
+              {!achievements ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-mv-accent border-t-transparent" />
+                </div>
+              ) : (
+                <>
+                  {/* Progress bar */}
+                  <div className="mb-5">
+                    <div className="h-1.5 w-full rounded-full bg-mv-surface overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-mv-accent to-mv-purple transition-all duration-500"
+                        style={{ width: `${achievements.total > 0 ? (achievements.earned / achievements.total) * 100 : 0}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Badge grid grouped by category */}
+                  <div className="space-y-5">
+                    {achievements.categories.map((cat) => {
+                      const badges = achievements.items.filter((b) => b.category === cat.key);
+                      if (badges.length === 0) return null;
+                      return (
+                        <div key={cat.key}>
+                          <p className="mb-2 text-[9px] font-semibold uppercase tracking-wider" style={{ color: CATEGORY_COLORS[cat.key] || '#888' }}>
+                            {cat.label}
+                          </p>
+                          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-6">
+                            {badges.map((badge) => (
+                              <div
+                                key={badge.id}
+                                className={`rounded-lg border p-3 text-center transition-all ${
+                                  badge.earned
+                                    ? 'border-mv-gold/30 bg-mv-gold/5 hover:border-mv-gold/60'
+                                    : 'border-mv-border bg-mv-surface/40 opacity-70'
+                                }`}
+                                title={`${badge.description}${badge.earned ? ` · Earned ${new Date(badge.earnedAt!).toLocaleDateString()}` : ''}`}
+                              >
+                                <div className={`mx-auto mb-1.5 flex h-10 w-10 items-center justify-center rounded-full text-lg ${
+                                  badge.earned ? 'bg-mv-gold/20' : 'bg-mv-surface grayscale opacity-60'
+                                }`}>
+                                  {badge.emoji}
+                                </div>
+                                <p className={`text-[10px] font-medium leading-tight ${badge.earned ? 'text-mv-text' : 'text-mv-text-dim'}`}>
+                                  {badge.name}
+                                </p>
+                                {!badge.earned && (
+                                  <p className="mt-1 text-[8px] text-mv-text-dim">
+                                    {badge.current} / {badge.target}
+                                  </p>
+                                )}
+                                {badge.earned && (
+                                  <p className="mt-1 text-[8px] text-mv-gold">Earned ✓</p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Streak Calendar */}

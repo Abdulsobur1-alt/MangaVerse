@@ -176,6 +176,28 @@ export async function notifyReviewAdded(
   }
 }
 
+// ─── Achievement unlocked notification ───────────────
+
+export async function notifyAchievementUnlocked(
+  userId: string,
+  badgeName: string,
+  badgeEmoji: string,
+  description: string,
+): Promise<void> {
+  try {
+    if (!(await userHasPrefEnabled(userId, 'achievement'))) return;
+    await createNotification({
+      userId,
+      type: 'achievement',
+      title: `🏆 ${badgeEmoji} ${badgeName} unlocked!`,
+      body: description,
+      link: '/dashboard',
+    });
+  } catch {
+    // Silently fail — notifications are non-critical
+  }
+}
+
 // ─── Milestone notification ───────────────────────────
 
 const MILESTONE_THRESHOLDS = [1, 5, 10, 25, 50, 100, 200, 500];

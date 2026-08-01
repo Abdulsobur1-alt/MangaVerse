@@ -1,10 +1,12 @@
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useAuthStore } from '../../store/authStore';
 import { useUserStats } from '../../lib/hooks/useAuth';
+import { useAchievements } from '../../lib/queryClient';
 
 export default function ProfileScreen() {
   const { user, token } = useAuthStore();
   const { data: stats } = useUserStats();
+  const { data: achievements } = useAchievements();
 
   const isLoggedIn = !!token;
   const chaptersRead = stats?.chaptersRead || 0;
@@ -56,11 +58,48 @@ export default function ProfileScreen() {
               </TouchableOpacity>
             </View>
 
-            {stats?.totalAchievements && stats.totalAchievements > 0 && (
-              <View style={styles.achievementBanner}>
-                <Text style={styles.achievementText}>
-                  🏆 {stats.totalAchievements} achievements earned
-                </Text>
+            {achievements && achievements.items.length > 0 && (
+              <View style={styles.achievementsSection}>
+                <View style={styles.achievementsHeader}>
+                  <Text style={styles.achievementsTitle}>🏆 Achievements</Text>
+                  <Text style={styles.achievementsCount}>
+                    {achievements.earned} / {achievements.total}
+                  </Text>
+                </View>
+                <View style={styles.progressTrack}>
+                  <View
+                    style={[
+                      styles.progressFill,
+                      { width: `${achievements.total > 0 ? (achievements.earned / achievements.total) * 100 : 0}%` },
+                    ]}
+                  />
+                </View>
+                <View style={styles.badgeGrid}>
+                  {achievements.items.map((badge) => (
+                    <View
+                      key={badge.id}
+                      style={[
+                        styles.badgeCell,
+                        badge.earned ? styles.badgeEarned : styles.badgeLocked,
+                      ]}
+                    >
+                      <Text style={[styles.badgeEmoji, !badge.earned && styles.badgeEmojiLocked]}>
+                        {badge.emoji}
+                      </Text>
+                      <Text
+                        numberOfLines={1}
+                        style={[styles.badgeName, badge.earned ? styles.badgeNameEarned : styles.badgeNameLocked]}
+                      >
+                        {badge.name}
+                      </Text>
+                      {!badge.earned && (
+                        <Text style={styles.badgeProgress}>
+                          {badge.current}/{badge.target}
+                        </Text>
+                      )}
+                    </View>
+                  ))}
+                </View>
               </View>
             )}
           </>
@@ -128,8 +167,22 @@ const styles = StyleSheet.create({
   coinValue: { color: '#f0c040', fontSize: 18, fontWeight: '500' },
   coinBtn: { backgroundColor: '#e94560', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
   coinBtnText: { color: '#fff', fontSize: 10 },
-  achievementBanner: { backgroundColor: '#2d1b69', borderRadius: 10, marginHorizontal: 14, marginBottom: 12, padding: 10, alignItems: 'center' },
-  achievementText: { color: '#a05bdf', fontSize: 11, fontWeight: '500' },
+  achievementsSection: { marginHorizontal: 14, marginBottom: 12, backgroundColor: '#14142a', borderRadius: 12, padding: 12 },
+  achievementsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  achievementsTitle: { color: '#a05bdf', fontSize: 11, fontWeight: '600' },
+  achievementsCount: { color: '#888', fontSize: 10 },
+  progressTrack: { height: 3, backgroundColor: '#2a2a45', borderRadius: 2, overflow: 'hidden', marginBottom: 10 },
+  progressFill: { height: '100%', backgroundColor: '#a05bdf', borderRadius: 2 },
+  badgeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  badgeCell: { width: '30%', alignItems: 'center', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 4 },
+  badgeEarned: { backgroundColor: '#2d1b69' },
+  badgeLocked: { backgroundColor: '#1a1a30' },
+  badgeEmoji: { fontSize: 20, marginBottom: 4 },
+  badgeEmojiLocked: { opacity: 0.35 },
+  badgeName: { fontSize: 8, textAlign: 'center' },
+  badgeNameEarned: { color: '#d4a017', fontWeight: '500' },
+  badgeNameLocked: { color: '#666' },
+  badgeProgress: { color: '#555', fontSize: 8, marginTop: 2 },
   premiumBanner: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#e94560', borderRadius: 10, marginHorizontal: 14, marginBottom: 8, padding: 10 },
   premiumTitle: { color: '#fff', fontSize: 11, fontWeight: '500' },
   premiumSub: { color: '#ffaaaa', fontSize: 9, marginTop: 2 },
