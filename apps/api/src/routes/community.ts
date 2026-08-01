@@ -60,6 +60,10 @@ const UpsertWikiSchema = z.object({
   contentMd: z.string().min(1).max(50000),
 });
 
+const RevertWikiSchema = z.object({
+  version: z.number().int().positive(),
+});
+
 // ─── Helpers ──────────────────────────────────────────
 
 const POST_TAG_COLORS: Record<string, string> = {
@@ -644,6 +648,65 @@ communityRouter.post('/predictions/:id/vote', requireAuth, validate({ params: Pr
   }
 });
 
+// ─── POST /api/community/wiki/:slug/revert ────────────
+// Restore the wiki page to a previous revision (creates a new version).
+
+communityRouter.post('/wiki/:slug/revert', requireAuth, validate({ params: WikiParams, body: RevertWikiSchema }), async (req, res, next) => {
+  try {
+    const slug = req.params.slug as string;
+    const dbUserId = await resolveUserId(req.user!.uid);
+    const body = req.body as z.infer<typeof RevertWikiSchema>;
+
+    const title = await prisma.title.findUnique({ where: { slug }, select: { id: true } });
+    if (!title) throw new NotFoundError('Title', slug);
+
+    const wiki = await prisma.wikiPage.findUnique({
+      where: { titleId_slug: { titleId: title.id, slug } },
+    });
+    if (!wiki) throw new NotFoundError('WikiPage', slug);
+
+    // Reverting to the current version would just duplicate it — reject early.
+    if (body.version === wiki.version) {
+      throw new ConflictError('That is already the current version');
+    }
+
+    const revision = await prisma.wikiRevision.findUnique({
+      where: { wikiId_version: { wikiId: wiki.id, version: body.version } },
+    });
+    if (!revision) throw new NotFoundError('WikiRevision', String(body.version));
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const page = await tx.wikiPage.update({
+        where: { id: wiki.id },
+        data: {
+          contentMd: revision.contentMd,
+          version: { increment: 1 },
+          authorId: dbUserId,
+        },
+      });
+      await tx.wikiRevision.create({
+        data: {
+          wikiId: wiki.id,
+          authorId: dbUserId,
+          contentMd: revision.contentMd,
+          version: page.version,
+        },
+      });
+      return page;
+    });
+
+    // Fire-and-forget: reverting is also a contribution (appends a revision)
+    checkAndAwardAchievements(dbUserId).catch(() => {});
+
+    res.json({
+      success: true,
+      data: { id: wiki.id, version: updated.version, revertedTo: body.version },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ─── GET /api/community/wiki/:slug ────────────────────
 
 communityRouter.get('/wiki/:slug', validate({ params: WikiParams }), async (req, res, next) => {
@@ -659,7 +722,14 @@ communityRouter.get('/wiki/:slug', validate({ params: WikiParams }), async (req,
     const wiki = await prisma.wikiPage.findFirst({
       where: { titleId: title.id },
       orderBy: { version: 'desc' },
-      include: { author: { select: { id: true, displayName: true } } },
+      include: {
+        author: { select: { id: true, displayName: true } },
+        revisions: {
+          orderBy: { version: 'desc' },
+          take: 20,
+          include: { author: { select: { id: true, displayName: true } } },
+        },
+      },
     });
 
     res.json({
@@ -676,6 +746,13 @@ communityRouter.get('/wiki/:slug', validate({ params: WikiParams }), async (req,
               version: wiki.version,
               updatedAt: wiki.updatedAt.toISOString(),
               author: wiki.author,
+              revisions: wiki.revisions.map((r) => ({
+                id: r.id,
+                version: r.version,
+                contentMd: r.contentMd,
+                createdAt: r.createdAt.toISOString(),
+                author: r.author,
+              })),
             }
           : null,
       },
@@ -699,22 +776,36 @@ communityRouter.put('/wiki/:slug', requireAuth, validate({ params: WikiParams, b
     });
     if (!title) throw new NotFoundError('Title', slug);
 
-    // Atomic upsert on the (titleId, slug) unique — concurrent first-creates
-    // can't collide (one wins, the other becomes an update).
-    const wiki = await prisma.wikiPage.upsert({
-      where: { titleId_slug: { titleId: title.id, slug } },
-      create: {
-        titleId: title.id,
-        slug,
-        contentMd: body.contentMd,
-        authorId: dbUserId,
-        version: 1,
-      },
-      update: {
-        contentMd: body.contentMd,
-        version: { increment: 1 },
-        authorId: dbUserId,
-      },
+    // Upsert the page AND append a revision in one transaction so history is
+    // never lost: even a concurrent edit rolls back cleanly rather than
+    // overwriting someone else's revision.
+    const wiki = await prisma.$transaction(async (tx) => {
+      const page = await tx.wikiPage.upsert({
+        where: { titleId_slug: { titleId: title.id, slug } },
+        create: {
+          titleId: title.id,
+          slug,
+          contentMd: body.contentMd,
+          authorId: dbUserId,
+          version: 1,
+        },
+        update: {
+          contentMd: body.contentMd,
+          version: { increment: 1 },
+          authorId: dbUserId,
+        },
+      });
+
+      await tx.wikiRevision.create({
+        data: {
+          wikiId: page.id,
+          authorId: dbUserId,
+          contentMd: body.contentMd,
+          version: page.version,
+        },
+      });
+
+      return page;
     });
 
     // Fire-and-forget: award wiki contribution badges (lore keeper, scribe)

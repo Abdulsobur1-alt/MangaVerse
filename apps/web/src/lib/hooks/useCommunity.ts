@@ -74,6 +74,14 @@ export interface PredictionItem {
   myVote: { option: string; coinsStaked: number; won?: boolean; payout?: number } | null;
 }
 
+export interface WikiRevisionItem {
+  id: string;
+  version: number;
+  contentMd: string;
+  createdAt: string;
+  author: { id: string; displayName: string };
+}
+
 export interface WikiData {
   titleId: string;
   title: string;
@@ -85,6 +93,7 @@ export interface WikiData {
     version: number;
     updatedAt: string;
     author: { id: string; displayName: string };
+    revisions: WikiRevisionItem[];
   } | null;
 }
 
@@ -232,6 +241,18 @@ export function useUpsertWiki() {
   return useMutation({
     mutationFn: (data: { slug: string; contentMd: string }) =>
       api.put(`/community/wiki/${data.slug}`, { contentMd: data.contentMd }),
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['community', 'wiki', vars.slug] });
+    },
+  });
+}
+
+export function useRevertWiki() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: { slug: string; version: number }) =>
+      api.post(`/community/wiki/${data.slug}/revert`, { version: data.version }),
     onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({ queryKey: ['community', 'wiki', vars.slug] });
     },

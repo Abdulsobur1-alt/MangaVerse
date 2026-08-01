@@ -29,6 +29,7 @@ model User {
   subscriptions    Subscription[]
   reviews          Review[]
   wikiPages        WikiPage[]
+  wikiRevisions    WikiRevision[]
   predictions      PredictionVote[]
   readingClubs     ReadingClubMember[]
   achievements     Achievement[]
@@ -246,11 +247,33 @@ model WikiPage {
   updatedAt  DateTime @updatedAt @map("updated_at")
   createdAt  DateTime @default(now()) @map("created_at")
 
-  title  Title @relation(fields: [titleId], references: [id], onDelete: Cascade)
-  author User  @relation(fields: [authorId], references: [id])
+  title     Title          @relation(fields: [titleId], references: [id], onDelete: Cascade)
+  author    User           @relation(fields: [authorId], references: [id])
+  revisions WikiRevision[]
 
   @@unique([titleId, slug])
   @@map("wiki_pages")
+}
+
+// ─── Wiki Revision History ────────────────────────────
+// Every wiki edit appends a revision row, preserving who wrote each version.
+// (Previously the single WikiPage.authorId was overwritten on each edit,
+// losing prior-editor history.)
+
+model WikiRevision {
+  id        String   @id @default(uuid()) @db.Uuid
+  wikiId    String   @map("wiki_id") @db.Uuid
+  authorId  String   @map("author_id") @db.Uuid
+  contentMd String   @map("content_md") @db.Text
+  version   Int
+  createdAt DateTime @default(now()) @map("created_at")
+
+  wiki   WikiPage @relation(fields: [wikiId], references: [id], onDelete: Cascade)
+  author User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@unique([wikiId, version])
+  @@index([wikiId, createdAt])
+  @@map("wiki_revisions")
 }
 
 // ─── Predictions ───────────────────────────────────────

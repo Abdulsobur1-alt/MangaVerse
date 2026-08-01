@@ -100,7 +100,7 @@ export interface AchievementStats {
 
 /** Aggregate a user's stats used to evaluate badge conditions. */
 export async function getUserAchievementStats(dbUserId: string): Promise<AchievementStats> {
-  const [user, chaptersCompleted, seriesProgress, reviewsWritten, librarySize, coinsAgg, postsWritten, commentsWritten, clubsJoined, wikiEdits, resolvedVotes] = await Promise.all([
+  const [user, chaptersCompleted, seriesProgress, reviewsWritten, librarySize, coinsAgg, postsWritten, commentsWritten, clubsJoined, wikiPagesAuthored, wikiRevisionPages, resolvedVotes] = await Promise.all([
     prisma.user.findUnique({
       where: { id: dbUserId },
       select: { streakDays: true },
@@ -122,12 +122,21 @@ export async function getUserAchievementStats(dbUserId: string): Promise<Achieve
     prisma.communityPost.count({ where: { authorId: dbUserId } }),
     prisma.postComment.count({ where: { authorId: dbUserId } }),
     prisma.readingClubMember.count({ where: { userId: dbUserId } }),
-    prisma.wikiPage.count({ where: { authorId: dbUserId } }),
+    prisma.wikiPage.findMany({ where: { authorId: dbUserId }, select: { id: true } }),
+    prisma.wikiRevision.findMany({
+      where: { authorId: dbUserId },
+      select: { wikiId: true },
+      distinct: ['wikiId'],
+    }),
     prisma.predictionVote.findMany({
       where: { userId: dbUserId, prediction: { result: { not: null } } },
       select: { option: true, prediction: { select: { result: true } } },
     }),
   ]);
+
+  // Distinct wiki pages contributed to (current author + any revision they wrote)
+  const wikiEditIds = new Set([...wikiPagesAuthored.map((w) => w.id), ...wikiRevisionPages.map((r) => r.wikiId)]);
+  const wikiEdits = wikiEditIds.size;
 
   // Count predictions where the user's option matches the resolved result
   const predictionsWon = resolvedVotes.filter(

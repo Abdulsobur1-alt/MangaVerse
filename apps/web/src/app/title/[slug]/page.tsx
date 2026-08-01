@@ -11,7 +11,7 @@ import { useTitleReviews, useCreateReview, useDeleteReview } from '@/lib/hooks/u
 import { formatLabel, getPageNumbers } from '@mangaverse/shared';
 import { COIN_UNLOCK_COST } from '@mangaverse/shared';
 import { useCoinBalance } from '@/lib/hooks/useCoins';
-import { useWiki, useUpsertWiki } from '@/lib/hooks/useCommunity';
+import { useWiki, useUpsertWiki, useRevertWiki } from '@/lib/hooks/useCommunity';
 
 const CHAPTERS_PER_PAGE = 50;
 
@@ -37,9 +37,12 @@ export default function TitleDetailPage() {
   const { data: coinData } = useCoinBalance();
   const { data: wikiData } = useWiki(slug);
   const upsertWiki = useUpsertWiki();
+  const revertWiki = useRevertWiki();
   const [editingWiki, setEditingWiki] = useState(false);
   const [wikiContent, setWikiContent] = useState('');
   const [wikiSaving, setWikiSaving] = useState(false);
+  const [showWikiHistory, setShowWikiHistory] = useState(false);
+  const [revertError, setRevertError] = useState<string | null>(null);
 
   const handleSaveWiki = async () => {
     if (!token || wikiContent.trim().length < 1) return;
@@ -322,10 +325,21 @@ export default function TitleDetailPage() {
                     {wikiData?.wiki && (
                       <span className="text-[9px] text-mv-text-dim">v{wikiData.wiki.version}</span>
                     )}
+                    {wikiData?.wiki && wikiData.wiki.revisions.length > 0 && (
+                      <button
+                        onClick={() => { setShowWikiHistory(!showWikiHistory); setEditingWiki(false); }}
+                        className="rounded-lg border border-mv-border-light bg-mv-surface px-2.5 py-1 text-[9px] text-mv-text-secondary transition-colors hover:border-mv-accent hover:text-mv-accent"
+                      >
+                        🕘 History
+                      </button>
+                    )}
                     {token && (
                       <button
                         onClick={() => {
-                          if (!editingWiki) setWikiContent(wikiData?.wiki?.contentMd || '');
+                          if (!editingWiki) {
+                            setWikiContent(wikiData?.wiki?.contentMd || '');
+                            setShowWikiHistory(false);
+                          }
                           setEditingWiki(!editingWiki);
                         }}
                         className="rounded-lg border border-mv-border-light bg-mv-surface px-2.5 py-1 text-[9px] text-mv-text-secondary transition-colors hover:border-mv-accent hover:text-mv-accent"
@@ -335,6 +349,53 @@ export default function TitleDetailPage() {
                     )}
                   </div>
                 </div>
+
+                {/* Wiki revision history */}
+                {showWikiHistory && wikiData?.wiki && (
+                  <div className="mb-4 rounded-xl border border-mv-border-light bg-mv-darker p-4 animate-fade-in">
+                    <p className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-mv-text-muted">Revision History</p>
+                    <div className="space-y-2">
+                      {wikiData.wiki.revisions.map((rev) => (
+                        <div
+                          key={rev.id}
+                          className="flex items-center justify-between gap-3 rounded-lg bg-mv-surface/50 px-3 py-2"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-[10px] text-mv-text">
+                              <span className="font-medium text-mv-accent">v{rev.version}</span>
+                              <span className="mx-1.5 text-mv-text-dim">·</span>
+                              {rev.author.displayName}
+                              <span className="ml-1.5 text-mv-text-dim">· {formatReviewDate(rev.createdAt)}</span>
+                            </p>
+                            <p className="mt-0.5 text-[9px] text-mv-text-dim line-clamp-1">{rev.contentMd.slice(0, 120)}</p>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-2">
+                            {rev.version === wikiData.wiki!.version ? (
+                              <span className="text-[8px] text-green-400">current</span>
+                            ) : token ? (
+                              <button
+                                onClick={async () => {
+                                  setRevertError(null);
+                                  try {
+                                    await revertWiki.mutateAsync({ slug, version: rev.version });
+                                    setShowWikiHistory(false);
+                                  } catch {
+                                    setRevertError('Could not restore this version');
+                                  }
+                                }}
+                                disabled={revertWiki.isPending}
+                                className="rounded-md border border-mv-border-light bg-mv-surface px-2 py-1 text-[8px] text-mv-text-secondary transition-colors hover:border-mv-accent hover:text-mv-accent disabled:opacity-50"
+                              >
+                                Restore
+                              </button>
+                            ) : null}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {revertError && <p className="mt-2 text-[9px] text-red-400">{revertError}</p>}
+                  </div>
+                )}
 
                 {editingWiki ? (
                   <div className="rounded-xl border border-mv-border-light bg-mv-darker p-4 animate-fade-in">
