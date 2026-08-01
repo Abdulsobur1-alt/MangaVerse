@@ -7,7 +7,7 @@ import { api } from '../api';
 
 export interface NotificationItem {
   id: string;
-  type: 'new_chapter' | 'review_added' | 'review_reply' | 'achievement' | 'milestone' | 'system';
+  type: 'new_chapter' | 'review_added' | 'review_reply' | 'achievement' | 'milestone' | 'system' | 'comment';
   title: string;
   body: string | null;
   link: string | null;
@@ -31,6 +31,7 @@ const NOTIFICATION_ICONS: Record<string, string> = {
   achievement: '🏆',
   milestone: '🎉',
   system: '🔔',
+  comment: '💬',
 };
 
 export function getNotificationIcon(type: string): string {
@@ -44,6 +45,7 @@ export function getNotificationTypeColor(type: string): string {
     case 'review_reply': return '#7b2fbe';
     case 'achievement': return '#4ade80';
     case 'milestone': return '#e94560';
+    case 'comment': return '#a05bdf';
     case 'system': return '#888';
     default: return '#888';
   }

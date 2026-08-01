@@ -9,14 +9,18 @@ export type AchievementMetric =
   | 'series_read'
   | 'reviews_written'
   | 'library_size'
-  | 'coins_earned';
+  | 'coins_earned'
+  | 'posts_written'
+  | 'comments_written'
+  | 'clubs_joined'
+  | 'wiki_edits';
 
 export interface AchievementBadge {
   id: string;
   name: string;
   emoji: string;
   description: string;
-  category: 'reading' | 'streak' | 'exploration' | 'social' | 'library' | 'coins';
+  category: 'reading' | 'streak' | 'exploration' | 'social' | 'library' | 'coins' | 'community';
   metric: AchievementMetric;
   threshold: number;
 }
@@ -53,6 +57,16 @@ export const ACHIEVEMENT_CATALOG: AchievementBadge[] = [
   { id: 'pennies_50', name: 'Penny Saver', emoji: '🪙', description: 'Earn 50 coins in total', category: 'coins', metric: 'coins_earned', threshold: 50 },
   { id: 'rich_200', name: 'Well Off', emoji: '💰', description: 'Earn 200 coins in total', category: 'coins', metric: 'coins_earned', threshold: 200 },
   { id: 'tycoon_500', name: 'Coin Tycoon', emoji: '🏦', description: 'Earn 500 coins in total', category: 'coins', metric: 'coins_earned', threshold: 500 },
+
+  // ─── Community ────────────────────────────────────
+  { id: 'first_post', name: 'First Post', emoji: '📣', description: 'Create your first community post', category: 'community', metric: 'posts_written', threshold: 1 },
+  { id: 'poster_10', name: 'Poster', emoji: '🗣️', description: 'Create 10 community posts', category: 'community', metric: 'posts_written', threshold: 10 },
+  { id: 'first_comment', name: 'Commenter', emoji: '💬', description: 'Leave your first comment', category: 'community', metric: 'comments_written', threshold: 1 },
+  { id: 'commenter_25', name: 'Conversationalist', emoji: '🗨️', description: 'Leave 25 comments', category: 'community', metric: 'comments_written', threshold: 25 },
+  { id: 'club_member_1', name: 'Clubber', emoji: '🎉', description: 'Join your first reading club', category: 'community', metric: 'clubs_joined', threshold: 1 },
+  { id: 'club_hopper_5', name: 'Club Hopper', emoji: '🪩', description: 'Join 5 reading clubs', category: 'community', metric: 'clubs_joined', threshold: 5 },
+  { id: 'wiki_editor', name: 'Lore Keeper', emoji: '📜', description: 'Contribute to a series wiki page', category: 'community', metric: 'wiki_edits', threshold: 1 },
+  { id: 'wiki_scribe_5', name: 'Scribe', emoji: '✒️', description: 'Contribute to 5 different wiki pages', category: 'community', metric: 'wiki_edits', threshold: 5 },
 ];
 
 const CATEGORY_LABELS: Record<AchievementBadge['category'], string> = {
@@ -62,6 +76,7 @@ const CATEGORY_LABELS: Record<AchievementBadge['category'], string> = {
   social: 'Social',
   library: 'Library',
   coins: 'Coins',
+  community: 'Community',
 };
 
 // ─── Stats gathering ─────────────────────────────────
@@ -73,11 +88,15 @@ export interface AchievementStats {
   reviews_written: number;
   library_size: number;
   coins_earned: number;
+  posts_written: number;
+  comments_written: number;
+  clubs_joined: number;
+  wiki_edits: number;
 }
 
 /** Aggregate a user's stats used to evaluate badge conditions. */
 export async function getUserAchievementStats(dbUserId: string): Promise<AchievementStats> {
-  const [user, chaptersCompleted, seriesProgress, reviewsWritten, librarySize, coinsAgg] = await Promise.all([
+  const [user, chaptersCompleted, seriesProgress, reviewsWritten, librarySize, coinsAgg, postsWritten, commentsWritten, clubsJoined, wikiEdits] = await Promise.all([
     prisma.user.findUnique({
       where: { id: dbUserId },
       select: { streakDays: true },
@@ -96,6 +115,10 @@ export async function getUserAchievementStats(dbUserId: string): Promise<Achieve
       where: { userId: dbUserId, amount: { gt: 0 } },
       _sum: { amount: true },
     }),
+    prisma.communityPost.count({ where: { authorId: dbUserId } }),
+    prisma.postComment.count({ where: { authorId: dbUserId } }),
+    prisma.readingClubMember.count({ where: { userId: dbUserId } }),
+    prisma.wikiPage.count({ where: { authorId: dbUserId } }),
   ]);
 
   const seriesRead = new Set(seriesProgress.map((s) => s.chapter.titleId)).size;
@@ -107,6 +130,10 @@ export async function getUserAchievementStats(dbUserId: string): Promise<Achieve
     reviews_written: reviewsWritten,
     library_size: librarySize,
     coins_earned: coinsAgg._sum.amount ?? 0,
+    posts_written: postsWritten,
+    comments_written: commentsWritten,
+    clubs_joined: clubsJoined,
+    wiki_edits: wikiEdits,
   };
 }
 

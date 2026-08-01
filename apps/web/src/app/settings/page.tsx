@@ -25,6 +25,7 @@ export default function SettingsPage() {
     reviews: true,
     milestones: true,
     achievements: true,
+    community: true,
   };
 
   const togglePref = (key: string, current: boolean) => {
@@ -205,6 +206,7 @@ export default function SettingsPage() {
                 { id: 'reviews', label: 'Reviews & Ratings', desc: 'When someone reviews a title you bookmarked' },
                 { id: 'milestones', label: 'Reading Milestones', desc: 'When you reach reading milestones' },
                 { id: 'achievements', label: 'Achievements', desc: 'When you earn new badges and achievements' },
+                { id: 'community', label: 'Community Activity', desc: 'When someone comments on your posts' },
               ].map((pref) => (
                 <div key={pref.id} className="flex items-center justify-between px-5 py-3.5">
                   <div>
@@ -214,8 +216,8 @@ export default function SettingsPage() {
                   <label className="relative inline-flex cursor-pointer items-center">
                     <input
                       type="checkbox"
-                      checked={!!(prefs as Record<string, boolean>)[pref.id]}
-                      onChange={() => togglePref(pref.id, !!(prefs as Record<string, boolean>)[pref.id])}
+                      checked={(prefs as Record<string, boolean>)[pref.id] !== false}
+                      onChange={() => togglePref(pref.id, (prefs as Record<string, boolean>)[pref.id] !== false)}
                       className="peer sr-only"
                     />
                     <div className="h-5 w-9 rounded-full bg-mv-border-light after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:bg-mv-text-muted after:transition-all peer-checked:bg-mv-accent/60 peer-checked:after:translate-x-full peer-checked:after:bg-mv-accent" />

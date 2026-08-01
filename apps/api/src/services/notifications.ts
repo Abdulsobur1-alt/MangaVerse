@@ -2,7 +2,7 @@ import { prisma } from '../lib/prisma.js';
 
 // ─── Types ────────────────────────────────────────────
 
-type NotificationType = 'new_chapter' | 'review_added' | 'review_reply' | 'achievement' | 'milestone' | 'system';
+type NotificationType = 'new_chapter' | 'review_added' | 'review_reply' | 'achievement' | 'milestone' | 'system' | 'comment';
 
 interface CreateNotificationParams {
   userId: string;
@@ -42,6 +42,7 @@ const NOTIF_TYPE_TO_PREF_KEY: Record<string, string> = {
   achievement: 'achievements',
   milestone: 'milestones',
   system: 'system',
+  comment: 'community',
 };
 
 async function userHasPrefEnabled(userId: string, type: string): Promise<boolean> {
@@ -173,6 +174,29 @@ export async function notifyReviewAdded(
     );
   } catch {
     // Silently fail
+  }
+}
+
+// ─── Comment notification ─────────────────────────────
+
+/** Notify a post author that someone commented on their post. */
+export async function notifyCommentAdded(
+  postAuthorId: string,
+  commenterDisplayName: string,
+  postTitle: string,
+  postId: string,
+): Promise<void> {
+  try {
+    if (!(await userHasPrefEnabled(postAuthorId, 'comment'))) return;
+    await createNotification({
+      userId: postAuthorId,
+      type: 'comment',
+      title: `💬 ${commenterDisplayName} commented on your post`,
+      body: `\"${postTitle}\"`,
+      link: `/community/${postId}`,
+    });
+  } catch {
+    // Silently fail — notifications are non-critical
   }
 }
 

@@ -5,6 +5,8 @@ import { validate } from '../middleware/validate.js';
 import { requireAuth, optionalAuth } from '../middleware/auth.js';
 import { NotFoundError, ForbiddenError, ConflictError } from '../lib/errors.js';
 import { resolveUserId, spendCoins } from '../services/coins.js';
+import { checkAndAwardAchievements } from '../services/achievements.js';
+import { notifyCommentAdded } from '../services/notifications.js';
 
 export const communityRouter = Router();
 
@@ -170,6 +172,9 @@ communityRouter.post('/posts', requireAuth, validate({ body: CreatePostSchema })
       },
     });
 
+    // Fire-and-forget: award community participation badges (first post, poster)
+    checkAndAwardAchievements(dbUserId).catch(() => {});
+
     res.status(201).json({
       success: true,
       data: {
@@ -294,13 +299,23 @@ communityRouter.post('/posts/:id/comments', requireAuth, validate({ params: Post
     const dbUserId = await resolveUserId(req.user!.uid);
     const body = req.body as z.infer<typeof AddCommentSchema>;
 
-    const post = await prisma.communityPost.findUnique({ where: { id }, select: { id: true } });
+    const post = await prisma.communityPost.findUnique({
+      where: { id },
+      select: { id: true, title: true, authorId: true },
+    });
     if (!post) throw new NotFoundError('Post', id);
 
     const comment = await prisma.postComment.create({
       data: { postId: id, authorId: dbUserId, body: body.body },
       include: { author: { select: { id: true, displayName: true, avatarUrl: true } } },
     });
+
+    // Fire-and-forget: notify the post author (unless they commented on their own post)
+    if (post.authorId !== dbUserId) {
+      notifyCommentAdded(post.authorId, comment.author.displayName, post.title, id).catch(() => {});
+    }
+    // Award community participation badges (first comment, conversationalist)
+    checkAndAwardAchievements(dbUserId).catch(() => {});
 
     res.status(201).json({
       success: true,
@@ -377,6 +392,9 @@ communityRouter.post('/clubs', requireAuth, validate({ body: CreateClubSchema })
       },
     });
 
+    // Fire-and-forget: award club badges (clubber, club hopper)
+    checkAndAwardAchievements(dbUserId).catch(() => {});
+
     res.status(201).json({ success: true, data: { id: club.id, name: club.name, memberCount: 1, joined: true } });
   } catch (err) {
     next(err);
@@ -410,6 +428,9 @@ communityRouter.post('/clubs/:id/join', requireAuth, validate({ params: ClubPara
       }
       throw err;
     }
+
+    // Fire-and-forget: award club badges (clubber, club hopper)
+    checkAndAwardAchievements(dbUserId).catch(() => {});
 
     res.json({ success: true, data: { joined: true, memberCount: club.memberCount + 1 } });
   } catch (err) {
@@ -671,6 +692,9 @@ communityRouter.put('/wiki/:slug', requireAuth, validate({ params: WikiParams, b
         authorId: dbUserId,
       },
     });
+
+    // Fire-and-forget: award wiki contribution badges (lore keeper, scribe)
+    checkAndAwardAchievements(dbUserId).catch(() => {});
 
     const isNew = wiki.version === 1 && wiki.createdAt.getTime() > Date.now() - 5000;
     res.status(isNew ? 201 : 200).json({

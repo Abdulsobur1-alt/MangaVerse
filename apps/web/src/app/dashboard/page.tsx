@@ -16,6 +16,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   social: '#0066ff',
   library: '#1b5e3d',
   coins: '#d4a017',
+  community: '#a05bdf',
 };
 
 const GENRE_COLORS: Record<string, string> = {
