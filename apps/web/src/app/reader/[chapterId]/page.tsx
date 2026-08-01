@@ -39,7 +39,13 @@ export default function ReaderPage() {
   const [longStripMode, setLongStripMode] = useState(false);
   const [pageLoading, setPageLoading] = useState<Record<number, boolean>>({});
   const [pageError, setPageError] = useState<Record<number, boolean>>({});
+  const [autoScrollActive, setAutoScrollActive] = useState(false);
+  const [autoScrollSpeed, setAutoScrollSpeed] = useState<1 | 2 | 3>(1);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const readerRef = useRef<HTMLElement>(null);
+  const programmaticScrollRef = useRef(false);
+  const currentPageRef = useRef(0);
 
   // Fetch pages and adjacent chapters
   useEffect(() => {
@@ -63,6 +69,85 @@ export default function ReaderPage() {
       .catch(() => {})
       .finally(() => setPagesLoading(false));
   }, [chapterId, token, chapter?.unlocked, chapter?.locked]);
+
+  // ─── Auto-scroll / auto-play ────────────────────────
+  // Strip mode: smoothly scrolls down; Page mode: auto-advances pages.
+  // Stops at the end (and hops to the next chapter if available).
+  // currentPage is read via a ref so the page-mode interval isn't torn
+  // down and recreated on every page advance.
+  useEffect(() => {
+    currentPageRef.current = currentPage;
+  }, [currentPage]);
+
+  useEffect(() => {
+    if (!autoScrollActive) return;
+    const speed = autoScrollSpeed;
+
+    if (longStripMode) {
+      const tick = () => {
+        const el = scrollRef.current;
+        if (!el) return;
+        const nearBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 8;
+        if (nearBottom) {
+          setAutoScrollActive(false);
+          if (adjacentInfo.nextChapter) router.push(`/reader/${adjacentInfo.nextChapter.id}`);
+          return;
+        }
+        programmaticScrollRef.current = true;
+        el.scrollBy({ top: 3 * speed, behavior: 'auto' });
+        // Clear the flag shortly after so a scrollBy that produced no event
+        // (e.g. content shorter than viewport) can't swallow the next user scroll.
+        window.setTimeout(() => { programmaticScrollRef.current = false; }, 120);
+      };
+      const id = window.setInterval(tick, 50);
+      return () => window.clearInterval(id);
+    }
+
+    // Page mode — advance every ~4s (scaled by speed), only once pages exist
+    const id = window.setInterval(() => {
+      if (totalPages <= 0) return; // pages not loaded yet — wait
+      if (currentPageRef.current >= totalPages - 1) {
+        setAutoScrollActive(false);
+        if (adjacentInfo.nextChapter) router.push(`/reader/${adjacentInfo.nextChapter.id}`);
+        return;
+      }
+      setCurrentPage((p) => p + 1);
+    }, 4000 / speed);
+    return () => window.clearInterval(id);
+  }, [autoScrollActive, autoScrollSpeed, longStripMode, totalPages, adjacentInfo, router]);
+
+  // Stop auto-scroll when the user manually scrolls (strip mode)
+  useEffect(() => {
+    if (!autoScrollActive || !longStripMode) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      if (programmaticScrollRef.current) {
+        programmaticScrollRef.current = false;
+        return;
+      }
+      setAutoScrollActive(false);
+    };
+    el.addEventListener('scroll', onScroll);
+    return () => el.removeEventListener('scroll', onScroll);
+  }, [autoScrollActive, longStripMode]);
+
+  // ─── Full-screen mode ───────────────────────────────
+  const toggleFullscreen = useCallback(() => {
+    const el = readerRef.current;
+    if (!el) return;
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    } else {
+      el.requestFullscreen().catch(() => {});
+    }
+  }, []);
+
+  useEffect(() => {
+    const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', onFsChange);
+    return () => document.removeEventListener('fullscreenchange', onFsChange);
+  }, []);
 
   // Save reading progress — debounced, fires when user lingers on a page
   useEffect(() => {
@@ -107,14 +192,18 @@ export default function ReaderPage() {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
         e.preventDefault();
+        setAutoScrollActive(false);
         goPrev();
       } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
         e.preventDefault();
+        setAutoScrollActive(false);
         goNext();
       } else if (e.key === 'f' || e.key === 'F') {
         setLongStripMode(m => !m);
       } else if (e.key === 'c' || e.key === 'C') {
         setShowSidebar(s => !s);
+      } else if (e.key === 'a' || e.key === 'A') {
+        setAutoScrollActive(a => !a);
       }
     };
     window.addEventListener('keydown', handler);
@@ -237,7 +326,7 @@ export default function ReaderPage() {
   const chapterListHref = `/title/${chapter.series.slug}`;
 
   return (
-    <main className="min-h-screen bg-black flex flex-col">
+    <main ref={readerRef} className="min-h-screen bg-black flex flex-col">
       {/* Reader Top Bar */}
       <div className={`flex h-11 items-center border-b border-mv-border bg-mv-darker px-4 gap-3 flex-shrink-0 ${longStripMode ? 'hidden' : ''}`}>
         <Link href={chapterListHref} className="text-xs text-mv-text-muted hover:text-mv-text transition-colors whitespace-nowrap">
@@ -252,6 +341,30 @@ export default function ReaderPage() {
         </div>
 
         <div className="ml-auto flex items-center gap-2">
+          {/* Auto-scroll toggle */}
+          <button
+            onClick={() => setAutoScrollActive(a => !a)}
+            className={`rounded border px-2.5 py-1 text-[10px] transition-colors ${
+              autoScrollActive
+                ? 'border-mv-accent bg-mv-accent/20 text-mv-accent'
+                : 'border-mv-border-light bg-mv-surface text-mv-text-secondary hover:text-mv-text'
+            }`}
+            title="Auto-play (A)"
+          >
+            {autoScrollActive ? '⏸ Pause' : '▶ Play'}
+          </button>
+
+          {/* Auto-scroll speed */}
+          {autoScrollActive && (
+            <button
+              onClick={() => setAutoScrollSpeed(s => (s === 3 ? 1 : ((s + 1) as 1 | 2 | 3)))}
+              className="rounded border border-mv-border-light bg-mv-surface px-2.5 py-1 text-[10px] text-mv-text-secondary hover:text-mv-text transition-colors"
+              title="Auto-play speed"
+            >
+              {autoScrollSpeed}x
+            </button>
+          )}
+
           {/* Strip/Page toggle */}
           <button
             onClick={() => setLongStripMode(m => !m)}
@@ -263,6 +376,15 @@ export default function ReaderPage() {
             title="Toggle long-strip mode (F)"
           >
             {longStripMode ? 'Page' : 'Strip'}
+          </button>
+
+          {/* Full-screen toggle */}
+          <button
+            onClick={toggleFullscreen}
+            className="rounded border border-mv-border-light bg-mv-surface px-2.5 py-1 text-[10px] text-mv-text-secondary hover:text-mv-text transition-colors"
+            title="Toggle full-screen"
+          >
+            {isFullscreen ? '⛶ Exit' : '⛶ Full'}
           </button>
 
           {/* Chapter selector toggle */}
@@ -463,7 +585,7 @@ export default function ReaderPage() {
       {/* Keyboard hints */}
       <div className="fixed bottom-12 right-3 z-30 hidden md:block">
         <div className="rounded-lg border border-mv-border bg-mv-darker/90 px-3 py-2 text-[9px] text-mv-text-dim backdrop-blur-sm">
-          <p>← → Navigate · <span className="text-mv-accent">F</span> Strip/Page · <span className="text-mv-accent">C</span> Chapter</p>
+          <p>← → Navigate · <span className="text-mv-accent">A</span> Auto-play · <span className="text-mv-accent">F</span> Strip/Page · <span className="text-mv-accent">C</span> Chapter</p>
         </div>
       </div>
     </main>
