@@ -4,7 +4,7 @@ import { prisma } from '../lib/prisma.js';
 import { validate } from '../middleware/validate.js';
 import { requireAuth, optionalAuth } from '../middleware/auth.js';
 import { NotFoundError, ForbiddenError, ConflictError } from '../lib/errors.js';
-import { resolveUserId, spendCoins } from '../services/coins.js';
+import { resolveUserId, debitCoins } from '../services/coins.js';
 import { checkAndAwardAchievements } from '../services/achievements.js';
 import { notifyCommentAdded } from '../services/notifications.js';
 import { resolveDuePredictions, computePredictionReturn } from '../services/predictions.js';
@@ -586,23 +586,8 @@ communityRouter.post('/predictions/:id/vote', requireAuth, validate({ params: Pr
     let result: { ok: boolean; balance: number } | undefined;
     try {
       result = await prisma.$transaction(async (tx) => {
-        const guarded = await tx.user.updateMany({
-          where: { id: dbUserId, coinBalance: { gte: body.coins } },
-          data: { coinBalance: { decrement: body.coins } },
-        });
-        if (guarded.count === 0) {
-          const user = await tx.user.findUnique({ where: { id: dbUserId }, select: { coinBalance: true } });
-          return { ok: false, balance: user?.coinBalance ?? 0 };
-        }
-        await tx.coinTransaction.create({
-          data: {
-            userId: dbUserId,
-            amount: -body.coins,
-            type: 'spend',
-            referenceId: id,
-            description: 'Staked on prediction',
-          },
-        });
+        const debit = await debitCoins(tx, dbUserId, body.coins, 'spend', id, 'Staked on prediction');
+        if (!debit.ok) return debit;
         await tx.predictionVote.create({
           data: {
             predictionId: id,
@@ -611,8 +596,7 @@ communityRouter.post('/predictions/:id/vote', requireAuth, validate({ params: Pr
             coinsStaked: body.coins,
           },
         });
-        const user = await tx.user.findUnique({ where: { id: dbUserId }, select: { coinBalance: true } });
-        return { ok: true, balance: user?.coinBalance ?? 0 };
+        return debit;
       });
     } catch (err) {
       // P2002: a concurrent duplicate vote created the record first. The

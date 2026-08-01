@@ -84,50 +84,52 @@ export async function earnCoins(
   return balance;
 }
 
-export interface SpendResult {
+export interface DebitResult {
   ok: boolean;
   balance: number;
   error?: 'INSUFFICIENT_COINS';
 }
 
-export async function spendCoins(
+/**
+ * Atomically debit coins from a user's balance, writing the ledger entry,
+ * inside an *existing* transaction. Callers pass their transaction client so
+ * the spend is atomic with whatever else they do (vote insert, chapter
+ * unlock). The guarded updateMany (coinBalance >= amount) prevents
+ * double-spend races from concurrent requests.
+ */
+export async function debitCoins(
+  tx: Prisma.TransactionClient,
   dbUserId: string,
   amount: number,
   type: CoinTxnType,
   referenceId?: string,
   description?: string,
-): Promise<SpendResult> {
-  // Atomic guard: only decrement when the user actually has enough coins.
-  // Prevents double-spend races from concurrent requests.
-  const balance = await prisma.$transaction(async (tx) => {
-    const guarded = await tx.user.updateMany({
-      where: { id: dbUserId, coinBalance: { gte: amount } },
-      data: { coinBalance: { decrement: amount } },
-    });
-    if (guarded.count === 0) {
-      const user = await tx.user.findUnique({
-        where: { id: dbUserId },
-        select: { coinBalance: true },
-      });
-      return { ok: false, balance: user?.coinBalance ?? 0, error: 'INSUFFICIENT_COINS' as const };
-    }
-    await tx.coinTransaction.create({
-      data: {
-        userId: dbUserId,
-        amount: -amount,
-        type,
-        referenceId: referenceId || null,
-        description: description || null,
-      },
-    });
+): Promise<DebitResult> {
+  const guarded = await tx.user.updateMany({
+    where: { id: dbUserId, coinBalance: { gte: amount } },
+    data: { coinBalance: { decrement: amount } },
+  });
+  if (guarded.count === 0) {
     const user = await tx.user.findUnique({
       where: { id: dbUserId },
       select: { coinBalance: true },
     });
-    return { ok: true, balance: user?.coinBalance ?? 0 };
+    return { ok: false, balance: user?.coinBalance ?? 0, error: 'INSUFFICIENT_COINS' as const };
+  }
+  await tx.coinTransaction.create({
+    data: {
+      userId: dbUserId,
+      amount: -amount,
+      type,
+      referenceId: referenceId || null,
+      description: description || null,
+    },
   });
-
-  return balance;
+  const user = await tx.user.findUnique({
+    where: { id: dbUserId },
+    select: { coinBalance: true },
+  });
+  return { ok: true, balance: user?.coinBalance ?? 0 };
 }
 
 // ─── Chapter unlock flow ──────────────────────────────
@@ -178,33 +180,19 @@ export async function unlockChapter(
           return { unlocked: true, balance: user?.coinBalance ?? 0, error: 'ALREADY_UNLOCKED' as const };
         }
 
-        const guarded = await tx.user.updateMany({
-          where: { id: dbUserId, coinBalance: { gte: cost } },
-          data: { coinBalance: { decrement: cost } },
-        });
-        if (guarded.count === 0) {
-          const user = await tx.user.findUnique({
-            where: { id: dbUserId },
-            select: { coinBalance: true },
-          });
-          return { unlocked: false, balance: user?.coinBalance ?? 0, error: 'INSUFFICIENT_COINS' as const };
+        const debit = await debitCoins(
+          tx,
+          dbUserId,
+          cost,
+          'spend',
+          chapterId,
+          `Unlocked Ch. ${chapter.number}`,
+        );
+        if (!debit.ok) {
+          return { unlocked: false, balance: debit.balance, error: 'INSUFFICIENT_COINS' as const };
         }
 
-        await tx.coinTransaction.create({
-          data: {
-            userId: dbUserId,
-            amount: -cost,
-            type: 'spend',
-            referenceId: chapterId,
-            description: `Unlocked Ch. ${chapter.number}`,
-          },
-        });
-
-        const user = await tx.user.findUnique({
-          where: { id: dbUserId },
-          select: { coinBalance: true },
-        });
-        return { unlocked: true, balance: user?.coinBalance ?? 0 };
+        return { unlocked: true, balance: debit.balance };
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );
