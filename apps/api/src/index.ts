@@ -20,6 +20,7 @@ import { coinsRouter } from './routes/coins.js';
 import { achievementsRouter } from './routes/achievements.js';
 import { communityRouter } from './routes/community.js';
 import { adminRouter } from './routes/admin.js';
+import { pushRouter } from './routes/push.js';
 import { healthRouter } from './routes/health.js';
 import { createImageProxyHandler } from './services/image-proxy.js';
 import { getScraperQueue, startScraperWorker } from './queues/scraper.js';
@@ -63,6 +64,7 @@ app.use('/api/coins', coinsRouter);
 app.use('/api/achievements', achievementsRouter);
 app.use('/api/community', communityRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/push', pushRouter);
 
 // Reviews are also accessible via titles: GET/POST /api/titles/:slug/reviews
 // The reviews router handles /title/:slug internally

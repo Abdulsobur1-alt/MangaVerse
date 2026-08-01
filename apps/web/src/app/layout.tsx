@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { Providers } from './providers';
 import { AuthInitializer } from '@/components/AuthInitializer';
+import { PushInitializer } from '@/components/PushInitializer';
 
 export const metadata: Metadata = {
   title: 'MangaVerse — Read Manga, Manhwa & Light Novels',
@@ -34,6 +35,7 @@ export default function RootLayout({
       <body className="bg-mv-dark text-mv-text antialiased">
         <Providers>
           <AuthInitializer />
+          <PushInitializer />
           {children}
         </Providers>
       </body>

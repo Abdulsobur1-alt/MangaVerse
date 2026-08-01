@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma.js';
+import { sendWebPushToUser } from './webpush.js';
 
 // ─── Types ────────────────────────────────────────────
 
@@ -27,6 +28,14 @@ async function createNotification(params: CreateNotificationParams): Promise<voi
         imageUrl: params.imageUrl || null,
       },
     });
+
+    // Mirror to a browser web push (fire-and-forget, pref-gated at the
+    // call site). If VAPID keys aren't configured this is a no-op.
+    sendWebPushToUser(params.userId, {
+      title: params.title,
+      body: params.body || undefined,
+      link: params.link || undefined,
+    }).catch(() => {});
   } catch {
     // Silently fail — notifications are non-critical
   }
