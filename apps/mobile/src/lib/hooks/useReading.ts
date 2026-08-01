@@ -1,10 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api';
 
-export function useReadingProgress() {
+export function useReadingProgress(enabled = true) {
   return useQuery({
     queryKey: ['reading', 'progress'],
     queryFn: () => api.get('/reading/progress'),
+    enabled,
   });
 }
 

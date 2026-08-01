@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { View, Text, TextInput, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTitles, useSearch } from '../../lib/queryClient';
 import type { TitleItem } from '../../lib/api';
 
@@ -9,11 +9,15 @@ const SORTS = ['trending', 'newest', 'rating'];
 
 export default function BrowseScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ genre?: string }>();
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [activeFormat, setActiveFormat] = useState('All');
   const [sort, setSort] = useState('trending');
   const [page, setPage] = useState(1);
+
+  // Read optional genre filter from the URL (set by home screen genre chips)
+  const urlGenre = typeof params.genre === 'string' ? params.genre : undefined;
 
   const isSearching = debouncedSearch.length > 1;
   const { data: searchResults } = useSearch(isSearching ? debouncedSearch : '');
@@ -21,6 +25,7 @@ export default function BrowseScreen() {
     page,
     limit: 20,
     type: activeFormat === 'All' ? undefined : activeFormat,
+    genre: urlGenre,
     sort,
   });
 
@@ -67,6 +72,18 @@ export default function BrowseScreen() {
             </TouchableOpacity>
           ))}
         </ScrollView>
+
+        {/* Active genre filter (from home chips) */}
+        {urlGenre && (
+          <View style={styles.genreFilterBar}>
+            <View style={styles.genreFilterTag}>
+              <Text style={styles.genreFilterText}>Genre: {urlGenre.charAt(0).toUpperCase() + urlGenre.slice(1)}</Text>
+              <TouchableOpacity onPress={() => { setPage(1); router.setParams({ genre: '' }); }}>
+                <Text style={styles.genreFilterClear}>×</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         {/* Sort + result count */}
         <View style={styles.resultBar}>
@@ -151,6 +168,10 @@ const styles = StyleSheet.create({
   tagActive: { backgroundColor: '#e94560' },
   tagText: { fontSize: 10, color: '#aaa' },
   tagActiveText: { color: '#fff' },
+  genreFilterBar: { flexDirection: 'row', paddingHorizontal: 14, paddingBottom: 8 },
+  genreFilterTag: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#7b2fbe20', borderColor: '#7b2fbe40', borderWidth: 1, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 4 },
+  genreFilterText: { color: '#b57de0', fontSize: 10 },
+  genreFilterClear: { color: '#b57de0', fontSize: 13, marginLeft: 2 },
   resultBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 14, paddingBottom: 8 },
   resultCount: { color: '#888', fontSize: 9 },
   sortRow: { flex: 1, marginLeft: 8 },
