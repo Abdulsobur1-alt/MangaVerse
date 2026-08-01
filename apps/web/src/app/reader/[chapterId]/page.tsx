@@ -6,6 +6,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useChapter } from '@/lib/hooks/useChapters';
 import { useAuthStore } from '@/store/authStore';
 import { TopBar } from '@/components/TopBar';
+import { useUnlockChapter, useCoinBalance } from '@/lib/hooks/useCoins';
+import { COIN_UNLOCK_COST } from '@mangaverse/shared';
 
 interface PageData {
   index: number;
@@ -24,12 +26,15 @@ export default function ReaderPage() {
   const router = useRouter();
   const { data: chapter, isLoading, error } = useChapter(chapterId || '');
   const { token } = useAuthStore();
+  const unlockChapter = useUnlockChapter();
+  const { data: coinData } = useCoinBalance();
 
   const [pages, setPages] = useState<PageData[]>([]);
   const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [adjacentInfo, setAdjacentInfo] = useState<{ prevChapter: AdjacentChapter | null; nextChapter: AdjacentChapter | null }>({ prevChapter: null, nextChapter: null });
   const [pagesLoading, setPagesLoading] = useState(true);
+  const [unlockError, setUnlockError] = useState<string | null>(null);
   const [showSidebar, setShowSidebar] = useState(false);
   const [longStripMode, setLongStripMode] = useState(false);
   const [pageLoading, setPageLoading] = useState<Record<number, boolean>>({});
@@ -41,9 +46,10 @@ export default function ReaderPage() {
     if (!chapterId) return;
     setPagesLoading(true);
     setCurrentPage(0);
+    const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
     Promise.all([
-      fetch(`/api/chapters/${chapterId}/pages`).then(r => r.json()),
-      fetch(`/api/chapters/${chapterId}/adjacent`).then(r => r.json()),
+      fetch(`/api/chapters/${chapterId}/pages`, { headers }).then(r => r.json()),
+      fetch(`/api/chapters/${chapterId}/adjacent`, { headers }).then(r => r.json()),
     ])
       .then(([pagesRes, adjRes]) => {
         if (pagesRes.success) {
@@ -56,7 +62,7 @@ export default function ReaderPage() {
       })
       .catch(() => {})
       .finally(() => setPagesLoading(false));
-  }, [chapterId]);
+  }, [chapterId, token, chapter?.unlocked, chapter?.locked]);
 
   // Save reading progress — debounced, fires when user lingers on a page
   useEffect(() => {
@@ -149,6 +155,77 @@ export default function ReaderPage() {
             <p className="text-xs text-mv-text-dim mb-4">It may have been removed or the link is invalid</p>
             <Link href="/browse" className="inline-block rounded-md bg-mv-accent px-4 py-2 text-xs font-medium text-white hover:bg-red-500 transition-colors">
               Browse titles
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  // ─── Coin-locked gate ─────────────────────────────
+  // If the chapter is locked and the user hasn't unlocked it, show the unlock screen.
+  if (chapter.locked && !chapter.unlocked) {
+    const cost = chapter.unlockCost ?? COIN_UNLOCK_COST;
+    const balance = coinData?.balance ?? 0;
+    const canAfford = balance >= cost;
+
+    const handleUnlock = async () => {
+      setUnlockError(null);
+      try {
+        await unlockChapter.mutateAsync(chapter.id);
+      } catch {
+        setUnlockError('Could not unlock this chapter. You may need more coins.');
+      }
+    };
+
+    return (
+      <main className="min-h-screen bg-black flex flex-col">
+        <TopBar />
+        <div className="flex flex-1 items-center justify-center px-6">
+          <div className="w-full max-w-sm rounded-2xl border border-mv-border bg-mv-darker p-8 text-center">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-mv-gold/10">
+              <span className="text-2xl">🔒</span>
+            </div>
+            <h1 className="text-lg font-semibold text-white">Chapter Locked</h1>
+            <p className="mt-1 text-xs text-mv-text-muted">
+              Ch. {chapter.number} · {chapter.series.title}
+            </p>
+            <p className="mt-3 text-xs leading-relaxed text-mv-text-secondary">
+              This chapter requires coins to unlock. Your balance:
+              <span className="mx-1 font-medium text-mv-gold">{balance} 🪙</span>
+            </p>
+
+            <button
+              onClick={handleUnlock}
+              disabled={!canAfford || unlockChapter.isPending}
+              className={`mt-6 w-full rounded-lg py-2.5 text-xs font-medium text-white transition-colors ${
+                canAfford && !unlockChapter.isPending
+                  ? 'bg-mv-accent hover:bg-red-500'
+                  : 'bg-mv-surface text-mv-text-dim cursor-not-allowed'
+              }`}
+            >
+              {unlockChapter.isPending
+                ? 'Unlocking...'
+                : canAfford
+                ? `Unlock for ${cost} 🪙`
+                : `Need ${cost - balance} more coins`}
+            </button>
+
+            {!token && (
+              <Link href="/login" className="mt-3 inline-block text-[10px] text-mv-accent hover:underline">
+                Sign in to unlock with coins
+              </Link>
+            )}
+
+            {unlockError && (
+              <p className="mt-3 text-[10px] text-red-400">{unlockError}</p>
+            )}
+
+            <Link
+              href={`/title/${chapter.series.slug}`}
+              className="mt-4 inline-block text-[10px] text-mv-text-muted hover:text-mv-text transition-colors"
+            >
+              ← Back to chapter list
             </Link>
           </div>
         </div>

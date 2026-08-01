@@ -96,6 +96,9 @@ export interface TitleDetail extends TitleItem {
     number: number;
     title: string | null;
     pageCount: number | null;
+    coinLocked: boolean;
+    freeAt: string | null;
+    isLocked: boolean;
     createdAt: string;
     progress: ChapterProgress | null;
   }[];
@@ -157,6 +160,20 @@ export interface ReviewsResponse {
   totalReviews: number;
 }
 
+export interface CoinTransactionItem {
+  id: string;
+  amount: number;
+  type: string;
+  referenceId: string | null;
+  description: string | null;
+  createdAt: string;
+}
+
+export interface CoinBalanceData {
+  balance: number;
+  transactions: CoinTransactionItem[];
+}
+
 export interface PaginatedResult<T> {
   items: T[];
   total: number;
@@ -175,6 +192,10 @@ export interface ChapterItem {
 }
 
 export interface ChapterDetail extends ChapterItem {
+  freeAt?: string | null;
+  locked?: boolean;
+  unlocked?: boolean;
+  unlockCost?: number | null;
   series: {
     id: string;
     slug: string;

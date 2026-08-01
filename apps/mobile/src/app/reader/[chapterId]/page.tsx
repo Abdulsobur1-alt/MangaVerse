@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Dimensions, StyleSheet, Platform, Image } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useChapter } from '../../../lib/queryClient';
+import { useChapter, useCoinBalance, useUnlockChapter } from '../../../lib/queryClient';
+import { COIN_UNLOCK_COST } from '@mangaverse/shared';
+import { useAuthStore } from '../../../store/authStore';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const PAGE_WIDTH = Math.min(SCREEN_WIDTH, 700);
@@ -23,6 +25,10 @@ export default function ReaderScreen() {
   const { chapterId } = useLocalSearchParams<{ chapterId: string }>();
   const chapterIdStr = typeof chapterId === 'string' ? chapterId : '';
   const { data: chapter, isLoading } = useChapter(chapterIdStr);
+  const { token } = useAuthStore();
+  const { data: coinData } = useCoinBalance();
+  const unlockChapter = useUnlockChapter();
+  const [unlockError, setUnlockError] = useState<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
 
   const [pages, setPages] = useState<PageData[]>([]);
@@ -41,10 +47,11 @@ export default function ReaderScreen() {
     setCurrentPage(0);
 
     const baseUrl = process.env.EXPO_PUBLIC_API_URL || (Platform.OS === 'android' ? 'http://10.0.2.2:3001' : 'http://localhost:3001');
+    const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
     Promise.all([
-      fetch(`${baseUrl}/api/chapters/${chapterId}/pages`).then(r => r.json()),
-      fetch(`${baseUrl}/api/chapters/${chapterId}/adjacent`).then(r => r.json()),
+      fetch(`${baseUrl}/api/chapters/${chapterId}/pages`, { headers }).then(r => r.json()),
+      fetch(`${baseUrl}/api/chapters/${chapterId}/adjacent`, { headers }).then(r => r.json()),
     ])
       .then(([pagesRes, adjRes]) => {
         if (pagesRes.success) {
@@ -57,7 +64,7 @@ export default function ReaderScreen() {
       })
       .catch(() => {})
       .finally(() => setPagesLoading(false));
-  }, [chapterId]);
+  }, [chapterId, token, chapter?.unlocked, chapter?.locked]);
 
   // Auto-hide controls after 3 seconds
   useEffect(() => {
@@ -111,6 +118,67 @@ export default function ReaderScreen() {
         <Text style={styles.errorText}>Chapter not found</Text>
         <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 10 }}>
           <Text style={styles.backLink}>Go back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // ─── Coin-locked gate ─────────────────────────────
+  if (chapter.locked && !chapter.unlocked) {
+    const cost = chapter.unlockCost ?? COIN_UNLOCK_COST;
+    const balance = coinData?.balance ?? 0;
+    const canAfford = balance >= cost;
+
+    const handleUnlock = async () => {
+      setUnlockError(null);
+      try {
+        await unlockChapter.mutateAsync(chapter.id);
+      } catch {
+        setUnlockError('Could not unlock this chapter. You may need more coins.');
+      }
+    };
+
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: 24 }]}>
+        <Text style={styles.lockEmoji}>🔒</Text>
+        <Text style={styles.lockTitle}>Chapter Locked</Text>
+        <Text style={styles.lockMeta} numberOfLines={2}>
+          Ch. {chapter.number} · {chapter.series.title}
+        </Text>
+        <Text style={styles.lockBalance}>
+          Your balance: <Text style={{ color: '#f0c040' }}>{balance} 🪙</Text>
+        </Text>
+
+        {token ? (
+          <TouchableOpacity
+            style={[
+              styles.unlockBtn,
+              (!canAfford || unlockChapter.isPending) && styles.unlockBtnDisabled,
+            ]}
+            disabled={!canAfford || unlockChapter.isPending}
+            onPress={handleUnlock}
+          >
+            <Text style={styles.unlockBtnText}>
+              {unlockChapter.isPending
+                ? 'Unlocking...'
+                : canAfford
+                ? `Unlock for ${cost} 🪙`
+                : `Need ${cost - balance} more coins`}
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={styles.unlockBtn}
+            onPress={() => router.push('/login' as any)}
+          >
+            <Text style={styles.unlockBtnText}>Sign in to unlock</Text>
+          </TouchableOpacity>
+        )}
+
+        {unlockError && <Text style={styles.lockError}>{unlockError}</Text>}
+
+        <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 14 }}>
+          <Text style={styles.backLink}>← Back</Text>
         </TouchableOpacity>
       </View>
     );
@@ -331,4 +399,19 @@ const styles = StyleSheet.create({
   navTextDisabled: { color: '#444' },
   pageIndicator: { color: '#666', fontSize: 11, flex: 1, textAlign: 'center' },
   hint: { color: '#444', fontSize: 9, paddingBottom: 40, paddingTop: 4 },
+  lockEmoji: { fontSize: 44, marginBottom: 12 },
+  lockTitle: { color: '#fff', fontSize: 18, fontWeight: '600', marginBottom: 6 },
+  lockMeta: { color: '#888', fontSize: 11, textAlign: 'center', marginBottom: 10 },
+  lockBalance: { color: '#aaa', fontSize: 12, marginBottom: 18 },
+  unlockBtn: {
+    backgroundColor: '#e94560',
+    borderRadius: 10,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    alignSelf: 'stretch',
+    alignItems: 'center',
+  },
+  unlockBtnDisabled: { backgroundColor: '#2a2a45' },
+  unlockBtnText: { color: '#fff', fontSize: 13, fontWeight: '500' },
+  lockError: { color: '#ff4444', fontSize: 10, marginTop: 10, textAlign: 'center' },
 });

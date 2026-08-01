@@ -1,5 +1,13 @@
 import type { ContentFormat } from '../types';
 
+// ─── Coin economy constants ───────────────────────────
+
+/** Cost in coins to unlock a coin-locked chapter. */
+export const COIN_UNLOCK_COST = 10;
+
+/** Coins awarded for completing a chapter. */
+export const COIN_CHAPTER_REWARD = 2;
+
 /**
  * Formats a chapter number with optional leading zeros.
  * e.g., 1 → "Ch. 1", 198 → "Ch. 198"

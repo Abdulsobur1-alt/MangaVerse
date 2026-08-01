@@ -16,6 +16,9 @@ export interface ChapterDetail extends ChapterItem {
   titleId: string;
   freeAt?: string | null;
   sourceUrl?: string | null;
+  locked: boolean;
+  unlocked: boolean;
+  unlockCost: number | null;
   series: {
     id: string;
     slug: string;

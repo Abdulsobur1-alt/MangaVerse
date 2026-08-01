@@ -3,8 +3,10 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { cacheGet, cacheSet } from '../lib/redis.js';
 import { validate } from '../middleware/validate.js';
+import { requireAuth, optionalAuth } from '../middleware/auth.js';
 import { NotFoundError } from '../lib/errors.js';
 import { mangadex } from '../services/mangadex.js';
+import { getChapterLockInfo, isChapterUnlockedByUser, resolveUserId, unlockChapter } from '../services/coins.js';
 
 export const chaptersRouter = Router();
 
@@ -87,14 +89,17 @@ chaptersRouter.get('/', validate({ query: ChapterListQuery }), async (req, res, 
 });
 
 // ─── GET /api/chapters/:id ────────────────────────────
+// Returns chapter detail. When authenticated, includes per-user lock status.
 
-chaptersRouter.get('/:id', validate({ params: ChapterIdParams }), async (req, res, next) => {
+chaptersRouter.get('/:id', optionalAuth, validate({ params: ChapterIdParams }), async (req, res, next) => {
   try {
     const id: string = req.params.id as string;
 
     const cached = await cacheGet<unknown>(`chapter:${id}`);
     if (cached) {
-      res.json({ success: true, data: cached });
+      const base = cached as Record<string, unknown>;
+      // Merge per-user lock info on top of cached base chapter
+      res.json({ success: true, data: await mergeLockInfo(req, base as any) });
       return;
     }
 
@@ -111,27 +116,68 @@ chaptersRouter.get('/:id', validate({ params: ChapterIdParams }), async (req, re
 
     await cacheSet(`chapter:${id}`, chapter, 600);
 
-    res.json({ success: true, data: chapter });
+    res.json({ success: true, data: await mergeLockInfo(req, chapter as any) });
   } catch (err) {
     next(err);
   }
 });
 
+// Helper: add per-user locked/unlocked fields to a chapter object
+async function mergeLockInfo(req: any, chapter: any): Promise<Record<string, unknown>> {
+  const { locked, unlockCost } = getChapterLockInfo(chapter);
+  let unlocked = !locked; // Free chapters are always accessible
+  if (locked && req.user?.uid) {
+    try {
+      const dbUserId = await resolveUserId(req.user.uid);
+      unlocked = await isChapterUnlockedByUser(dbUserId, chapter.id);
+    } catch {
+      unlocked = false;
+    }
+  }
+  return { ...chapter, locked, unlocked, unlockCost };
+}
+
 // ─── GET /api/chapters/:id/pages ───────────────────────
 // Returns page image URLs for a chapter.
 // Tries MangaDex API if sourceUrl contains a MangaDex chapter ID,
 // otherwise generates placeholder image URLs.
+// If the chapter is coin-locked and the user hasn't unlocked it, returns 403.
 
-chaptersRouter.get('/:id/pages', async (req, res, next) => {
+chaptersRouter.get('/:id/pages', optionalAuth, async (req, res, next) => {
   try {
     const id: string = req.params.id as string;
 
     const chapter = await prisma.chapter.findUnique({
       where: { id },
-      select: { id: true, number: true, pageCount: true, sourceUrl: true, titleId: true },
+      select: { id: true, number: true, pageCount: true, sourceUrl: true, titleId: true, coinLocked: true, freeAt: true },
     });
 
     if (!chapter) throw new NotFoundError('Chapter', id);
+
+    // Enforce coin lock: locked chapters need an unlock spend (or freeAt passed)
+    const { locked, unlockCost } = getChapterLockInfo(chapter as any);
+    if (locked) {
+      let unlocked = false;
+      if (req.user?.uid) {
+        try {
+          const dbUserId = await resolveUserId(req.user.uid);
+          unlocked = await isChapterUnlockedByUser(dbUserId, id);
+        } catch {
+          unlocked = false;
+        }
+      }
+      if (!unlocked) {
+        res.status(403).json({
+          success: false,
+          error: {
+            code: 'CHAPTER_LOCKED',
+            message: 'This chapter requires coins to unlock',
+            details: { unlockCost },
+          },
+        });
+        return;
+      }
+    }
 
     const pageCount = chapter.pageCount || 12;
 
@@ -178,6 +224,41 @@ chaptersRouter.get('/:id/pages', async (req, res, next) => {
         total: pageCount,
         chapterId: chapter.id,
         chapterNumber: chapter.number,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── POST /api/chapters/:id/unlock ─────────────────────
+// Spend coins to unlock a coin-locked chapter.
+
+chaptersRouter.post('/:id/unlock', requireAuth, validate({ params: ChapterIdParams }), async (req, res, next) => {
+  try {
+    const id: string = req.params.id as string;
+    const dbUserId = await resolveUserId(req.user!.uid);
+
+    const result = await unlockChapter(dbUserId, id);
+
+    if (result.error === 'INSUFFICIENT_COINS') {
+      res.status(402).json({
+        success: false,
+        error: {
+          code: 'INSUFFICIENT_COINS',
+          message: 'Not enough coins to unlock this chapter',
+          details: { balance: result.balance },
+        },
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: {
+        unlocked: result.unlocked,
+        balance: result.balance,
+        chapterId: id,
       },
     });
   } catch (err) {

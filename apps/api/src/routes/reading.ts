@@ -5,6 +5,7 @@ import { validate } from '../middleware/validate.js';
 import { requireAuth } from '../middleware/auth.js';
 import { NotFoundError } from '../lib/errors.js';
 import { checkAndNotifyMilestone } from '../services/notifications.js';
+import { earnCoins, COIN_CHAPTER_REWARD } from '../services/coins.js';
 
 export const readingRouter = Router();
 
@@ -59,6 +60,14 @@ readingRouter.post('/progress', validate({ body: SaveProgressSchema }), async (r
 
     const { chapterId, pageNumber, completed } = req.body;
 
+    // Fetch existing progress to detect first-time completion (for coin rewards)
+    const existing = await prisma.readingProgress.findUnique({
+      where: {
+        userId_chapterId: { userId: user.id, chapterId },
+      },
+      select: { completed: true },
+    });
+
     // Upsert progress
     const progress = await prisma.readingProgress.upsert({
       where: {
@@ -68,12 +77,16 @@ readingRouter.post('/progress', validate({ body: SaveProgressSchema }), async (r
       create: { userId: user.id, chapterId, pageNumber, completed },
     });
 
-    // If chapter completed, update streak and check milestones
-    if (completed) {
+    // If chapter newly completed, update streak, award coins, check milestones
+    const newlyCompleted = completed && !existing?.completed;
+    if (newlyCompleted) {
       await prisma.user.update({
         where: { id: user.id },
         data: { streakDays: { increment: 1 } },
       });
+
+      // Award coins for completing a chapter (fire-and-forget)
+      earnCoins(user.id, COIN_CHAPTER_REWARD, 'reward', chapterId, 'Completed a chapter').catch(() => {});
 
       // Fire-and-forget milestone check
       checkAndNotifyMilestone(user.id);

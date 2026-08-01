@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { QueryClient, QueryClientProvider, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api, TitleItem, TitleDetail, PaginatedResult, ChapterDetail, ChapterItem, ReviewItem, ReviewsResponse, NotificationItem, NotificationsResponse } from './api';
+import { api, TitleItem, TitleDetail, PaginatedResult, ChapterDetail, ChapterItem, ReviewItem, ReviewsResponse, NotificationItem, NotificationsResponse, CoinBalanceData, CoinTransactionItem } from './api';
 
 export function QueryProvider({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -151,6 +151,48 @@ export function useMarkAllRead() {
     mutationFn: () => api.patch('/notifications/read-all', {}),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    },
+  });
+}
+
+// ─── Coin Hooks ───────────────────────────────
+
+export function useCoinBalance() {
+  const token = getNotifToken();
+
+  return useQuery<CoinBalanceData>({
+    queryKey: ['coins', 'balance'],
+    queryFn: () => api.get<CoinBalanceData>('/coins'),
+    enabled: !!token,
+  });
+}
+
+export function useCoinTransactions(page = 1, limit = 20) {
+  const token = getNotifToken();
+
+  return useQuery<{
+    items: CoinTransactionItem[];
+    total: number;
+    page: number;
+    limit: number;
+    hasMore: boolean;
+  }>({
+    queryKey: ['coins', 'transactions', page, limit],
+    queryFn: () => api.get(`/coins/transactions?page=${page}&limit=${limit}`),
+    enabled: !!token,
+  });
+}
+
+export function useUnlockChapter() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (chapterId: string) => api.post<{ unlocked: boolean; balance: number; chapterId: string }>(
+      `/chapters/${chapterId}/unlock`,
+    ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['coins'] });
+      queryClient.invalidateQueries({ queryKey: ['chapter'] });
     },
   });
 }

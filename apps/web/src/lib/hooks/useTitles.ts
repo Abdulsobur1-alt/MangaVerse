@@ -29,6 +29,9 @@ export interface TitleChapter {
   number: number;
   title: string | null;
   pageCount: number | null;
+  coinLocked: boolean;
+  freeAt: string | null;
+  isLocked: boolean;
   createdAt: string;
   progress: ChapterProgress | null;
 }

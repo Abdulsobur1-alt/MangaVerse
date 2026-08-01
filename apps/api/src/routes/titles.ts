@@ -207,7 +207,7 @@ titlesRouter.get('/:slug', optionalAuth, validate({ params: TitleSlugParams }), 
         orderBy: { number: 'desc' },
         skip: chaptersSkip,
         take: chaptersLimit,
-        select: { id: true, number: true, title: true, pageCount: true, createdAt: true },
+        select: { id: true, number: true, title: true, pageCount: true, coinLocked: true, freeAt: true, createdAt: true },
       }),
       prisma.chapter.count({
         where: { series: { slug } },
@@ -239,6 +239,8 @@ titlesRouter.get('/:slug', optionalAuth, validate({ params: TitleSlugParams }), 
       chapters: chapters.map(ch => ({
         ...ch,
         progress: progressMap[ch.id] || null,
+        // Compute whether the chapter is currently locked (freeAt passed => free)
+        isLocked: ch.coinLocked && (!ch.freeAt || new Date(ch.freeAt).getTime() > Date.now()),
       })),
       chaptersPagination: {
         page: chaptersPage,

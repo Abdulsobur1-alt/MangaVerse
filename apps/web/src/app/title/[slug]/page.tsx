@@ -9,6 +9,8 @@ import { useAddBookmark, useRemoveBookmark } from '@/lib/hooks/useLibrary';
 import { useAuthStore } from '@/store/authStore';
 import { useTitleReviews, useCreateReview, useDeleteReview } from '@/lib/hooks/useReviews';
 import { formatLabel, getPageNumbers } from '@mangaverse/shared';
+import { COIN_UNLOCK_COST } from '@mangaverse/shared';
+import { useCoinBalance } from '@/lib/hooks/useCoins';
 
 const CHAPTERS_PER_PAGE = 50;
 
@@ -31,6 +33,7 @@ export default function TitleDetailPage() {
   const { data: reviewsData } = useTitleReviews(slug, { page: reviewsPage, limit: 5, sort: sortReviews });
   const createReview = useCreateReview(slug);
   const deleteReview = useDeleteReview();
+  const { data: coinData } = useCoinBalance();
 
   const handleSubmitReview = async () => {
     if (!token || reviewBody.length < 10) return;
@@ -316,6 +319,7 @@ export default function TitleDetailPage() {
                       {chapters.map((ch) => {
                         const isCompleted = ch.progress?.completed;
                         const isInProgress = ch.progress && !ch.progress.completed;
+                        const isLocked = ch.isLocked;
                         return (
                           <Link
                             key={ch.id}
@@ -323,6 +327,12 @@ export default function TitleDetailPage() {
                             className="group flex items-center justify-between rounded-lg px-4 py-3 transition-all hover:bg-mv-surface"
                           >
                             <div className="flex items-center gap-3 min-w-0">
+                              {/* Lock indicator */}
+                              {isLocked && !isCompleted && (
+                                <span className="flex h-5 w-5 shrink-0 items-center justify-center text-mv-gold" title="Coin-locked chapter">
+                                  🔒
+                                </span>
+                              )}
                               {/* Progress indicator */}
                               <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
                                 isCompleted
@@ -358,6 +368,14 @@ export default function TitleDetailPage() {
                             </div>
 
                             <div className="flex items-center gap-3 text-xs text-mv-text-dim shrink-0">
+                              {ch.isLocked && (
+                                <span
+                                  className="rounded border border-mv-gold/30 bg-mv-gold/10 px-2 py-0.5 text-[9px] font-medium text-mv-gold"
+                                  title={`Locked — unlock for ${COIN_UNLOCK_COST} coins`}
+                                >
+                                  🔒 {COIN_UNLOCK_COST}🪙
+                                </span>
+                              )}
                               <span>{ch.pageCount || '?'}p</span>
                               {ch.createdAt && (
                                 <span className="hidden sm:inline">{formatDate(ch.createdAt)}</span>
