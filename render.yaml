@@ -1,0 +1,64 @@
+# ─── MangaVerse — Render Blueprint (free tier, no credit card) ─────
+# Deploys the API + web from the monorepo Dockerfiles.
+# Requires (all free, no card):
+#   • Supabase Postgres  → DATABASE_URL   (Session pooler string, port 5432)
+#   • Upstash Redis      → REDIS_URL      (rediss://…, enables the scraper seed)
+#   • Firebase           → NEXT_PUBLIC_FIREBASE_API_KEY + FIREBASE_SERVICE_ACCOUNT (optional)
+#
+# Free-tier realities (see DEPLOYMENT.md → Option C):
+#   • Services spin down after 15 min idle (~1 min cold start on next visit).
+#   • 750 free instance-hours/month shared across the workspace — two
+#     services only accrue hours while awake, so light traffic is fine.
+#   • Ephemeral filesystem — nothing persistent on local disk.
+#   • No Meilisearch on free tier: search falls back to database queries.
+
+services:
+  # ─── API + BullMQ workers ─────────────────────────────────────────
+  - type: web
+    name: mangaverse-api
+    runtime: docker
+    plan: free # explicit — Blueprints can otherwise default to a paid tier
+    dockerContext: . # repo root — Dockerfiles COPY workspace files
+    dockerfilePath: apps/api/Dockerfile
+    branch: main
+    autoDeploy: true
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Must be the exact web origin (not '*') — the API sets
+      # credentials: true, and browsers reject a wildcard origin with
+      # credentials. Keep in sync with the web service name below.
+      - key: CORS_ORIGIN
+        value: https://mangaverse-web.onrender.com
+      # ── Fill these in the Render dashboard before the first deploy ──
+      # (a blank DATABASE_URL makes prisma migrate deploy fail on boot)
+      - key: DATABASE_URL
+        sync: false # Supabase → Connect → Session pooler URI
+      - key: REDIS_URL
+        sync: false # Upstash → Database → REST/TLS (rediss://)
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
+        value: mailto:admin@mangaverse.app
+      - key: FIREBASE_SERVICE_ACCOUNT
+        sync: false
+
+  # ─── Web (Next.js standalone) ─────────────────────────────────────
+  - type: web
+    name: mangaverse-web
+    runtime: docker
+    plan: free # explicit — Blueprints can otherwise default to a paid tier
+    dockerContext: . # repo root — Dockerfiles COPY workspace files
+    dockerfilePath: apps/web/Dockerfile
+    branch: main
+    autoDeploy: true
+    healthCheckPath: /
+    envVars:
+      # Inlined at build time — keep in sync with the api service name above.
+      - key: NEXT_PUBLIC_API_URL
+        value: https://mangaverse-api.onrender.com/api
+      - key: NEXT_PUBLIC_FIREBASE_API_KEY
+        sync: false

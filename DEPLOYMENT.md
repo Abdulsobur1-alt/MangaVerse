@@ -133,6 +133,66 @@ Expect ~$40–80/mo all-in vs. the ~$0–25 VPS.
 
 ---
 
+## Option C — Render + Supabase (free, no credit card)
+
+This path costs **nothing and requires no credit card** — ideal if you can't provision a VPS. It uses a `render.yaml` Blueprint (committed to the repo) to deploy the API and web on Render's free tier, with **Supabase** as the database and **Upstash** as Redis.
+
+### Free-tier realities (read before you start)
+
+- **Sleeps after 15 min of inactivity** (~1 min cold start on the next visit). A sleeping service is free — you only consume instance hours while awake.
+- **750 free instance-hours/month** shared across the whole workspace. With two services that only wake on traffic, a low-traffic demo stays well within limits.
+- **Ephemeral filesystem** — nothing persists on the server's local disk.
+- **No Meilisearch on free tier** — search automatically falls back to database queries (the API handles this).
+- **Redis is optional but recommended** — without it the scraper seed job never runs and the database stays empty. Upstash's free tier (256 MB, 500k commands/mo) is the zero-cost fix.
+
+### 1. Create the services (all free, no card)
+
+**Supabase** → [supabase.com](https://supabase.com) → New project:
+1. Project settings → **Database → Connection string** → copy the **Session pooler** URI (port `5432`, includes `?pgbouncer=true`).
+2. Save it as `DATABASE_URL`. (Use session pooler, not transaction — Prisma migrations need session mode.)
+
+**Upstash** → [upstash.com](https://upstash.com) → Create a free Redis database:
+1. Copy the **REST/TLS** URL (`rediss://default:<password>@<host>.upstash.io:6379`).
+2. Save it as `REDIS_URL`. (The API already speaks TLS via ioredis.)
+
+**Firebase (optional)** — only if you want real auth: Web API key → `NEXT_PUBLIC_FIREBASE_API_KEY`, service-account JSON → `FIREBASE_SERVICE_ACCOUNT`. Without it the app runs in dev mode (`dev_` tokens).
+
+### 2. Deploy on Render
+
+1. Push this repo to GitHub (already done — `render.yaml` lives at the root).
+2. [render.com](https://render.com) → sign up with GitHub (no card) → **New → Blueprint**.
+3. Pick the MangaVerse repo → Render reads `render.yaml` and creates **mangaverse-api** + **mangaverse-web**.
+4. In the **Environment** tab of each service, fill the `sync: false` secrets **before the first deploy** (a blank `DATABASE_URL` makes `prisma migrate deploy` fail on boot):
+   - `mangaverse-api`: `DATABASE_URL`, `REDIS_URL`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `FIREBASE_SERVICE_ACCOUNT`
+   - `mangaverse-web`: `NEXT_PUBLIC_FIREBASE_API_KEY`
+5. **Deploy**. The API runs `prisma migrate deploy` on boot (creates the schema), then the scraper worker seeds ~100 titles from MangaDex 30 s later. Watch `mangaverse-api` logs for `🌱 Seeding database`.
+
+> ⚠️ **Service names must be unique on Render.** The URLs above assume the services are literally named `mangaverse-api` / `mangaverse-web`. If Render assigns a suffix because a name is taken, update both `NEXT_PUBLIC_API_URL` and `CORS_ORIGIN` in `render.yaml` to match.
+> ⚠️ **Supabase + Prisma over SSL.** If migrations fail with SSL errors, append `?sslmode=require` to the `DATABASE_URL` (newer Supabase regions require TLS).
+> ⚠️ **Free-tier build memory.** Render free instances have 512 MB RAM; the web build (`pnpm install` of ~1190 packages + Next standalone) can OOM. If the build dies, re-run it — the pnpm store cache mount makes retries cheap — or pause the API service while the web builds. If it *keeps* dying, the reliable escape hatch is to build both images locally and push them to Docker Hub, then switch the services in `render.yaml` to `image:` (dropping `dockerContext`/`dockerfilePath`).
+
+### 3. Verify
+
+```bash
+curl https://mangaverse-api.onrender.com/api/health
+```
+
+The web app is at `https://mangaverse-web.onrender.com` and calls `https://mangaverse-api.onrender.com/api` (already wired via `NEXT_PUBLIC_API_URL` in `render.yaml`).
+
+> Note: changing any `NEXT_PUBLIC_*` value later requires a **Manual Deploy → Deploy** (a plain restart won't do — the value is inlined at build time).
+
+### 4. Known limitations on free tier
+
+- **Cold starts**: the first request after idle takes ~1 min (Render shows a loading page meanwhile).
+- **Workers sleep too**: the scraper/predictions workers only run while the API is awake. Prediction resolution also happens lazily on reads, so due markets still resolve.
+- **No custom domain** on free tier — you get `<service>.onrender.com` URLs. The mobile app's `EXPO_PUBLIC_API_URL` can point straight at `https://mangaverse-api.onrender.com`.
+- **Upstash command budget** — BullMQ's background polling counts against the free 500k commands/month. Fine for a low-traffic demo; a constantly-hit API will burn through it (then queues degrade to no-op until next month).
+- **The seed job re-runs on every cold start** — `index.ts` re-adds `seed-database` each time the service wakes from its 15-min sleep. It's idempotent (upserts), so don't be alarmed by repeated `🌱 Seeding database` lines in the logs.
+- **Supabase pauses after 7 days of no DB activity** (one click to unpause; data is kept).
+- **750 hours/month cap** — if you see "suspended until next month", you hit the free-tier ceiling; the app wakes up again on the 1st.
+
+---
+
 ## Firebase setup (production auth)
 
 1. Create a project at [console.firebase.google.com](https://console.firebase.google.com).
