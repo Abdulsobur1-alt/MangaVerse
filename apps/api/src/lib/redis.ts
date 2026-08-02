@@ -1,13 +1,7 @@
-// ioredis v5 type exports can conflict with TypeScript's class/namespace resolution.
-// We use `any` here to avoid import type issues, with explicit safety checks at runtime.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let Redis: any;
-
-try {
-  Redis = require('ioredis').default || require('ioredis');
-} catch {
-  console.warn('⚠️  ioredis not available — caching disabled');
-}
+// Static ESM import (matches the pattern used in queues/scraper.ts).
+// Note: a runtime `require()` here would be undefined under "type": "module",
+// silently disabling the cache in the compiled production build.
+import { Redis } from 'ioredis';
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 

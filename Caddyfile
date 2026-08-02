@@ -1,0 +1,23 @@
+# ─── MangaVerse reverse proxy (Caddy) ──────────────────────────────
+# Automatic HTTPS via Let's Encrypt. Set DOMAIN in your root .env to a
+# real domain you control (e.g. DOMAIN=mangaverse.app) and point its
+# DNS A records at this server. With no DOMAIN set, Caddy serves
+# https://localhost using an internal CA — fine for local demos.
+#
+# The mobile app (EAS) expects the API at https://api.<your-domain> —
+# the api.{$DOMAIN} site below serves it.
+
+{$DOMAIN:localhost} {
+	encode gzip
+	handle /api/* {
+		reverse_proxy api:3001
+	}
+	handle {
+		reverse_proxy web:3000
+	}
+}
+
+api.{$DOMAIN:localhost} {
+	encode gzip
+	reverse_proxy api:3001
+}

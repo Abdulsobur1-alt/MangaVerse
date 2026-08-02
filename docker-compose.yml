@@ -41,12 +41,85 @@ services:
     ports:
       - '7700:7700'
     environment:
-      MEILI_MASTER_KEY: mangaverse-dev-key
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-mangaverse-dev-key}
       MEILI_NO_ANALYTICS: 'true'
     volumes:
       - meilisearch_data:/meili_data
+
+  # ─── MangaVerse API — Express + BullMQ workers ────────
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: mangaverse-api
+    restart: unless-stopped
+    ports:
+      - '3001:3001'
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-mangaverse}
+      REDIS_URL: redis://redis:6379
+      MEILISEARCH_HOST: http://meilisearch:7700
+      MEILISEARCH_API_KEY: ${MEILI_MASTER_KEY:-mangaverse-dev-key}
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@mangaverse.app}
+      FIREBASE_SERVICE_ACCOUNT: ${FIREBASE_SERVICE_ACCOUNT:-}
+    env_file:
+      - path: .env
+        required: false
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      meilisearch:
+        condition: service_started
+
+  # ─── MangaVerse Web — Next.js standalone ───────────────
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001/api}
+        NEXT_PUBLIC_FIREBASE_API_KEY: ${NEXT_PUBLIC_FIREBASE_API_KEY:-}
+    container_name: mangaverse-web
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    depends_on:
+      - api
+
+  # ─── Caddy — reverse proxy + automatic HTTPS ──────────
+  caddy:
+    image: caddy:2-alpine
+    container_name: mangaverse-caddy
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    # DOMAIN reaches Caddy via env_file (root .env). The Caddyfile uses
+    # {$DOMAIN:localhost}, so when DOMAIN is absent the fallback applies.
+    # Do NOT set DOMAIN to an empty value anywhere (compose ${DOMAIN:-}
+    # or an empty line in .env) — Caddy would treat it as defined and
+    # the site addresses would break. Leave it out entirely.
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+      - api
 
 volumes:
   postgres_data:
   redis_data:
   meilisearch_data:
+  caddy_data:
+  caddy_config:
