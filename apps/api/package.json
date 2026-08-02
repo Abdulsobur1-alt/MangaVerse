@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc && npx prisma generate",
+    "build": "npx prisma generate && tsc",
     "start": "node dist/index.js",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",

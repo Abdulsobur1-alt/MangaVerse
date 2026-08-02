@@ -29,9 +29,12 @@ RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
 FROM deps AS build
 ENV NODE_ENV=production
 # Compiles TS → dist/ and regenerates the Prisma client.
-# @prisma/engines is approved in pnpm-workspace.yaml (allowBuilds), so its
-# postinstall already fetched the engine binaries during install; prisma
-# generate re-verifies them here. The cache mount keeps retries cheap.
+# prisma generate runs FIRST (build script: `npx prisma generate && tsc`): pnpm's
+# install-time postinstall runs from the store dir and can't discover
+# apps/api/prisma/schema.prisma, so the client must be generated here or tsc
+# compiles against an empty client. @prisma/engines is approved in
+# pnpm-workspace.yaml (allowBuilds), so its binaries were fetched at install;
+# the cache mount keeps retries cheap.
 RUN --mount=type=cache,target=/root/.cache/prisma pnpm --filter @mangaverse/api build
 
 # ─── Runner ────────────────────────────────────────────────────────
