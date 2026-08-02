@@ -6,9 +6,9 @@ FROM node:22-alpine AS base
 RUN corepack enable
 WORKDIR /app
 
-# Workspace manifests first — maximizes Docker layer caching
-# .npmrc sets ignore-scripts=true (repo convention — pnpm 11 fails on
-# unapproved build scripts otherwise).
+# Workspace manifests first — maximizes Docker layer caching.
+# Build scripts (sharp, esbuild) are approved via the allowBuilds map in
+# pnpm-workspace.yaml (pnpm 11 hard-fails fresh installs otherwise).
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json .npmrc ./
 COPY packages/config-typescript ./packages/config-typescript
 COPY packages/shared ./packages/shared

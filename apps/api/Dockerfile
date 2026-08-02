@@ -6,10 +6,9 @@ FROM node:22-alpine AS base
 RUN corepack enable
 WORKDIR /app
 
-# Workspace manifests first — maximizes Docker layer caching
-# .npmrc sets ignore-scripts=true (repo convention — pnpm 11 fails on
-# unapproved build scripts otherwise; the build step runs prisma generate
-# explicitly).
+# Workspace manifests first — maximizes Docker layer caching.
+# Build scripts are approved via the allowBuilds map in pnpm-workspace.yaml
+# (pnpm 11 hard-fails a fresh install on any ignored build script).
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json .npmrc ./
 COPY packages/config-typescript ./packages/config-typescript
 COPY packages/shared ./packages/shared
@@ -19,15 +18,20 @@ COPY apps/api ./apps/api
 FROM base AS deps
 # pnpm store cached in the BuildKit cache — retries after network hiccups
 # reuse downloaded tarballs instead of re-fetching the whole registry.
-RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile
+# The /root/.cache/prisma mount (same default cache id as the build stage)
+# also caches the @prisma/engines binary download — its postinstall now
+# runs during install via allowBuilds.
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
+    --mount=type=cache,target=/root/.cache/prisma \
+    pnpm install --frozen-lockfile
 
 # ─── Build ─────────────────────────────────────────────────────────
 FROM deps AS build
 ENV NODE_ENV=production
 # Compiles TS → dist/ and regenerates the Prisma client.
-# ignore-scripts=true skips @prisma/engines' postinstall, so prisma
-# generate downloads the engine binaries on demand — cached here so
-# retries after network hiccups reuse them instead of re-fetching.
+# @prisma/engines is approved in pnpm-workspace.yaml (allowBuilds), so its
+# postinstall already fetched the engine binaries during install; prisma
+# generate re-verifies them here. The cache mount keeps retries cheap.
 RUN --mount=type=cache,target=/root/.cache/prisma pnpm --filter @mangaverse/api build
 
 # ─── Runner ────────────────────────────────────────────────────────

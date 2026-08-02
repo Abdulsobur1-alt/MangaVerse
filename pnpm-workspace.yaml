@@ -1,6 +1,17 @@
 packages:
-  - "apps/*"
-  - "packages/*"
+  - 'apps/*'
+  - 'packages/*'
 
-onlyBuiltDependencies:
-  - sharp
+# pnpm v11: `onlyBuiltDependencies` was removed in favor of `allowBuilds`
+# (a package-name -> boolean map). Without explicit `true` entries here,
+# pnpm install fails a FRESH install with ERR_PNPM_IGNORED_BUILDS.
+# These are the only packages in the workspace with build scripts.
+allowBuilds:
+  sharp: true
+  esbuild: true
+  prisma: true
+  '@prisma/client': true
+  '@prisma/engines': true
+  '@firebase/util': true
+  msgpackr-extract: true
+  protobufjs: true
