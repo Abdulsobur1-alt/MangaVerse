@@ -275,8 +275,11 @@ async function refreshChaptersForTitle(titleId: string) {
         });
         newChaptersCount++;
 
-        // Notify bookmarkers about each new chapter
-        notifyNewChapter(titleId, chapterNumber, ch.attributes.title || null);
+        // Notify bookmarkers about each new chapter (fire-and-forget, but
+        // caught — an unhandled rejection on Node 22 crashes the process).
+        notifyNewChapter(titleId, chapterNumber, ch.attributes.title || null).catch((err) =>
+          console.warn('⚠️  Chapter notification failed:', (err as Error).message),
+        );
       } catch {
         // Skip duplicates (unique constraint on titleId + number)
       }

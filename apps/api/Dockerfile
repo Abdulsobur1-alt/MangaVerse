@@ -41,7 +41,7 @@ RUN --mount=type=cache,target=/root/.cache/prisma pnpm --filter @mangaverse/api 
 FROM base AS runner
 ENV NODE_ENV=production
 # HOME=/tmp gives the non-root user a writable cache dir for npx/prisma
-# (telemetry/temp writes) during `prisma migrate deploy`.
+# (telemetry/temp writes) during the boot-time `prisma db push` schema sync.
 ENV HOME=/tmp
 RUN addgroup -S nodejs && adduser -S nodejs -G nodejs
 # The root node_modules holds the .pnpm virtual store (and the generated
@@ -58,6 +58,10 @@ WORKDIR /app/apps/api
 USER nodejs
 EXPOSE 3001
 
-# Apply pending schema migrations, then start the server + workers.
-# `prisma migrate deploy` is a no-op when the DB is already current.
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/index.js"]
+# Apply pending schema changes, then start the server + workers.
+# See scripts/start.sh: it strips `pgbouncer=true` (Prisma rejects pooler
+# URLs for schema commands) and runs `prisma db push` — non-fatal on
+# failure, so the health check passes even if the DB is unreachable (the
+# real error stays visible in the logs instead of a silent "no-server"
+# deploy failure).
+CMD ["sh", "-c", "scripts/start.sh"]

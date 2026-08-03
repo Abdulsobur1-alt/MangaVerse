@@ -108,7 +108,7 @@ curl https://api.YOUR-DOMAIN.com/api/health
 
 ### 6. Make yourself an admin
 
-The API applies migrations on startup (`prisma migrate deploy`) and seeds content automatically. To grant your Firebase account the admin role:
+The API syncs the schema to the current `schema.prisma` on startup (`prisma db push`) and seeds content automatically. To grant your Firebase account the admin role:
 
 ```bash
 # Find your DB user id by email:
@@ -151,7 +151,7 @@ This path costs **nothing and requires no credit card** — ideal if you can't p
 1. Project settings → **Database → Connection string** → copy the **Session pooler** URI (port `5432`, includes `?pgbouncer=true`).
 2. Save it as `DATABASE_URL`. (Use session pooler, not transaction — Prisma migrations need session mode.)
 
-> ⚠️ **Use the Session pooler URI, NOT the direct connection.** The direct-connection string (host `db.<ref>.supabase.co:5432`) resolves to **IPv6-only** (no IPv4 A record), and Render's free tier has no IPv6 egress — so `prisma migrate deploy` fails at boot with `Error: P1001: Can't reach database server`. If the dashboard value was pasted from "Direct connection", swap it for the Session pooler URI (`postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres`) and URL-encode any special characters in the password (`@` → `%40`).
+> ⚠️ **Use the Session pooler URI, NOT the direct connection.** The direct-connection string (host `db.<ref>.supabase.co:5432`) resolves to **IPv6-only** (no IPv4 A record), and Render's free tier has no IPv6 egress — so the boot-time schema sync fails with `Error: P1001: Can't reach database server` (the API still boots and logs the error, but data routes 500 until this is fixed). If the dashboard value was pasted from "Direct connection", swap it for the Session pooler URI (`postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres`) and URL-encode any special characters in the password (`@` → `%40`).
 
 **Upstash** → [upstash.com](https://upstash.com) → Create a free Redis database:
 1. Copy the **REST/TLS** URL (`rediss://default:<password>@<host>.upstash.io:6379`).
@@ -164,13 +164,13 @@ This path costs **nothing and requires no credit card** — ideal if you can't p
 1. Push this repo to GitHub (already done — `render.yaml` lives at the root).
 2. [render.com](https://render.com) → sign up with GitHub (no card) → **New → Blueprint**.
 3. Pick the MangaVerse repo → Render reads `render.yaml` and creates **mangaverse-api** + **mangaverse-web**.
-4. In the **Environment** tab of each service, fill the `sync: false` secrets **before the first deploy** (a blank `DATABASE_URL` makes `prisma migrate deploy` fail on boot):
+4. In the **Environment** tab of each service, fill the `sync: false` secrets **before the first deploy** (a blank `DATABASE_URL` skips the boot-time schema sync — the API still boots, but data routes fail):
    - `mangaverse-api`: `DATABASE_URL`, `REDIS_URL`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `FIREBASE_SERVICE_ACCOUNT`
    - `mangaverse-web`: `NEXT_PUBLIC_FIREBASE_API_KEY`
-5. **Deploy**. The API runs `prisma migrate deploy` on boot (creates the schema), then the scraper worker seeds ~100 titles from MangaDex 30 s later. Watch `mangaverse-api` logs for `🌱 Seeding database`.
+5. **Deploy**. On boot the API syncs the schema to `schema.prisma` (`prisma db push` — it strips `?pgbouncer=true` from `DATABASE_URL` so the schema is created through Supabase's session pooler; a sync failure is logged but doesn't fail the deploy), then the scraper worker seeds ~100 titles from MangaDex 30 s later. Watch `mangaverse-api` logs for `🌱 Seeding database`.
 
 > ⚠️ **Service names must be unique on Render.** The URLs above assume the services are literally named `mangaverse-api` / `mangaverse-web`. If Render assigns a suffix because a name is taken, update both `NEXT_PUBLIC_API_URL` and `CORS_ORIGIN` in `render.yaml` to match.
-> ⚠️ **Supabase + Prisma over SSL.** If migrations fail with SSL errors, append `?sslmode=require` to the `DATABASE_URL` (newer Supabase regions require TLS).
+> ⚠️ **Supabase + Prisma over SSL.** If the schema sync fails with SSL errors, append `?sslmode=require` to the `DATABASE_URL` (newer Supabase regions require TLS).
 > ⚠️ **Free-tier build memory.** Render free instances have 512 MB RAM; the web build (`pnpm install` of ~1190 packages + Next standalone) can OOM. If the build dies, re-run it — the pnpm store cache mount makes retries cheap — or pause the API service while the web builds. If it *keeps* dying, the reliable escape hatch is to build both images locally and push them to Docker Hub, then switch the services in `render.yaml` to `image:` (dropping `dockerContext`/`dockerfilePath`).
 
 ### 3. Verify
@@ -182,6 +182,7 @@ curl https://mangaverse-api.onrender.com/api/health
 The web app is at `https://mangaverse-web.onrender.com` and calls `https://mangaverse-api.onrender.com/api` (already wired via `NEXT_PUBLIC_API_URL` in `render.yaml`).
 
 > Note: changing any `NEXT_PUBLIC_*` value later requires a **Manual Deploy → Deploy** (a plain restart won't do — the value is inlined at build time).
+> Note: the boot-time sync uses `prisma db push`, which does **not** write migration history (`_prisma_migrations`). The regenerated baseline migration (`20260803120000_init`) matches the schema, so a future switch to `prisma migrate deploy` works on a **fresh** database — but not on a `db push`-created one without re-baselining.
 
 ### 4. Known limitations on free tier
 
@@ -267,7 +268,7 @@ docker compose up -d --build
 
 ### Common issues
 
-- **Prisma migration fails on first boot** — the API waits on the healthy Postgres container (`depends_on.condition: service_healthy`); if the DB was created with `db push` during dev, `prisma migrate deploy` on an existing DB with an empty `_prisma_migrations` table may report drift. Safe reset for a fresh deploy: `docker compose down -v && docker compose up -d --build` (wipes data).
+- **Schema sync fails on first boot** — the API waits on the healthy Postgres container (`depends_on.condition: service_healthy`), then runs `prisma db push` to converge the schema to `schema.prisma`. Unlike the old `migrate deploy` flow this no longer drift-errors against a `db push`-created dev DB — it just converges. A sync failure is logged and the API still boots.
 - **No content after boot** — wait ~1 min; the scraper seed job runs 30s after start. Confirm Redis is up: `docker compose ps redis`.
 - **HTTPS cert not issuing** — check DNS A records propagate (`dig YOUR-DOMAIN.com`), then `docker compose logs caddy`.
 
@@ -280,10 +281,10 @@ These are the paths that were **never end-to-end validated on the dev machine** 
 - **`pnpm install` inside the build container depends on registry.npmjs.org reachability.** During Phase 34 validation, the Docker VM repeatedly timed out fetching from npm (~25–58 s per request, aborting around 5 min) while Docker Hub pulls worked — an environmental network issue, not a Dockerfile bug. Mitigations already in place: `.npmrc` fetch-retry settings, and a pnpm-store BuildKit cache mount (`--mount=type=cache,target=/root/.local/share/pnpm/store`) in both Dockerfiles so retries reuse downloaded tarballs instead of re-fetching all ~1190 lockfile entries. **If the first build fails at `pnpm install`, simply re-run `docker compose up -d --build` — the warm cache makes the retry substantially faster.**
 - **Web standalone layout is inferred, not yet confirmed by a complete build.** The nested runtime path (`.next/standalone/apps/web/server.js`) is *inferred* from `outputFileTracingRoot` being pinned to the repo root in `apps/web/next.config.ts`; it was never observed in a complete build — the only local standalone output is a partial Windows build (no `server.js`; see the Windows note below). The Dockerfile therefore has a **fail-fast guard** in its build stage: if the entrypoint isn't exactly at `apps/web/server.js`, the image build stops with a clear message instead of shipping a container that crashes at boot. If you see that guard fire, the standalone layout changed (e.g., a Next major upgrade) — re-run `next build`, inspect `.next/standalone/`, and update the Dockerfile paths.
 - **`@mangaverse/shared` tracing into the standalone output.** The web app imports the workspace package `@mangaverse/shared` (a pnpm store symlink). With the tracing root at the repo root this is inside the traced set, but it is unverified in a real Linux build. If the web container starts but pages that import `@mangaverse/shared` 500, the traced copy of that package is missing/broken — rebuild with `outputFileTracingRoot` set and inspect `.next/standalone/apps/web/node_modules/@mangaverse/shared`.
-- **Prisma engines are downloaded at install time.** `@prisma/engines`, `prisma`, and `@prisma/client` are approved in `pnpm-workspace.yaml` → `allowBuilds` (pnpm v11 replaced `onlyBuiltDependencies` with this map), so their postinstall scripts run during `pnpm install` and fetch the engine binaries from `binaries.prisma.sh`. That download is the same flaky-network class of failure as the rest of the install — retry works the same way (BuildKit caches the layer and the store). The engines then live in the copied root `node_modules` (`.pnpm` store), so `prisma migrate deploy` at runtime is offline.
+- **Prisma engines are downloaded at install time.** `@prisma/engines`, `prisma`, and `@prisma/client` are approved in `pnpm-workspace.yaml` → `allowBuilds` (pnpm v11 replaced `onlyBuiltDependencies` with this map), so their postinstall scripts run during `pnpm install` and fetch the engine binaries from `binaries.prisma.sh`. That download is the same flaky-network class of failure as the rest of the install — retry works the same way (BuildKit caches the layer and the store). The engines then live in the copied root `node_modules` (`.pnpm` store), so `prisma db push` at runtime is offline.
 - **Local `next build` now fails on Windows.** `output: 'standalone'` makes Next create symlinks into the pnpm store during tracing, which Windows blocks with `EPERM: operation not permitted` unless Developer Mode is enabled. This does **not** affect the Linux Docker build. For local production-build checks on Windows: enable Developer Mode (`Settings → Privacy & security → For developers`), or build inside WSL/Docker.
 - **API runner dependency layout.** The runner copies both the root `node_modules` (the `.pnpm` virtual store, which also contains the generated `@prisma/client`) **and** the per-package `apps/api/node_modules` (pnpm does **not** hoist bare package names like `express`/`ioredis` to the workspace root — `node` resolves the app's deps from here via relative symlinks). Validated with a staged host-side simulation; the image was never booted. If the API exits with `ERR_MODULE_NOT_FOUND: Cannot find package 'express'`, the per-package copy is missing from `apps/api/Dockerfile`.
-- **First-boot flow** (`npx prisma migrate deploy` → `node dist/index.js` + BullMQ workers → 30 s seed job) was only covered by running the infra containers locally, not the built images. Watch `docker compose logs -f api` for the first minute.
+- **First-boot flow** (`prisma db push` schema sync → `node dist/index.js` + BullMQ workers → 30 s seed job) was only covered by running the infra containers locally, not the built images. Watch `docker compose logs -f api` for the first minute.
 
 If your VPS build fails in a way not covered above, open an issue with the full `docker compose build` log — but try the build once more first; the store cache turns most flaky-network failures into a no-op retry.
 

@@ -32,12 +32,14 @@ services:
       - key: CORS_ORIGIN
         value: https://mangaverse-web.onrender.com
       # ── Fill these in the Render dashboard before the first deploy ──
-      # (a blank DATABASE_URL makes prisma migrate deploy fail on boot)
       # ⚠️ Use the SESSION POOLER URI (Supabase → Connect → Session pooler,
       # host aws-0-<region>.pooler.supabase.com:5432). The direct-connection
       # host (db.<ref>.supabase.co:5432) resolves to IPv6-only and is
-      # unreachable from Render → Prisma P1001 crashes boot with
-      # "Can't reach database server".
+      # unreachable from Render → Prisma P1001 "Can't reach database server".
+      # On boot the container strips ?pgbouncer=true and runs `prisma db push`
+      # to sync the schema through the session pooler (session mode ≈ direct
+      # connection). A sync failure is logged but does NOT fail the deploy —
+      # the API still comes up and the real DB error shows in the service logs.
       - key: DATABASE_URL
         sync: false
       - key: REDIS_URL

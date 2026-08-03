@@ -42,8 +42,11 @@ authRouter.post('/register', validate({ body: RegisterSchema }), async (req, res
       },
     });
 
-    // Seed welcome notifications for new users (fire-and-forget)
-    seedDemoNotifications(user.id);
+    // Seed welcome notifications for new users (fire-and-forget, but caught —
+    // an unhandled rejection on Node 22 crashes the whole process).
+    seedDemoNotifications(user.id).catch((err) =>
+      console.warn('⚠️  Could not seed welcome notifications:', (err as Error).message),
+    );
 
     res.status(201).json({
       success: true,
