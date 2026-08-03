@@ -97,16 +97,29 @@ async function start() {
     // Meilisearch not available — DB fallback will be used
   }
 
-  // Start the scraper worker (only if Redis is available)
-  const worker = startScraperWorker();
+  // Start the scraper worker (only if Redis is available). Belt-and-braces:
+  // if Redis drops in the window between the probe and Worker construction,
+  // BullMQ's waitUntilReady() rejection must not crash boot — workers just
+  // degrade to disabled and the API still serves.
+  let worker: Awaited<ReturnType<typeof startScraperWorker>> = null;
+  try {
+    worker = await startScraperWorker();
+  } catch (err) {
+    console.warn('⚠️  Could not start scraper worker — continuing without it:', (err as Error).message);
+  }
   if (worker) {
     console.log('🤖 Scraper worker started');
 
-    // Schedule initial refresh after 30 seconds
-    const queue = getScraperQueue();
+    // Schedule initial refresh after 30 seconds. Best-effort: a dead Redis
+    // connection must NOT block server boot — the seed just won't run.
+    const queue = await getScraperQueue();
     if (queue) {
-      await queue.add('seed-database', { count: 100 }, { delay: 30_000 });
-      console.log('📅 Initial content refresh scheduled (30s delay)');
+      try {
+        await queue.add('seed-database', { count: 100 }, { delay: 30_000 });
+        console.log('📅 Initial content refresh scheduled (30s delay)');
+      } catch (err) {
+        console.warn('⚠️  Could not schedule seed job — continuing without it:', (err as Error).message);
+      }
     }
   }
 
