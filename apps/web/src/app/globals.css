@@ -24,27 +24,51 @@
 
 html {
   color-scheme: dark;
+  scroll-behavior: smooth;
 }
 
+/* ─── Ambient background ─────────────────────────── */
 body {
-  background: var(--color-mv-dark);
+  background:
+    radial-gradient(1200px 600px at 15% -10%, rgba(123, 47, 190, 0.16), transparent 60%),
+    radial-gradient(1000px 500px at 90% 0%, rgba(233, 69, 96, 0.11), transparent 55%),
+    radial-gradient(800px 600px at 50% 110%, rgba(240, 192, 64, 0.05), transparent 60%),
+    var(--color-mv-dark);
   color: var(--color-mv-text);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-::-webkit-scrollbar {
-  width: 4px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: #222;
-  border-radius: 2px;
+::selection {
+  background: rgba(233, 69, 96, 0.35);
+  color: #fff;
 }
 
+/* ─── Scrollbar ──────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #0a0a14;
+}
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #7b2fbe, #e94560);
+  border-radius: 8px;
+  border: 2px solid #0a0a14;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #8f3fd8, #ff5a74);
+}
+
+:focus-visible {
+  outline: 2px solid rgba(233, 69, 96, 0.7);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ─── Keyframes ──────────────────────────────────── */
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.3; }
@@ -55,11 +79,173 @@ body {
   to { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0) rotate(var(--float-rot, 0deg)); }
+  50% { transform: translateY(-14px) rotate(var(--float-rot, 0deg)); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -600px 0; }
+  100% { background-position: 600px 0; }
+}
+
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes auroraShift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(45px, -35px) scale(1.12); }
+  66% { transform: translate(-35px, 25px) scale(0.94); }
+}
+
+@keyframes btnSheen {
+  0% { transform: translateX(-130%) skewX(-20deg); }
+  55%, 100% { transform: translateX(240%) skewX(-20deg); }
+}
+
 .animate-fade-in {
   animation: fadeIn 0.3s ease-out;
 }
+.animate-fade-up {
+  animation: fadeUp 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+.animate-float-slow {
+  animation: float 9s ease-in-out infinite;
+}
+.animate-aurora {
+  animation: auroraShift 16s ease-in-out infinite;
+}
+.animate-gradient {
+  background-size: 200% auto;
+  animation: gradientShift 5s ease infinite;
+}
 
-/* ─── Utility classes ────────────────────────────────── */
+/* ─── Gradient text ──────────────────────────────── */
+.text-gradient {
+  background: linear-gradient(90deg, #e94560, #a855f7 45%, #f0c040);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: gradientShift 6s ease infinite;
+}
+
+/* ─── Component classes (layered so Tailwind utilities can override) ── */
+@layer components {
+
+/* ─── Glass surface ──────────────────────────────── */
+.glass {
+  background: rgba(20, 20, 42, 0.55);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* ─── Skeleton shimmer ───────────────────────────── */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: #14142a;
+}
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.07), transparent);
+  background-size: 600px 100%;
+  animation: shimmer 1.6s infinite linear;
+}
+
+/* ─── Card hover lift + glow ─────────────────────── */
+.card-lift {
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s ease, border-color 0.25s ease;
+}
+.card-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 14px 42px -12px rgba(233, 69, 96, 0.35), 0 4px 22px -8px rgba(123, 47, 190, 0.3);
+  border-color: rgba(233, 69, 96, 0.35);
+}
+
+/* ─── Image zoom on group hover ──────────────────── */
+.img-zoom {
+  overflow: hidden;
+}
+.img-zoom img {
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.group:hover .img-zoom img {
+  transform: scale(1.08);
+}
+
+/* ─── Buttons ────────────────────────────────────── */
+.btn-primary {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  background: linear-gradient(135deg, #e94560, #b8325e);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 8px 24px -8px rgba(233, 69, 96, 0.6);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 34px -8px rgba(233, 69, 96, 0.7);
+  filter: brightness(1.08);
+}
+.btn-primary:active {
+  transform: translateY(0);
+}
+.btn-primary::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transform: translateX(-130%) skewX(-20deg);
+  animation: btnSheen 3.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--color-mv-text-secondary);
+  font-weight: 500;
+  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+}
+.btn-ghost:hover {
+  border-color: rgba(233, 69, 96, 0.5);
+  color: var(--color-mv-text);
+  background: rgba(255, 255, 255, 0.07);
+  transform: translateY(-1px);
+}
+
+} /* end @layer components */
+
+/* ─── Utility classes ────────────────────────────── */
 
 /* Hide scrollbars on horizontal carousels */
 .scrollbar-none {
@@ -74,4 +260,26 @@ body {
 .mask-gradient-to-l {
   -webkit-mask-image: linear-gradient(to left, rgba(0, 0, 0, 1) 30%, transparent 100%);
   mask-image: linear-gradient(to left, rgba(0, 0, 0, 1) 30%, transparent 100%);
+}
+
+/* Subtle grid backdrop */
+.bg-grid {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, #000 30%, transparent 78%);
+  -webkit-mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, #000 30%, transparent 78%);
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

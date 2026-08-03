@@ -22,6 +22,7 @@
         "backgroundColor": "#0a0a14"
       },
       "package": "com.mangaverse.app",
+      "versionCode": 1,
       "permissions": [
         "INTERNET",
         "ACCESS_NETWORK_STATE",
@@ -32,6 +33,12 @@
       "updater": {
         "enabled": false,
         "checkAutomatically": "ON_ERROR_RECOVERY"
+      },
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "971dca53-9fc3-49bf-9862-e567c4ab8201"
       }
     },
     "experiments": {
@@ -39,6 +46,7 @@
     },
     "plugins": [
       "expo-router"
-    ]
+    ],
+    "owner": "abdulsobur1"
   }
 }

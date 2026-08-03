@@ -22,7 +22,10 @@ export default function DownloadPage() {
       <TopBar />
 
       {/* Hero */}
-      <section className="relative overflow-hidden border-b border-mv-border bg-gradient-to-br from-[#0f0820] via-[#1a0535] to-[#0d1040] py-16">
+      <section className="relative overflow-hidden border-b border-white/5 bg-gradient-to-br from-[#0f0820] via-[#1a0535] to-[#0d1040] py-16">
+        <div className="animate-aurora absolute -left-24 top-0 h-72 w-72 rounded-full bg-mv-purple/40 blur-3xl" />
+        <div className="animate-aurora absolute right-0 top-8 h-80 w-80 rounded-full bg-mv-accent/25 blur-3xl" style={{ animationDelay: '-6s' }} />
+        <div className="absolute inset-0 bg-grid opacity-60" />
         <div className="mx-auto max-w-5xl px-6 text-center">
           <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-mv-purple/30 bg-mv-purple/10 px-4 py-1.5">
             <span className="h-2 w-2 animate-pulse rounded-full bg-green-400" />
@@ -41,7 +44,7 @@ export default function DownloadPage() {
           <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <a
               href="/api/download/mangaverse-v0.1.0.apk"
-              className="group relative flex items-center gap-3 rounded-xl bg-mv-accent px-8 py-4 font-medium text-white transition-all hover:bg-red-500 hover:scale-105"
+              className="btn-primary px-8 py-4 text-sm"
             >
               <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -100,7 +103,7 @@ export default function DownloadPage() {
           {APP_FEATURES.map((feature) => (
             <div
               key={feature.title}
-              className="group rounded-xl border border-mv-border bg-mv-darker p-5 transition-all hover:border-mv-border-light hover:bg-mv-surface"
+              className="group card-lift rounded-2xl border border-white/5 bg-mv-darker p-5"
             >
               <span className="text-2xl">{feature.icon}</span>
               <h3 className="mt-3 text-sm font-medium text-white">{feature.title}</h3>
@@ -160,7 +163,7 @@ export default function DownloadPage() {
           {VERSIONS.map((v) => (
             <div
               key={v.version}
-              className="flex items-center justify-between rounded-xl border border-mv-border bg-mv-darker p-4 transition-all hover:border-mv-border-light"
+              className="card-lift flex items-center justify-between rounded-2xl border border-white/5 bg-mv-darker p-4"
             >
               <div>
                 <div className="flex items-center gap-2">
@@ -172,7 +175,7 @@ export default function DownloadPage() {
               </div>
               <a
                 href="/api/download/mangaverse-v0.1.0.apk"
-                className="flex items-center gap-1.5 rounded-lg border border-mv-border-light bg-mv-surface px-3 py-2 text-[10px] text-mv-accent transition-colors hover:bg-mv-accent hover:text-white"
+                className="flex items-center gap-1.5 rounded-lg border border-mv-accent/30 bg-mv-accent/10 px-3 py-2 text-[10px] font-medium text-mv-accent transition-all hover:border-mv-accent/60 hover:bg-mv-accent hover:text-white hover:shadow-lg hover:shadow-mv-accent/25"
               >
                 <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />

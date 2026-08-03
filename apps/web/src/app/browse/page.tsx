@@ -93,8 +93,11 @@ export default function BrowsePage() {
         {/* Header */}
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-semibold text-white">Browse Titles</h1>
-            <p className="mt-0.5 text-xs text-mv-text-muted">
+            <h1 className="flex items-center gap-2.5 text-2xl font-black text-white">
+              <span className="h-7 w-1.5 rounded-full bg-gradient-to-b from-mv-accent to-mv-purple" />
+              <span className="bg-gradient-to-r from-white to-mv-text-secondary bg-clip-text text-transparent">Browse Titles</span>
+            </h1>
+            <p className="mt-1.5 pl-4 text-xs text-mv-text-muted">
               {isLoading ? 'Searching...' : `${data?.total?.toLocaleString() || 0} titles`}
             </p>
           </div>
@@ -138,7 +141,7 @@ export default function BrowsePage() {
             onChange={(e) => { setSearch(e.target.value); setShowSuggestions(true); }}
             onFocus={() => setShowSuggestions(true)}
             placeholder="Search by title, author, genre..."
-            className="w-full rounded-xl bg-mv-surface border border-mv-border-light px-4 py-3 pl-10 text-sm text-mv-text outline-none placeholder:text-mv-text-dim focus:border-mv-accent/50 transition-colors"
+            className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3.5 pl-11 text-sm text-mv-text outline-none backdrop-blur-sm placeholder:text-mv-text-dim transition-all focus:border-mv-accent/60 focus:bg-white/[0.05] focus:shadow-lg focus:shadow-mv-accent/10"
           />
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-mv-text-dim" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -156,7 +159,7 @@ export default function BrowsePage() {
 
           {/* Search Suggestions */}
           {showSuggestions && suggestions && suggestions.length > 0 && (
-            <div className="absolute top-full left-0 right-0 z-50 mt-1 rounded-xl border border-mv-border bg-mv-darker shadow-xl overflow-hidden animate-fade-in">
+            <div className="glass absolute top-full left-0 right-0 z-50 mt-2 overflow-hidden rounded-2xl shadow-2xl shadow-black/50 animate-fade-up">
               <p className="px-4 py-2 text-[9px] font-semibold uppercase tracking-wider text-mv-text-muted bg-mv-surface">Suggestions</p>
               {suggestions.map((s) => (
                 <button
@@ -183,10 +186,10 @@ export default function BrowsePage() {
                 <button
                   key={f}
                   onClick={() => { setType(f === 'All' ? '' : f); setPage(1); }}
-                  className={`rounded-full px-2.5 py-1 text-[10px] transition-colors ${
+                  className={`rounded-full px-2.5 py-1 text-[10px] transition-all duration-200 ${
                     (f === 'All' && !type) || f === type
-                      ? 'bg-mv-accent text-white'
-                      : 'bg-mv-surface text-mv-text-secondary hover:bg-mv-border-light'
+                      ? 'bg-gradient-to-r from-mv-accent to-mv-purple font-medium text-white shadow-md shadow-mv-accent/25'
+                      : 'bg-white/[0.04] text-mv-text-secondary hover:bg-white/[0.08] hover:text-mv-text'
                   }`}
                 >
                   {f === 'light_novel' ? 'LN' : f.charAt(0).toUpperCase() + f.slice(1)}
@@ -203,10 +206,10 @@ export default function BrowsePage() {
                 <button
                   key={s}
                   onClick={() => { setStatus(s === 'All' ? '' : s); setPage(1); }}
-                  className={`rounded-full px-2.5 py-1 text-[10px] transition-colors ${
+                  className={`rounded-full px-2.5 py-1 text-[10px] transition-all duration-200 ${
                     (s === 'All' && !status) || s === status
-                      ? 'bg-mv-accent text-white'
-                      : 'bg-mv-surface text-mv-text-secondary hover:bg-mv-border-light'
+                      ? 'bg-gradient-to-r from-mv-accent to-mv-purple font-medium text-white shadow-md shadow-mv-accent/25'
+                      : 'bg-white/[0.04] text-mv-text-secondary hover:bg-white/[0.08] hover:text-mv-text'
                   }`}
                 >
                   {s.charAt(0).toUpperCase() + s.slice(1)}
@@ -232,7 +235,7 @@ export default function BrowsePage() {
             </button>
 
             {showGenrePanel && (
-              <div className="absolute top-full left-0 z-40 mt-1 w-64 rounded-xl border border-mv-border bg-mv-darker p-3 shadow-xl animate-fade-in">
+              <div className="glass absolute top-full left-0 z-40 mt-2 w-64 rounded-2xl p-3 shadow-2xl shadow-black/50 animate-fade-up">
                 <div className="mb-2 flex items-center justify-between">
                   <p className="text-[10px] font-semibold text-mv-text">Filter by Genre</p>
                   {selectedGenres.length > 0 && (
@@ -267,7 +270,7 @@ export default function BrowsePage() {
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value)}
-            className="ml-auto rounded-lg bg-mv-surface border border-mv-border-light px-3 py-1.5 text-xs text-mv-text outline-none focus:border-mv-accent/50"
+            className="ml-auto rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-mv-text outline-none transition-all focus:border-mv-accent/60"
           >
             {SORTS.map((s) => (
               <option key={s.value} value={s.value}>{s.label}</option>
