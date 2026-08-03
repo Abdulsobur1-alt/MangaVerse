@@ -33,8 +33,13 @@ services:
         value: https://mangaverse-web.onrender.com
       # ── Fill these in the Render dashboard before the first deploy ──
       # (a blank DATABASE_URL makes prisma migrate deploy fail on boot)
+      # ⚠️ Use the SESSION POOLER URI (Supabase → Connect → Session pooler,
+      # host aws-0-<region>.pooler.supabase.com:5432). The direct-connection
+      # host (db.<ref>.supabase.co:5432) resolves to IPv6-only and is
+      # unreachable from Render → Prisma P1001 crashes boot with
+      # "Can't reach database server".
       - key: DATABASE_URL
-        sync: false # Supabase → Connect → Session pooler URI
+        sync: false
       - key: REDIS_URL
         sync: false # Upstash → Database → REST/TLS (rediss://)
       - key: VAPID_PUBLIC_KEY

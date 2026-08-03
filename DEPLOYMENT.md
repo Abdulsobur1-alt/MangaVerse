@@ -151,6 +151,8 @@ This path costs **nothing and requires no credit card** — ideal if you can't p
 1. Project settings → **Database → Connection string** → copy the **Session pooler** URI (port `5432`, includes `?pgbouncer=true`).
 2. Save it as `DATABASE_URL`. (Use session pooler, not transaction — Prisma migrations need session mode.)
 
+> ⚠️ **Use the Session pooler URI, NOT the direct connection.** The direct-connection string (host `db.<ref>.supabase.co:5432`) resolves to **IPv6-only** (no IPv4 A record), and Render's free tier has no IPv6 egress — so `prisma migrate deploy` fails at boot with `Error: P1001: Can't reach database server`. If the dashboard value was pasted from "Direct connection", swap it for the Session pooler URI (`postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres`) and URL-encode any special characters in the password (`@` → `%40`).
+
 **Upstash** → [upstash.com](https://upstash.com) → Create a free Redis database:
 1. Copy the **REST/TLS** URL (`rediss://default:<password>@<host>.upstash.io:6379`).
 2. Save it as `REDIS_URL`. (The API already speaks TLS via ioredis.)
@@ -222,6 +224,7 @@ Paste the printed `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` into the API env. Ski
    eas build --platform android --profile preview
    ```
    The `preview` profile already builds an **APK** with `EXPO_PUBLIC_API_URL=https://api.YOUR-DOMAIN.com` (update `apps/mobile/eas.json` to your API domain). EAS prints an install link + QR code.
+   Commit the built APK as `apps/api/public/mangaverse-v0.1.0.apk` — the web download page (`/download`) links to it via `/api/download/` (the web proxies `/api/*` to the API, which serves `apps/api/public/`). Until that file exists in the repo, the download button 404s.
 3. On the phone: enable "Install unknown apps", open the link, install, sign in.
 
 ### Play Store release

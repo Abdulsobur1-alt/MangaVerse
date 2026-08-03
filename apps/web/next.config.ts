@@ -13,6 +13,20 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ['@mangaverse/shared'],
   },
+  // Proxy browser-facing /api/* paths (e.g. /api/download/...apk on the
+  // download page) to the API service. The app's data calls use absolute
+  // NEXT_PUBLIC_API_URL URLs from lib/api.ts and never hit these; this
+  // rewrite only serves relative /api/* links on the web origin. Same
+  // fallback default as lib/api.ts.
+  async rewrites() {
+    const apiBase = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api').replace(/\/$/, '');
+    return [
+      {
+        source: '/api/:path*',
+        destination: `${apiBase}/:path*`,
+      },
+    ];
+  },
 };
 
 export default nextConfig;
