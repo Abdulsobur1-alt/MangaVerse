@@ -15,6 +15,7 @@
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
     "db:seed": "tsx src/seed.ts",
+    "db:seed:ln": "tsx src/seed-light-novels.ts",
     "webpush:generate-keys": "node scripts/generate-vapid.mjs"
   },
   "dependencies": {

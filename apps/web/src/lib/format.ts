@@ -31,7 +31,7 @@ export function statusColors(status: string): { label: string; className: string
 
 /** Short format label for a title type. */
 export function formatType(type?: string): string {
-  switch (type) {
+  switch ((type || '').toUpperCase()) {
     case 'MANHWA':
       return 'Manhwa';
     case 'MANHUA':
@@ -45,7 +45,7 @@ export function formatType(type?: string): string {
 
 /** Full display label for a title type. */
 export function formatTypeFull(type?: string): string {
-  switch (type) {
+  switch ((type || '').toUpperCase()) {
     case 'MANHWA':
       return '🇰🇷 Manhwa';
     case 'MANHUA':

@@ -13,7 +13,7 @@ interface CoverImageProps {
 }
 
 function typeEmoji(type?: string): string {
-  switch (type) {
+  switch ((type || '').toUpperCase()) {
     case 'MANHWA':
       return '🇰🇷';
     case 'MANHUA':

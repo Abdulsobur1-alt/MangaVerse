@@ -106,14 +106,17 @@ export default function ReaderPage() {
 
   // ─── Format detection ───────────────────────────────
   // MANGA → page-flip · MANHWA/MANHUA → vertical scroll · LIGHT_NOVEL → prose
+  // The DB stores type lowercase ('manga', 'light_novel', …) — normalize once
+  // so every comparison below is case-insensitive.
   const format = chapter?.series?.type;
-  const isLightNovel = format === 'LIGHT_NOVEL';
+  const formatKey = (format || '').toUpperCase();
+  const isLightNovel = formatKey === 'LIGHT_NOVEL';
   const hasProse = isLightNovel && !!chapter?.contentText;
   // Effective mode = persisted user override when set, else format default
   const [mode, setMode] = useState<ReaderMode | null>(null); // null = format default
 
   const effectiveMode: ReaderMode =
-    mode ?? (isLightNovel ? (hasProse ? 'prose' : 'strip') : format === 'MANGA' ? 'page' : 'strip');
+    mode ?? (isLightNovel ? (hasProse ? 'prose' : 'strip') : formatKey === 'MANGA' ? 'page' : 'strip');
 
   // Reset reading state when navigating to a different chapter
   useEffect(() => {
@@ -335,7 +338,7 @@ export default function ReaderPage() {
         setAutoScrollActive(false);
         goNext();
       } else if (e.key === 'f' || e.key === 'F') {
-        setMode(m => (m === 'strip' ? (format === 'MANGA' ? 'page' : 'strip') : 'strip'));
+        setMode(m => (m === 'strip' ? (formatKey === 'MANGA' ? 'page' : 'strip') : 'strip'));
       } else if (e.key === 'c' || e.key === 'C') {
         setShowSidebar(s => !s);
       } else if (e.key === 'a' || e.key === 'A') {
@@ -344,7 +347,7 @@ export default function ReaderPage() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [goNext, goPrev, format]);
+  }, [goNext, goPrev, formatKey]);
 
   // Loading / error / lock states (unchanged behavior)
   if (isLoading) {
@@ -464,7 +467,7 @@ export default function ReaderPage() {
 
   const modeLabel =
     effectiveMode === 'prose' ? '📕 Prose' :
-    effectiveMode === 'strip' ? (format === 'MANGA' ? '📜 Strip' : '📜 Scroll') : '📄 Page';
+    effectiveMode === 'strip' ? (formatKey === 'MANGA' ? '📜 Strip' : '📜 Scroll') : '📄 Page';
 
   const themeStyles: Record<ProseTheme, { bg: string; text: string; muted: string }> = {
     dark: { bg: '#0a0a14', text: '#d4d4d8', muted: '#8a8a96' },
@@ -495,7 +498,7 @@ export default function ReaderPage() {
           </span>
 
           {/* Format-aware controls */}
-          {effectiveMode === 'page' && format === 'MANGA' && (
+          {effectiveMode === 'page' && formatKey === 'MANGA' && (
             <button
               onClick={() => setPrefs(p => ({ ...p, rtl: !p.rtl }))}
               className={`rounded border px-2.5 py-1 text-[10px] transition-colors ${
