@@ -16,6 +16,8 @@ export interface ChapterDetail extends ChapterItem {
   titleId: string;
   freeAt?: string | null;
   sourceUrl?: string | null;
+  /** Prose content for light novels / text-based chapters; null for image chapters */
+  contentText?: string | null;
   locked: boolean;
   unlocked: boolean;
   unlockCost: number | null;
@@ -24,6 +26,7 @@ export interface ChapterDetail extends ChapterItem {
     slug: string;
     title: string;
     coverUrl: string | null;
+    type: string;
   };
 }
 

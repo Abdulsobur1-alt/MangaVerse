@@ -107,7 +107,7 @@ chaptersRouter.get('/:id', optionalAuth, validate({ params: ChapterIdParams }), 
       where: { id },
       include: {
         series: {
-          select: { id: true, slug: true, title: true, coverUrl: true },
+          select: { id: true, slug: true, title: true, coverUrl: true, type: true },
         },
       },
     });

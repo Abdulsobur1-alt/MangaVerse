@@ -54,6 +54,7 @@ CREATE TABLE "chapters" (
     "coin_locked" BOOLEAN NOT NULL DEFAULT false,
     "free_at" TIMESTAMP(3),
     "source_url" TEXT,
+    "content_text" TEXT,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "chapters_pkey" PRIMARY KEY ("id")

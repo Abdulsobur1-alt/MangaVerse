@@ -84,15 +84,18 @@ model Title {
 // ─── Chapters ──────────────────────────────────────────
 
 model Chapter {
-  id         String   @id @default(uuid()) @db.Uuid
-  titleId    String   @map("title_id") @db.Uuid
-  number     Float
-  title      String?
-  pageCount  Int?     @map("page_count")
-  coinLocked Boolean  @default(false) @map("coin_locked")
-  freeAt     DateTime? @map("free_at")
-  sourceUrl  String?  @map("source_url")
-  createdAt  DateTime @default(now()) @map("created_at")
+  id          String    @id @default(uuid()) @db.Uuid
+  titleId     String    @map("title_id") @db.Uuid
+  number      Float
+  title       String?
+  pageCount   Int?      @map("page_count")
+  coinLocked  Boolean   @default(false) @map("coin_locked")
+  freeAt      DateTime? @map("free_at")
+  sourceUrl   String?   @map("source_url")
+  // Prose content for light novels (and any text-based chapters).
+  // NULL for image-based chapters (manga/manhwa/manhua).
+  contentText String?   @map("content_text") @db.Text
+  createdAt   DateTime  @default(now()) @map("created_at")
 
   series          Title             @relation(fields: [titleId], references: [id], onDelete: Cascade)
   readingProgress ReadingProgress[]
