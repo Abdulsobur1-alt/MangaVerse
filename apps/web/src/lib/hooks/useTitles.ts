@@ -17,6 +17,7 @@ export interface TitleListItem {
   rating: number | null;
   totalChapters: number | null;
   createdAt: string;
+  latestChapter: { number: number; createdAt: string } | null;
 }
 
 export interface ChapterProgress {
@@ -96,6 +97,7 @@ export interface RecentlyUpdatedTitle {
   slug: string;
   title: string;
   type: string;
+  status: string;
   genres: string[];
   coverUrl: string | null;
   rating: number | null;

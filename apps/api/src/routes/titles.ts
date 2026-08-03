@@ -17,7 +17,7 @@ const ListQuerySchema = z.object({
   status: z.string().optional(),
   genre: z.string().optional(),
   genres: z.string().optional(), // comma-separated: "action,fantasy"
-  sort: z.enum(['trending', 'newest', 'rating', 'title']).default('trending'),
+  sort: z.enum(['trending', 'newest', 'updated', 'rating', 'title']).default('trending'),
   search: z.string().optional(),
 });
 
@@ -58,11 +58,12 @@ titlesRouter.get('/', validate({ query: ListQuerySchema }), async (req, res, nex
     // Build orderBy
     const orderBy: Record<string, string> =
       sort === 'newest' ? { createdAt: 'desc' } :
+      sort === 'updated' ? { updatedAt: 'desc' } :
       sort === 'rating' ? { rating: 'desc' } :
       sort === 'title' ? { title: 'asc' } :
       { rating: 'desc' };
 
-    const cacheKey = `titles:list:${JSON.stringify({ page, limit, type, status, genre, sort, search })}`;
+    const cacheKey = `titles:list:${JSON.stringify({ page, limit, type, status, genre, genres, sort, search })}`;
     const cached = await cacheGet<{ titles: unknown[]; total: number }>(cacheKey);
     if (cached) {
       res.json({ success: true, data: { items: cached.titles, total: cached.total, page, limit } });
@@ -87,16 +88,28 @@ titlesRouter.get('/', validate({ query: ListQuerySchema }), async (req, res, nex
           rating: true,
           totalChapters: true,
           createdAt: true,
+          // Latest chapter per title in a single query — avoids N+1
+          chapters: {
+            orderBy: { number: 'desc' },
+            take: 1,
+            select: { number: true, createdAt: true },
+          },
         },
       }),
       prisma.title.count({ where: where as any }),
     ]);
 
-    await cacheSet(cacheKey, { titles, total }, 300);
+    // Flatten the nested chapter into `latestChapter` (API shape parity with /recently-updated)
+    const items = titles.map(({ chapters, ...t }) => ({
+      ...t,
+      latestChapter: chapters[0] || null,
+    }));
+
+    await cacheSet(cacheKey, { titles: items, total }, 300);
 
     res.json({
       success: true,
-      data: { items: titles, total, page, limit, hasMore: skip + titles.length < total },
+      data: { items, total, page, limit, hasMore: skip + titles.length < total },
     });
   } catch (err) {
     next(err);
@@ -121,16 +134,28 @@ titlesRouter.get('/trending', async (_req, res, next) => {
         slug: true,
         title: true,
         type: true,
+        status: true,
         genres: true,
         coverUrl: true,
         rating: true,
         totalChapters: true,
+        chapters: {
+          orderBy: { number: 'desc' },
+          take: 1,
+          select: { number: true, createdAt: true },
+        },
       },
     });
 
-    await cacheSet('titles:trending', titles, 600);
+    // Flatten the nested chapter into `latestChapter` (API shape parity with /recently-updated)
+    const items = titles.map(({ chapters, ...t }) => ({
+      ...t,
+      latestChapter: chapters[0] || null,
+    }));
 
-    res.json({ success: true, data: titles });
+    await cacheSet('titles:trending', items, 600);
+
+    res.json({ success: true, data: items });
   } catch (err) {
     next(err);
   }
@@ -156,6 +181,7 @@ titlesRouter.get('/recently-updated', async (_req, res, next) => {
         slug: true,
         title: true,
         type: true,
+        status: true,
         genres: true,
         coverUrl: true,
         rating: true,

@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useLibrary, useRemoveBookmark, type BookmarkItem } from '@/lib/hooks/useLibrary';
 import { useReadingProgress } from '@/lib/hooks/useReading';
 import { useAuthStore } from '@/store/authStore';
+import { CoverImage } from '@/components/CoverImage';
 
 const LIST_NAMES = ['Reading', 'Plan to Read', 'Completed', 'On Hold', 'Dropped'];
 
@@ -14,6 +15,27 @@ function getProgressPercent(titleId: string, progress: Record<string, { chapters
   const p = progress[titleId];
   if (!p || p.totalChapters === 0) return 0;
   return Math.min(Math.round((p.chaptersRead / p.totalChapters) * 100), 100);
+}
+
+interface ReadingEntry {
+  chapter: { id: string; number: number; series: { id: string; slug: string } };
+  pageNumber: number;
+  completed: boolean;
+}
+
+/** Latest in-progress (or most recent) chapter per title — for the Continue button. */
+function buildResumeMap(
+  readingData: ReadingEntry[] | undefined,
+): Record<string, { chapterId: string; chapterNumber: number }> {
+  const map: Record<string, { chapterId: string; chapterNumber: number }> = {};
+  readingData?.forEach((entry) => {
+    const titleId = entry.chapter.series.id;
+    const existing = map[titleId];
+    if (!existing || entry.chapter.number > existing.chapterNumber) {
+      map[titleId] = { chapterId: entry.chapter.id, chapterNumber: entry.chapter.number };
+    }
+  });
+  return map;
 }
 
 export default function LibraryPage() {
@@ -26,9 +48,9 @@ export default function LibraryPage() {
 
   // Build a progress lookup from reading data
   const progressMap: Record<string, { chaptersRead: number; totalChapters: number; completed: boolean }> = {};
+  const readingEntries = readingData as ReadingEntry[] | undefined;
   if (readingData) {
-    const data = readingData as { chapter: { id: string; number: number; series: { id: string; slug: string } }; pageNumber: number; completed: boolean }[];
-    data.forEach((entry: { chapter: { id: string; number: number; series: { id: string; slug: string } }; pageNumber: number; completed: boolean }) => {
+    readingEntries!.forEach((entry) => {
       const titleId = entry.chapter.series.id;
       if (!progressMap[titleId]) {
         progressMap[titleId] = { chaptersRead: 0, totalChapters: 0, completed: false };
@@ -37,6 +59,7 @@ export default function LibraryPage() {
       if (entry.completed) progressMap[titleId].completed = true;
     });
   }
+  const resumeMap = buildResumeMap(readingEntries);
 
   const items: BookmarkItem[] = libraryData?.items || [];
   const filtered = activeList === 'Reading'
@@ -128,9 +151,14 @@ export default function LibraryPage() {
                     className={`group flex gap-4 rounded-xl border border-mv-border bg-mv-darker p-4 transition-all hover:border-mv-border-light hover:bg-mv-surface ${isBookmarkProcessing ? 'opacity-50' : ''}`}
                   >
                     <Link href={`/title/${bookmark.title.slug}`} className="flex gap-4 flex-1 min-w-0">
-                      <div
-                        className="h-20 w-14 flex-shrink-0 rounded-lg overflow-hidden bg-mv-surface"
-                      />
+                      <div className="h-20 w-14 flex-shrink-0 overflow-hidden rounded-lg bg-mv-surface">
+                        <CoverImage
+                          src={bookmark.title.coverUrl}
+                          title={bookmark.title.title}
+                          type={bookmark.title.type}
+                          className="h-full w-full"
+                        />
+                      </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-mv-text group-hover:text-mv-accent transition-colors line-clamp-2">
                           {bookmark.title.title}
@@ -151,6 +179,15 @@ export default function LibraryPage() {
                         </div>
                       </div>
                     </Link>
+                    {/* Continue reading — resumes the latest chapter (sibling link to avoid nested anchors) */}
+                    {resumeMap[bookmark.titleId] && (
+                      <Link
+                        href={`/reader/${resumeMap[bookmark.titleId].chapterId}`}
+                        className="mt-2 inline-flex shrink-0 items-center gap-1 self-center rounded-md bg-gradient-to-r from-mv-accent to-mv-purple px-2.5 py-1.5 text-[10px] font-semibold text-white shadow-md shadow-mv-accent/25 transition-all hover:brightness-110 hover:shadow-mv-accent/40"
+                      >
+                        Continue → Ch. {resumeMap[bookmark.titleId].chapterNumber}
+                      </Link>
+                    )}
                     <button
                       onClick={() => handleRemove(bookmark.titleId)}
                       className="self-start text-mv-text-dim hover:text-mv-accent transition-colors p-1"

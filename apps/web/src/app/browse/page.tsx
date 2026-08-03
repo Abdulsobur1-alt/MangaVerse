@@ -3,21 +3,40 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { TopBar } from '@/components/TopBar';
+import { CoverImage } from '@/components/CoverImage';
 import { useTitles, useSearchSuggestions } from '@/lib/hooks/useTitles';
 import { getPageNumbers } from '@mangaverse/shared';
+import { formatTimeAgo, formatType, statusColors } from '@/lib/format';
 
 const FORMATS = ['All', 'manga', 'manhwa', 'manhua', 'light_novel'];
 const STATUSES = ['All', 'ongoing', 'completed', 'hiatus'];
 const ALL_GENRES = ['Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror', 'Isekai', 'Mecha', 'Mystery', 'Romance', 'Sci-Fi', 'Slice of Life', 'Sports', 'Supernatural', 'Thriller'];
 const SORTS = [
   { value: 'trending', label: '🔥 Trending' },
+  { value: 'updated', label: '🔄 Recently Updated' },
   { value: 'newest', label: '🆕 Newest' },
   { value: 'rating', label: '⭐ Rating' },
   { value: 'title', label: '📄 A–Z' },
 ];
 const RESULTS_PER_PAGE = 24;
 
-export default function BrowsePage() {
+/** Read deep-link params from the URL: /browse?format=manhwa&sort=updated&genres=action */
+function readDeepLinkParams() {
+  if (typeof window === 'undefined') return { format: '', status: '', genres: [] as string[], sort: 'trending' };
+  const params = new URLSearchParams(window.location.search);
+  return {
+    format: params.get('format') || '',
+    status: params.get('status') || '',
+    genres: (params.get('genres') || '').split(',').filter(Boolean),
+    sort: params.get('sort') || 'trending',
+  };
+}
+
+function BrowsePage() {
+  // Hydration-safe deep links: render defaults during SSR/hydration, then sync
+  // the URL params once after mount (avoids server/client mismatch on
+  // /browse?format=… direct loads). Deep links from Home arrive via fresh
+  // navigation, so this effect still applies them on mount.
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [type, setType] = useState('');
@@ -30,6 +49,16 @@ export default function BrowsePage() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Apply deep-link URL params once after mount
+  useEffect(() => {
+    const p = readDeepLinkParams();
+    setType(p.format);
+    setStatus(p.status);
+    setSelectedGenres(p.genres);
+    setSort(p.sort);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Debounce search
   useEffect(() => {
@@ -336,8 +365,20 @@ export default function BrowsePage() {
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
             {data?.items?.map((item) => (
               <Link key={item.id} href={`/title/${item.slug}`} className="group cursor-pointer">
-                <div className="aspect-[3/4] w-full rounded-xl bg-gradient-to-br from-mv-darker via-mv-surface to-mv-darker flex items-center justify-center transition-all group-hover:scale-[1.03] group-hover:shadow-lg group-hover:shadow-mv-accent/5 overflow-hidden relative">
-                  <span className="text-xs text-mv-text-muted text-center px-2 leading-tight">{item.title}</span>
+                <div className="relative aspect-[3/4] w-full overflow-hidden rounded-xl bg-mv-darker transition-all group-hover:scale-[1.03] group-hover:shadow-lg group-hover:shadow-mv-accent/5">
+                  <CoverImage src={item.coverUrl} title={item.title} type={item.type} className="h-full w-full" />
+                  {/* Status banner — colored per status, mirrors the list view */}
+                  {item.status && (
+                    <span className={`absolute bottom-2 left-2 rounded-md border px-1.5 py-0.5 text-[8px] font-semibold backdrop-blur-sm ${statusColors(item.status).className}`}>
+                      {statusColors(item.status).label}
+                    </span>
+                  )}
+                  {/* Latest chapter badge */}
+                  {item.latestChapter && (
+                    <span className="absolute bottom-2 right-2 rounded-md bg-black/60 px-1.5 py-0.5 text-[8px] font-medium text-mv-text-secondary backdrop-blur-sm">
+                      up to Ch. {item.latestChapter.number}
+                    </span>
+                  )}
                   {/* Cover shimmer overlay on hover */}
                   <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-mv-accent/5 opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
@@ -346,7 +387,7 @@ export default function BrowsePage() {
                 </p>
                 <div className="mt-1 flex flex-wrap items-center gap-1.5">
                   <span className="rounded-md bg-mv-surface px-1.5 py-0.5 text-[8px] text-mv-text-secondary font-medium uppercase">
-                    {item.type === 'LIGHT_NOVEL' ? 'LN' : item.type?.slice(0, 2)}
+                    {formatType(item.type)}
                   </span>
                   {item.rating && (
                     <span className="text-[9px] text-mv-gold">⭐ {item.rating.toFixed(1)}</span>
@@ -355,6 +396,11 @@ export default function BrowsePage() {
                     <span className="text-[8px] text-mv-text-dim">{item.totalChapters}ch</span>
                   )}
                 </div>
+                {sort === 'updated' && item.latestChapter && (
+                  <p className="mt-0.5 text-[9px] text-green-400/90">
+                    Ch. {item.latestChapter.number} · {formatTimeAgo(item.latestChapter.createdAt)}
+                  </p>
+                )}
               </Link>
             ))}
           </div>
@@ -367,8 +413,8 @@ export default function BrowsePage() {
                 href={`/title/${item.slug}`}
                 className="flex items-center gap-4 rounded-lg px-4 py-3 transition-colors hover:bg-mv-surface group"
               >
-                <div className="h-14 w-10 shrink-0 rounded-md bg-gradient-to-br from-mv-darker to-mv-surface flex items-center justify-center">
-                  <span className="text-[8px] text-mv-text-dim">{item.type?.slice(0, 2)}</span>
+                <div className="h-14 w-10 shrink-0 overflow-hidden rounded-md bg-mv-darker">
+                  <CoverImage src={item.coverUrl} title={item.title} type={item.type} className="h-full w-full" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm text-mv-text group-hover:text-white transition-colors truncate">{item.title}</p>
@@ -456,4 +502,4 @@ export default function BrowsePage() {
   );
 }
 
-
+export default BrowsePage;

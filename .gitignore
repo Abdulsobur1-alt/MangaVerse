@@ -47,3 +47,6 @@ coverage/
 
 # Sentry
 .sentryclirc
+
+# Reader chapter PDFs dropped into the repo root
+*.pdf

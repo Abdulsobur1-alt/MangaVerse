@@ -4,6 +4,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { TopBar } from '@/components/TopBar';
+import { CoverImage } from '@/components/CoverImage';
 import { useTitle } from '@/lib/hooks/useTitles';
 import { useAddBookmark, useRemoveBookmark } from '@/lib/hooks/useLibrary';
 import { useAuthStore } from '@/store/authStore';
@@ -166,14 +167,15 @@ export default function TitleDetailPage() {
                 ← Back to Browse
               </Link>
 
-              {/* Cover */}
-              <div className="mt-1 aspect-[3/4] w-full rounded-xl bg-gradient-to-br from-mv-darker via-mv-surface to-mv-darker flex items-center justify-center shadow-lg overflow-hidden">
-                <div className="text-center p-4">
-                  <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-mv-accent/20">
-                    <span className="text-2xl">{title.type === 'MANHWA' ? '🇰🇷' : title.type === 'MANHUA' ? '🇨🇳' : title.type === 'LIGHT_NOVEL' ? '📕' : '📖'}</span>
-                  </div>
-                  <p className="text-xs text-mv-text-muted line-clamp-3">{title.title}</p>
-                </div>
+              {/* Cover — actual image with styled fallback (UX: covers are the primary recognition cue) */}
+              <div className="mt-1 aspect-[3/4] w-full overflow-hidden rounded-xl bg-mv-darker shadow-lg">
+                <CoverImage
+                  src={title.coverUrl}
+                  title={title.title}
+                  type={title.type}
+                  emojiFallback
+                  className="h-full w-full"
+                />
               </div>
 
               {/* Quick Actions */}
