@@ -34,6 +34,8 @@ const PRIMARY: NavItem[] = [
 const OVERVIEW: NavItem[] = [
   { href: '/history', label: 'History', icon: 'history' },
   { href: '/dashboard', label: 'Profile', icon: 'dashboard' },
+  { href: '/collections', label: 'Collections', icon: 'sparkles' },
+  { href: '/goals', label: 'Goals', icon: 'zap' },
   { href: '/notifications', label: 'Alerts', icon: 'bell' },
   { href: '/settings', label: 'Settings', icon: 'settings' },
 ];

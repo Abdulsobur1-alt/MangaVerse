@@ -208,7 +208,7 @@ readingRouter.get('/stats', async (req, res, next) => {
 
     const titleDetails = await prisma.title.findMany({
       where: { id: { in: sortedTitles.map((t) => t[0]) } },
-      select: { id: true, slug: true, title: true, type: true, coverUrl: true, genres: true },
+      select: { id: true, slug: true, title: true, type: true, coverUrl: true, genres: true, author: true },
     });
 
     const titleDetailMap = new Map(titleDetails.map((t) => [t.id, t]));
@@ -221,6 +221,7 @@ readingRouter.get('/stats', async (req, res, next) => {
         slug: detail?.slug || '',
         type: detail?.type || '',
         coverUrl: detail?.coverUrl || null,
+        author: detail?.author ?? null,
         chaptersRead: count,
       };
     });

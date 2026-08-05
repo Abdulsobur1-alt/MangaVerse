@@ -36,6 +36,7 @@ export interface PerTitleStat {
   slug: string;
   type: string;
   coverUrl: string | null;
+  author: string | null;
   chaptersRead: number;
 }
 

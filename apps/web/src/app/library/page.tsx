@@ -1,21 +1,29 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { AppShell } from '@/components/AppShell';
 import Link from 'next/link';
 import { useLibrary, useRemoveBookmark, type BookmarkItem } from '@/lib/hooks/useLibrary';
 import { useReadingProgress } from '@/lib/hooks/useReading';
+import { useCollections } from '@/lib/hooks/useCollections';
+import { usePrefs, useUpdatePrefs, type LibraryView } from '@/lib/hooks/usePrefs';
 import { useAuthStore } from '@/store/authStore';
+import { useResumeData } from '@/components/shell/ContinueReading';
 import { CoverImage } from '@/components/CoverImage';
+import { Icon } from '@/components/ui/Icon';
 import { formatType } from '@/lib/format';
+import { cn } from '@/lib/cn';
 
 /* ═══════════════════════════════════════════════════════════════
-   My Library — a personal bookshelf.
-   • Stat tiles: collection size, reading now, completed, chapters read
-   • Shelf tabs (All / Reading / Plan to Read / Completed / On Hold / Dropped)
-   • Progress visualization on every card + inline resume button
-   • Search within the shelf · Grid / List views · per-shelf empty states
+   My Library — a premium personal reading hub (Phase 7).
+   Answers "what am I reading, what's next, what have I finished?":
+   • Welcome header + quick stats + streak
+   • Continue Reading rail — resume the moment you land
+   • Custom-collections strip (deep-links to /collections)
+   • Five default shelves with live counts, search, and three views
+     (grid / list / compact) — default view syncs to device prefs
+   • Per-shelf premium empty states that point to the next action
    ═══════════════════════════════════════════════════════════════ */
 
 const SHELVES = ['Reading', 'Plan to Read', 'Completed', 'On Hold', 'Dropped'] as const;
@@ -31,7 +39,21 @@ interface ReadingEntry {
   completed: boolean;
 }
 
-/** Latest in-progress (or most recent) chapter per title — for the Continue button. */
+function StatTile({ label, value, accent, hint, icon }: { label: string; value: string | number; accent?: string; hint: string; icon: 'book' | 'play' | 'check' | 'chart' | 'flame' }) {
+  return (
+    <div className="group relative overflow-hidden rounded-2xl border border-mv-border bg-mv-darker p-4 transition-all duration-300 hover:-translate-y-0.5 hover:border-mv-violet/30 hover:shadow-card-hover">
+      <div className="pointer-events-none absolute -right-4 -top-6 h-16 w-16 rounded-full bg-mv-accent/10 blur-2xl transition-opacity group-hover:opacity-100" />
+      <div className="flex items-center justify-between">
+        <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-mv-text-muted">{label}</p>
+        <Icon name={icon} size={13} className="text-mv-text-dim" />
+      </div>
+      <p className={`mt-1.5 text-2xl font-bold tracking-tight ${accent || 'text-white'}`}>{value}</p>
+      <p className="mt-0.5 text-[10px] text-mv-text-dim">{hint}</p>
+    </div>
+  );
+}
+
+/** Latest in-progress (or most recent) chapter per title — for resume links. */
 function buildResumeMap(
   readingData: ReadingEntry[] | undefined,
 ): Record<string, { chapterId: string; chapterNumber: number }> {
@@ -46,26 +68,36 @@ function buildResumeMap(
   return map;
 }
 
-function StatTile({ label, value, accent, hint }: { label: string; value: string | number; accent?: string; hint: string }) {
-  return (
-    <div className="group relative overflow-hidden rounded-2xl border border-mv-border bg-mv-darker p-4 transition-all duration-300 hover:-translate-y-0.5 hover:border-mv-violet/30 hover:shadow-card-hover">
-      <div className="pointer-events-none absolute -right-4 -top-6 h-16 w-16 rounded-full bg-mv-accent/10 blur-2xl transition-opacity group-hover:opacity-100" />
-      <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-mv-text-muted">{label}</p>
-      <p className={`mt-1.5 text-2xl font-bold tracking-tight ${accent || 'text-white'}`}>{value}</p>
-      <p className="mt-0.5 text-[10px] text-mv-text-dim">{hint}</p>
-    </div>
-  );
-}
+const VIEWS: { key: LibraryView; label: string; icon: 'grid' | 'list' | 'menu' }[] = [
+  { key: 'grid', label: 'Grid view', icon: 'grid' },
+  { key: 'list', label: 'List view', icon: 'list' },
+  { key: 'compact', label: 'Compact view', icon: 'menu' },
+];
 
 export default function LibraryPage() {
+  const { token, user } = useAuthStore();
   const [activeShelf, setActiveShelf] = useState<string>('All');
   const [query, setQuery] = useState('');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const { token } = useAuthStore();
-  const { data: libraryData, isLoading } = useLibrary();
+  const { data: prefs } = usePrefs(!!token);
+  const updatePrefs = useUpdatePrefs();
+  const [viewMode, setViewMode] = useState<LibraryView>('grid');
+
+  // Default view syncs to device prefs (once loaded) and persists back.
+  useEffect(() => {
+    if (prefs?.libraryView) setViewMode(prefs.libraryView);
+  }, [prefs?.libraryView]);
+
+  const switchView = (mode: LibraryView) => {
+    setViewMode(mode);
+    if (token && prefs?.libraryView !== mode) updatePrefs.mutate({ libraryView: mode });
+  };
+
+  const { data: libraryData, isLoading } = useLibrary(undefined, !!token);
   const { data: readingData } = useReadingProgress(!!token);
+  const { data: collections } = useCollections(!!token);
   const removeBookmark = useRemoveBookmark();
   const [removing, setRemoving] = useState<string | null>(null);
+  const resume = useResumeData(10);
 
   // Progress lookup from reading history
   const progressMap = useMemo(() => {
@@ -122,38 +154,161 @@ export default function LibraryPage() {
     return Math.min(Math.round((p.chaptersRead / b.title.totalChapters) * 100), 100);
   };
 
-  const resume = (b: BookmarkItem) => resumeMap[b.titleId];
+  const resumeFor = (b: BookmarkItem) => resumeMap[b.titleId];
+  const dense = prefs?.cardDensity === 'compact';
 
   return (
     <ProtectedRoute>
       <AppShell>
         <div className="mx-auto max-w-7xl px-5 py-8 sm:px-6 md:px-8">
-          {/* ─── Header ─────────────────────────────── */}
-          <div className="mb-7">
-            <p className="eyebrow mb-2">Personal Shelf</p>
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <h1 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
-                My <span className="text-gradient">Library</span>
-              </h1>
-              {!isLoading && (
-                <span className="rounded-full border border-mv-border-light bg-mv-surface/60 px-3 py-1 text-[11px] text-mv-text-secondary">
-                  {libraryData?.total || 0} titles · {chaptersRead} chapters read
-                </span>
-              )}
+          {/* ─── Welcome header ─────────────────────── */}
+          <header className="relative overflow-hidden">
+            <div className="pointer-events-none absolute -top-24 left-1/2 h-64 w-[36rem] -translate-x-1/2 rounded-full bg-mv-purple/15 blur-3xl" aria-hidden="true" />
+            <div className="relative flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <p className="eyebrow mb-2">Personal Shelf</p>
+                <h1 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
+                  {user?.displayName ? `${user.displayName.split(' ')[0]}'s ` : 'My '}
+                  <span className="text-gradient">Library</span>
+                </h1>
+                <p className="mt-1.5 text-xs text-mv-text-muted">
+                  Your bookshelf, reading journal, and next great read — in one place.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                {!isLoading && (
+                  <span className="rounded-full border border-mv-border-light bg-mv-surface/60 px-3 py-1 text-[11px] text-mv-text-secondary">
+                    {libraryData?.total || 0} titles · {chaptersRead.toLocaleString()} chapters read
+                  </span>
+                )}
+                <Link
+                  href="/goals"
+                  className="flex items-center gap-1.5 rounded-full border border-mv-border-light bg-mv-surface/60 px-3 py-1 text-[11px] font-medium text-mv-text-secondary transition-colors hover:border-mv-violet/40 hover:text-mv-violet"
+                >
+                  <Icon name="zap" size={12} />
+                  Goals
+                </Link>
+              </div>
             </div>
-          </div>
+          </header>
+
+          {/* ─── Continue Reading rail ──────────────── */}
+          {resume.entries.length > 0 && (
+            <section aria-label="Continue reading" className="mt-8">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="flex items-center gap-2 text-sm font-semibold text-white">
+                  <Icon name="play" size={15} className="text-mv-violet" />
+                  Continue Reading
+                </h2>
+                <Link href="/history" className="text-[10px] text-mv-text-dim transition-colors hover:text-mv-violet">
+                  Full history →
+                </Link>
+              </div>
+              <div className="scrollbar-none -mx-5 flex gap-3 overflow-x-auto px-5 sm:mx-0 sm:px-0">
+                {resume.entries.map((entry) => (
+                  <Link
+                    key={entry.titleId}
+                    href={`/reader/${entry.chapterId}`}
+                    className="group/rail relative w-32 shrink-0 overflow-hidden rounded-xl border border-mv-border bg-mv-darker transition-all duration-300 hover:-translate-y-0.5 hover:border-mv-violet/40 hover:shadow-card-hover"
+                  >
+                    <div className="relative aspect-[3/4] overflow-hidden bg-mv-surface">
+                      <CoverImage src={entry.coverUrl} title={entry.title} type={entry.type} className="h-full w-full transition-transform duration-500 group-hover/rail:scale-105" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-mv-dark/90 via-transparent to-transparent" />
+                      <span className="absolute bottom-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-black/70 px-2 py-0.5 text-[8px] font-semibold text-white backdrop-blur-sm">
+                        Ch. {entry.chapterNumber}
+                      </span>
+                    </div>
+                    <div className="p-2">
+                      <p className="truncate text-[10px] font-medium text-mv-text-secondary transition-colors group-hover/rail:text-white">
+                        {entry.title}
+                      </p>
+                      {/* Progress bar */}
+                      <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-white/10">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-mv-purple to-mv-accent transition-all duration-500"
+                          style={{ width: `${Math.max(4, entry.pct)}%` }}
+                        />
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* ─── Stat tiles ─────────────────────────── */}
-          <div className="mb-7 grid grid-cols-2 gap-3 md:grid-cols-4">
-            <StatTile label="In Library" value={items.length} hint="total bookmarks" />
-            <StatTile label="Reading Now" value={readingNow} accent="text-mv-violet" hint="in progress" />
-            <StatTile label="Completed" value={completed} accent="text-mv-success" hint="finished series" />
-            <StatTile label="Chapters Read" value={chaptersRead.toLocaleString()} accent="text-mv-gold" hint="across all series" />
+          <div className="mt-8 grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-5">
+            <StatTile label="In Library" value={items.length} hint="total bookmarks" icon="book" />
+            <StatTile label="Reading Now" value={readingNow} accent="text-mv-violet" hint="in progress" icon="play" />
+            <StatTile label="Completed" value={completed} accent="text-mv-success" hint="finished series" icon="check" />
+            <StatTile label="Chapters Read" value={chaptersRead.toLocaleString()} accent="text-mv-gold" hint="across all series" icon="chart" />
+            <StatTile label="Streak" value={user?.streakDays ?? 0} accent="text-mv-orange" hint="days in a row" icon="flame" />
           </div>
 
+          {/* ─── Custom collections strip ───────────── */}
+          {!isLoading && (
+            <section aria-label="My collections" className="mt-8">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="flex items-center gap-2 text-sm font-semibold text-white">
+                  <Icon name="sparkles" size={15} className="text-mv-violet" />
+                  My Collections
+                </h2>
+                <Link href="/collections" className="text-[10px] text-mv-text-dim transition-colors hover:text-mv-violet">
+                  Manage →
+                </Link>
+              </div>
+              {collections && collections.length > 0 ? (
+                <div className="scrollbar-none -mx-5 flex gap-3 overflow-x-auto px-5 sm:mx-0 sm:px-0">
+                  {collections.slice(0, 6).map((c) => (
+                    <Link
+                      key={c.id}
+                      href={`/collection/${c.id}`}
+                      className="group/card relative flex w-40 shrink-0 items-center gap-3 rounded-xl border border-mv-border bg-mv-darker p-3 transition-all duration-300 hover:-translate-y-0.5 hover:border-mv-violet/40 hover:shadow-card-hover"
+                    >
+                      <div className="h-14 w-10 shrink-0 overflow-hidden rounded-md bg-mv-surface">
+                        {c.cover ? (
+                          <CoverImage src={c.cover} title={c.name} type="MANGA" className="h-full w-full" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-mv-purple/25 to-mv-accent/15">
+                            <Icon name="sparkles" size={14} className="text-mv-violet" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-[11px] font-medium text-mv-text-secondary transition-colors group-hover/card:text-white">
+                          {c.name}
+                        </p>
+                        <p className="text-[9px] text-mv-text-dim">{c.itemCount} title{c.itemCount === 1 ? '' : 's'}</p>
+                      </div>
+                    </Link>
+                  ))}
+                  <Link
+                    href="/collections"
+                    className="flex w-40 shrink-0 items-center justify-center gap-2 rounded-xl border border-dashed border-mv-border-light text-mv-text-dim transition-colors hover:border-mv-violet/40 hover:text-mv-violet"
+                  >
+                    <Icon name="plus" size={14} />
+                    <span className="text-[11px] font-medium">New collection</span>
+                  </Link>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between rounded-xl border border-dashed border-mv-border-light px-4 py-3">
+                  <p className="text-[11px] text-mv-text-muted">
+                    Collections are your own curated shelves — “Weekend Reads”, “Peak Fiction”, anything.
+                  </p>
+                  <Link
+                    href="/collections"
+                    className="flex shrink-0 items-center gap-1.5 rounded-full bg-gradient-to-r from-mv-purple to-mv-accent px-3.5 py-1.5 text-[10px] font-semibold text-white transition-all hover:brightness-110"
+                  >
+                    <Icon name="plus" size={12} />
+                    Create one
+                  </Link>
+                </div>
+              )}
+            </section>
+          )}
+
           {/* ─── Toolbar: shelf tabs + search + view ── */}
-          <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            {/* Shelf tabs */}
+          <div className="mt-8 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="scrollbar-none -mx-5 flex gap-1.5 overflow-x-auto px-5 sm:mx-0 sm:px-0" role="group" aria-label="Library shelves">
               {(['All', ...SHELVES] as const).map((shelf) => {
                 const active = activeShelf === shelf;
@@ -177,15 +332,9 @@ export default function LibraryPage() {
               })}
             </div>
 
-            {/* Search + view toggle */}
             <div className="flex items-center gap-2">
               <div className="relative flex-1 lg:w-56 lg:flex-none">
-                <svg
-                  className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-mv-text-dim"
-                  viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
+                <Icon name="search" size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-mv-text-dim" />
                 <input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
@@ -195,33 +344,28 @@ export default function LibraryPage() {
                 />
               </div>
               <div className="flex overflow-hidden rounded-xl border border-mv-border-light">
-                <button
-                  onClick={() => setViewMode('grid')}
-                  aria-label="Grid view"
-                  aria-pressed={viewMode === 'grid'}
-                  className={`p-2 transition-colors ${viewMode === 'grid' ? 'bg-mv-accent/20 text-mv-violet' : 'text-mv-text-dim hover:text-mv-text'}`}
-                >
-                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
-                  </svg>
-                </button>
-                <button
-                  onClick={() => setViewMode('list')}
-                  aria-label="List view"
-                  aria-pressed={viewMode === 'list'}
-                  className={`border-l border-mv-border-light p-2 transition-colors ${viewMode === 'list' ? 'bg-mv-accent/20 text-mv-violet' : 'text-mv-text-dim hover:text-mv-text'}`}
-                >
-                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><circle cx="3.5" cy="6" r="1" fill="currentColor" stroke="none" /><circle cx="3.5" cy="12" r="1" fill="currentColor" stroke="none" /><circle cx="3.5" cy="18" r="1" fill="currentColor" stroke="none" />
-                  </svg>
-                </button>
+                {VIEWS.map((view, i) => (
+                  <button
+                    key={view.key}
+                    onClick={() => switchView(view.key)}
+                    aria-label={view.label}
+                    aria-pressed={viewMode === view.key}
+                    className={cn(
+                      'p-2 transition-colors',
+                      i > 0 && 'border-l border-mv-border-light',
+                      viewMode === view.key ? 'bg-mv-accent/20 text-mv-violet' : 'text-mv-text-dim hover:text-mv-text',
+                    )}
+                  >
+                    <Icon name={view.icon} size={15} />
+                  </button>
+                ))}
               </div>
             </div>
           </div>
 
           {/* ─── Loading skeletons ───────────────────── */}
           {isLoading && (
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+            <div className={cn('mt-6 grid gap-4', dense ? 'grid-cols-3 gap-2.5 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6')}>
               {Array.from({ length: 12 }).map((_, i) => (
                 <div key={i}>
                   <div className="skeleton aspect-[3/4] rounded-xl" />
@@ -232,13 +376,11 @@ export default function LibraryPage() {
             </div>
           )}
 
-          {/* ─── Content ─────────────────────────────── */}
+          {/* ─── Empty state ─────────────────────────── */}
           {!isLoading && filtered.length === 0 && (
             <div className="card flex flex-col items-center rounded-3xl px-6 py-16 text-center">
               <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-mv-purple/20 to-mv-accent/10">
-                <svg className="h-7 w-7 text-mv-violet" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                </svg>
+                <Icon name="library" size={26} className="text-mv-violet" />
               </div>
               <p className="text-sm font-medium text-mv-text">
                 {query.trim()
@@ -250,29 +392,36 @@ export default function LibraryPage() {
               <p className="mt-1 max-w-sm text-xs text-mv-text-muted">
                 {query.trim()
                   ? 'Try a different search, or clear the filter.'
-                  : 'Explore the catalog and add titles to build your personal bookshelf.'}
+                  : activeShelf === 'Completed'
+                    ? 'Finish a series and it will live here — every completed chapter counts.'
+                    : 'Explore the catalog and add titles to build your personal bookshelf.'}
               </p>
-              {query.trim() ? (
-                <button onClick={() => setQuery('')} className="btn-ghost mt-6 px-5 py-2.5 text-xs">
-                  Clear Search
-                </button>
-              ) : (
-                <Link href="/browse" className="btn-primary mt-6 px-5 py-2.5 text-xs">
-                  <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                  Discover Titles
-                </Link>
-              )}
+              <div className="mt-6 flex items-center gap-2">
+                {query.trim() ? (
+                  <button onClick={() => setQuery('')} className="btn-ghost px-5 py-2.5 text-xs">
+                    Clear Search
+                  </button>
+                ) : (
+                  <Link href="/browse" className="btn-primary px-5 py-2.5 text-xs">
+                    <Icon name="search" size={13} className="mr-1.5 inline" />
+                    Discover Titles
+                  </Link>
+                )}
+                {!query.trim() && activeShelf === 'All' && (
+                  <Link href="/collections" className="btn-ghost px-5 py-2.5 text-xs">
+                    Create a collection
+                  </Link>
+                )}
+              </div>
             </div>
           )}
 
-          {/* Grid view */}
+          {/* ─── Grid view ───────────────────────────── */}
           {!isLoading && filtered.length > 0 && viewMode === 'grid' && (
-            <div className="grid grid-cols-2 gap-x-4 gap-y-7 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+            <div className={cn('mt-6 grid gap-x-4 gap-y-7', dense ? 'grid-cols-3 gap-2.5 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6')}>
               {filtered.map((bookmark) => {
                 const pct = getPct(bookmark);
-                const r = resume(bookmark);
+                const r = resumeFor(bookmark);
                 const busy = removing === bookmark.titleId;
                 return (
                   <div key={bookmark.id} className={`group relative ${busy ? 'opacity-40' : ''}`}>
@@ -298,16 +447,13 @@ export default function LibraryPage() {
                         </Link>
                       )}
                     </div>
-                    {/* Remove */}
                     <button
                       onClick={() => handleRemove(bookmark.titleId)}
                       disabled={busy}
                       aria-label={`Remove ${bookmark.title.title} from library`}
-                      className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/50 text-mv-text-muted opacity-0 backdrop-blur-sm transition-all hover:bg-mv-danger/80 hover:text-white group-hover:opacity-100 disabled:opacity-30"
+                      className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/50 text-mv-text-muted opacity-0 backdrop-blur-sm transition-all hover:bg-mv-danger/80 hover:text-white focus-visible:opacity-100 group-hover:opacity-100 disabled:opacity-30"
                     >
-                      <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
+                      <Icon name="close" size={11} />
                     </button>
                     <div className="mt-2.5">
                       <Link href={`/title/${bookmark.title.slug}`}>
@@ -326,12 +472,12 @@ export default function LibraryPage() {
             </div>
           )}
 
-          {/* List view */}
+          {/* ─── List view ───────────────────────────── */}
           {!isLoading && filtered.length > 0 && viewMode === 'list' && (
-            <div className="overflow-hidden rounded-2xl border border-mv-border bg-mv-darker">
+            <div className="mt-6 overflow-hidden rounded-2xl border border-mv-border bg-mv-darker">
               {filtered.map((bookmark, idx) => {
                 const pct = getPct(bookmark);
-                const r = resume(bookmark);
+                const r = resumeFor(bookmark);
                 const busy = removing === bookmark.titleId;
                 return (
                   <div
@@ -372,9 +518,56 @@ export default function LibraryPage() {
                       aria-label={`Remove ${bookmark.title.title} from library`}
                       className="shrink-0 rounded-lg p-1.5 text-mv-text-dim transition-colors hover:bg-mv-danger/10 hover:text-mv-danger disabled:opacity-30"
                     >
-                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
+                      <Icon name="close" size={15} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* ─── Compact view ────────────────────────── */}
+          {!isLoading && filtered.length > 0 && viewMode === 'compact' && (
+            <div className="mt-6 overflow-hidden rounded-2xl border border-mv-border bg-mv-darker">
+              {filtered.map((bookmark, idx) => {
+                const pct = getPct(bookmark);
+                const r = resumeFor(bookmark);
+                const busy = removing === bookmark.titleId;
+                return (
+                  <div
+                    key={bookmark.id}
+                    className={`group flex items-center gap-3 px-3 py-2 transition-colors hover:bg-mv-surface ${idx > 0 ? 'border-t border-mv-border/60' : ''} ${busy ? 'opacity-40' : ''}`}
+                  >
+                    <Link href={`/title/${bookmark.title.slug}`} className="block h-10 w-7 shrink-0 overflow-hidden rounded bg-mv-surface">
+                      <CoverImage src={bookmark.title.coverUrl} title={bookmark.title.title} type={bookmark.title.type} className="h-full w-full" />
+                    </Link>
+                    <Link href={`/title/${bookmark.title.slug}`} className="min-w-0 flex-1">
+                      <p className="truncate text-xs font-medium text-mv-text transition-colors group-hover:text-mv-violet">
+                        {bookmark.title.title}
+                      </p>
+                      <p className="text-[9px] text-mv-text-muted">
+                        {formatType(bookmark.title.type)} · {bookmark.listName}
+                      </p>
+                    </Link>
+                    <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[8px] font-semibold', pct >= 100 ? 'bg-mv-success/15 text-mv-success' : 'bg-mv-violet/15 text-mv-violet')}>
+                      {pct >= 100 ? 'Done' : `${pct}%`}
+                    </span>
+                    {r && (
+                      <Link
+                        href={`/reader/${r.chapterId}`}
+                        title={`Continue chapter ${r.chapterNumber}`}
+                        className="shrink-0 rounded-full p-1.5 text-mv-text-dim opacity-0 transition-all hover:bg-mv-violet/15 hover:text-mv-violet focus-visible:opacity-100 group-hover:opacity-100"
+                      >
+                        <Icon name="play" size={13} />
+                      </Link>
+                    )}
+                    <button
+                      onClick={() => handleRemove(bookmark.titleId)}
+                      disabled={busy}
+                      aria-label={`Remove ${bookmark.title.title} from library`}
+                      className="shrink-0 rounded-lg p-1.5 text-mv-text-dim opacity-0 transition-all hover:bg-mv-danger/10 hover:text-mv-danger focus-visible:opacity-100 group-hover:opacity-100 disabled:opacity-30"
+                    >
+                      <Icon name="close" size={13} />
                     </button>
                   </div>
                 );

@@ -20,10 +20,15 @@ model User {
   subscriptionTier String   @default("free") @map("subscription_tier")
   notificationPrefs Json?   @default("{\"new_chapter\":true,\"reviews\":true,\"milestones\":true,\"achievements\":true}") @map("notification_prefs")
   streakDays       Int      @default(0) @map("streak_days")
+  // Personalization prefs (library view mode, preferred genres, etc.) —
+  // synced across devices via the API (Phase 7).
+  prefs            Json?    @default("{}") @map("prefs")
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 
   bookmarks        Bookmark[]
+  collections      Collection[]
+  readingGoals     ReadingGoal[]
   readingProgress  ReadingProgress[]
   coinTransactions CoinTransaction[]
   subscriptions    Subscription[]
@@ -70,6 +75,7 @@ model Title {
 
   chapters         Chapter[]
   bookmarks        Bookmark[]
+  collectionItems  CollectionItem[]
   reviews          Review[]
   wikiPages        WikiPage[]
   predictions      Prediction[]
@@ -119,6 +125,71 @@ model Bookmark {
 
   @@unique([userId, titleId])
   @@map("bookmarks")
+}
+
+// ─── Custom Collections (Phase 7) ─────────────────────
+// User-curated shelves beyond the five default library lists.
+// "Weekend Reads", "Peak Fiction", "Emotional Damage" — any grouping.
+// Items are (collectionId, titleId) unique; ordering by sort_order then
+// insertion time. `isPrivate` is the privacy flag; public sharing is a
+// Phase 7 roadmap item (the field is already future-ready).
+
+model Collection {
+  id          String           @id @default(uuid()) @db.Uuid
+  userId      String           @map("user_id") @db.Uuid
+  name        String
+  description String?          @db.Text
+  coverUrl    String?          @map("cover_url")
+  tags        String[]
+  isPrivate   Boolean          @default(true) @map("is_private")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+
+  user  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items CollectionItem[]
+
+  @@index([userId, createdAt])
+  @@map("collections")
+}
+
+model CollectionItem {
+  id           String   @id @default(uuid()) @db.Uuid
+  collectionId String   @map("collection_id") @db.Uuid
+  titleId      String   @map("title_id") @db.Uuid
+  note         String?
+  sortOrder    Int      @default(0) @map("sort_order")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  title      Title      @relation(fields: [titleId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, titleId])
+  @@index([titleId])
+  @@map("collection_items")
+}
+
+// ─── Reading Goals (Phase 7) ─────────────────────────
+// A goal is (type, target) with a human `title`. Progress is always derived
+// from reading data at request time — no incremental counters to drift.
+// Types: chapters_week (calendar week), chapters_day, chapters_total,
+// series_total (distinct series with ≥1 completed chapter), series_completed
+// (finished the final chapter), streak_days (maintain a streak ≥ target).
+
+model ReadingGoal {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  title     String
+  type      String // chapters_week | chapters_day | chapters_total | series_total | series_completed | streak_days
+  target    Int
+  active    Boolean   @default(true)
+  endsAt    DateTime? @map("ends_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, active])
+  @@map("reading_goals")
 }
 
 // ─── Reading Progress ──────────────────────────────────

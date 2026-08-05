@@ -1,31 +1,81 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { AppShell } from '@/components/AppShell';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
-import { useReadingHistory, useReadingStats, getGenreColor } from '@/lib/hooks/useReadingStats';
+import { Icon } from '@/components/ui/Icon';
+import { CoverImage } from '@/components/CoverImage';
+import { useReadingHistory, useReadingStats, type HistoryItem } from '@/lib/hooks/useReadingStats';
+import { cn } from '@/lib/cn';
 
-function formatDate(dateStr: string): string {
+/* ═══════════════════════════════════════════════════════════════
+   Reading History — the journey, visualized (Phase 7).
+   • Recently Finished rail: series you wrapped, newest first
+   • Day-grouped timeline: Today / Yesterday / dated sections
+   • Compact stat strip + pagination for long trails
+   ═══════════════════════════════════════════════════════════════ */
+
+function dayLabel(dateStr: string): string {
+  const d = new Date(dateStr + 'T00:00:00Z');
+  const today = new Date();
+  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
+  if (sameDay(d, today)) return 'Today';
+  if (sameDay(d, yesterday)) return 'Yesterday';
+  return d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+}
+
+function timeLabel(dateStr: string): string {
   const d = new Date(dateStr);
-  const now = new Date();
-  const diff = now.getTime() - d.getTime();
+  const diff = Date.now() - d.getTime();
   const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'Just now';
+  if (mins < 1) return 'just now';
   if (mins < 60) return `${mins}m ago`;
   const hours = Math.floor(mins / 60);
   if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+}
+
+function MiniStat({ label, value, accent }: { label: string; value: string | number; accent?: string }) {
+  return (
+    <div className="rounded-xl border border-mv-border bg-mv-darker px-4 py-3">
+      <p className="text-[9px] font-semibold uppercase tracking-wider text-mv-text-muted">{label}</p>
+      <p className={`mt-1 text-xl font-bold tracking-tight ${accent || 'text-white'}`}>{value}</p>
+    </div>
+  );
 }
 
 export default function HistoryPage() {
   const [page, setPage] = useState(1);
   const { data: history, isLoading: historyLoading } = useReadingHistory(page, 30);
-  const { data: stats, isLoading: statsLoading } = useReadingStats();
+  const { data: stats } = useReadingStats();
 
   const totalPages = history ? Math.ceil(history.total / history.limit) : 0;
+  const items = history?.items ?? [];
+
+  // Recently finished: completed entries, newest per series.
+  const recentlyFinished = useMemo(() => {
+    const bySeries = new Map<string, HistoryItem>();
+    for (const item of items) {
+      if (!item.completed) continue;
+      const seriesId = item.chapter.series.slug;
+      const existing = bySeries.get(seriesId);
+      if (!existing || new Date(item.updatedAt) > new Date(existing.updatedAt)) bySeries.set(seriesId, item);
+    }
+    return [...bySeries.values()].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()).slice(0, 10);
+  }, [items]);
+
+  // Day-grouped timeline (page-local).
+  const groups = useMemo(() => {
+    const map = new Map<string, HistoryItem[]>();
+    for (const item of items) {
+      const key = item.updatedAt.split('T')[0];
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(item);
+    }
+    return [...map.entries()].map(([date, list]) => ({ date, list }));
+  }, [items]);
 
   return (
     <ProtectedRoute>
@@ -45,221 +95,143 @@ export default function HistoryPage() {
             </div>
           </div>
 
-          {/* ─── Overview Stats ──────────────────── */}
-          {statsLoading ? (
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4 mb-8 animate-pulse">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="h-24 rounded-xl bg-mv-darker border border-mv-border" />
-              ))}
-            </div>
-          ) : stats ? (
-            <>
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-4 mb-6">
-                <div className="rounded-xl border border-mv-border bg-mv-darker p-4">
-                  <p className="text-[9px] font-semibold uppercase tracking-wider text-mv-text-muted mb-1">Chapters Read</p>
-                  <p className="text-2xl font-bold text-white">{stats.totalChapters.toLocaleString()}</p>
-                  <p className="text-[9px] text-mv-text-muted mt-1">total completed</p>
-                </div>
-                <div className="rounded-xl border border-mv-border bg-mv-darker p-4">
-                  <p className="text-[9px] font-semibold uppercase tracking-wider text-mv-text-muted mb-1">Series Read</p>
-                  <p className="text-2xl font-bold text-mv-purple">{stats.totalSeries}</p>
-                  <p className="text-[9px] text-mv-text-muted mt-1">different titles</p>
-                </div>
-                <div className="rounded-xl border border-mv-border bg-mv-darker p-4">
-                  <p className="text-[9px] font-semibold uppercase tracking-wider text-mv-text-muted mb-1">Day Streak</p>
-                  <p className="text-2xl font-bold text-mv-accent">{stats.streakDays}</p>
-                  <p className="text-[9px] text-mv-text-muted mt-1">current streak</p>
-                </div>
-                <div className="rounded-xl border border-mv-border bg-mv-darker p-4">
-                  <p className="text-[9px] font-semibold uppercase tracking-wider text-mv-text-muted mb-1">Days Active</p>
-                  <p className="text-2xl font-bold text-mv-gold">{stats.daysActive}</p>
-                  <p className="text-[9px] text-mv-text-muted mt-1">out of last 90</p>
-                </div>
+          {/* ─── Stat strip ─────────────────────────── */}
+          <div className="mb-8 grid grid-cols-2 gap-3 md:grid-cols-4">
+            <MiniStat label="Chapters Read" value={stats ? stats.totalChapters.toLocaleString() : '…'} />
+            <MiniStat label="Series Read" value={stats ? stats.totalSeries : '…'} accent="text-mv-violet" />
+            <MiniStat label="Day Streak" value={stats ? stats.streakDays : '…'} accent="text-mv-orange" />
+            <MiniStat label="Days Active" value={stats ? stats.daysActive : '…'} accent="text-mv-gold" />
+          </div>
+
+          {/* ─── Recently finished ──────────────────── */}
+          {recentlyFinished.length > 0 && (
+            <section aria-label="Recently finished" className="mb-8">
+              <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
+                <Icon name="check" size={15} className="text-mv-success" />
+                Recently Finished
+              </h2>
+              <div className="scrollbar-none -mx-5 flex gap-3 overflow-x-auto px-5 sm:mx-0 sm:px-0">
+                {recentlyFinished.map((entry) => (
+                  <Link
+                    key={entry.id}
+                    href={`/title/${entry.chapter.series.slug}`}
+                    className="group/rail relative w-28 shrink-0 overflow-hidden rounded-xl border border-mv-border bg-mv-darker transition-all duration-300 hover:-translate-y-0.5 hover:border-mv-success/40 hover:shadow-card-hover"
+                  >
+                    <div className="relative aspect-[3/4] overflow-hidden bg-mv-surface">
+                      <CoverImage src={entry.chapter.series.coverUrl} title={entry.chapter.series.title} type="" className="h-full w-full transition-transform duration-500 group-hover/rail:scale-105" />
+                      <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-mv-success/90 text-white">
+                        <Icon name="check" size={11} />
+                      </span>
+                    </div>
+                    <div className="p-2">
+                      <p className="truncate text-[10px] font-medium text-mv-text-secondary transition-colors group-hover/rail:text-white">
+                        {entry.chapter.series.title}
+                      </p>
+                      <p className="mt-0.5 text-[8px] text-mv-text-dim">
+                        Finished · Ch. {entry.chapter.number}
+                      </p>
+                    </div>
+                  </Link>
+                ))}
               </div>
+            </section>
+          )}
 
-              {/* ─── Genre Distribution ────────────── */}
-              {stats.genreDistribution.length > 0 && (
-                <div className="mb-6 rounded-xl border border-mv-border bg-mv-darker p-5">
-                  <p className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-mv-text-muted">
-                    Genre Distribution
-                  </p>
-                  <div className="space-y-2">
-                    {stats.genreDistribution.slice(0, 8).map((item) => {
-                      const maxCount = stats.genreDistribution[0]?.count || 1;
-                      const pct = Math.round((item.count / maxCount) * 100);
-                      return (
-                        <div key={item.genre} className="flex items-center gap-3">
-                          <span className="w-20 text-[10px] text-mv-text-secondary truncate shrink-0">
-                            {item.genre.replace(/_/g, ' ')}
-                          </span>
-                          <div className="flex-1 h-4 rounded-full bg-mv-surface overflow-hidden">
-                            <div
-                              className="h-full rounded-full transition-all duration-500"
-                              style={{ width: `${pct}%`, backgroundColor: getGenreColor(item.genre) }}
-                            />
-                          </div>
-                          <span className="w-8 text-right text-[10px] text-mv-text-dim shrink-0">{item.count}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* ─── Per-Title Stats ───────────────── */}
-              {stats.perTitle.length > 0 && (
-                <div className="mb-6 rounded-xl border border-mv-border bg-mv-darker p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-mv-text-muted">
-                      Most Read Titles
-                    </p>
-                  </div>
-                  <div className="space-y-1">
-                    {stats.perTitle.map((item, idx) => (
-                      <Link
-                        key={item.titleId}
-                        href={`/title/${item.slug}`}
-                        className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-mv-surface transition-colors"
-                      >
-                        <span className="w-5 text-[10px] font-bold text-mv-text-dim shrink-0">#{idx + 1}</span>
-                        <div className="h-9 w-7 rounded bg-mv-surface flex items-center justify-center text-[9px] shrink-0">
-                          {item.type === 'MANHWA' ? '🇰🇷' : item.type === 'MANHUA' ? '🇨🇳' : '📖'}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs text-mv-text truncate">{item.title}</p>
-                          <p className="text-[9px] text-mv-text-dim">{item.chaptersRead} chapter{item.chaptersRead !== 1 ? 's' : ''}</p>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <div className="h-2 w-16 rounded-full bg-mv-surface overflow-hidden">
-                            <div
-                              className="h-full rounded-full bg-mv-accent"
-                              style={{ width: `${Math.min(100, (item.chaptersRead / (stats.perTitle[0]?.chaptersRead || 1)) * 100)}%` }}
-                            />
-                          </div>
-                          <span className="text-[9px] text-mv-text-dim w-8 text-right">{item.chaptersRead}</span>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* ─── Reading Calendar ─────────────── */}
-              <div className="mb-6 rounded-xl border border-mv-border bg-mv-darker p-5">
-                <p className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-mv-text-muted">
-                  Reading Calendar (Last 90 Days)
-                </p>
-                <div className="flex flex-wrap gap-1">
-                  {stats.readingCalendar.map((day) => (
-                    <div
-                      key={day.date}
-                      className="h-3 w-3 rounded-[2px] transition-colors"
-                      style={{ background: day.read ? '#e94560' : '#1a1a2e' }}
-                      title={`${day.date}${day.read ? ' — Read' : ''}`}
-                    />
-                  ))}
-                </div>
-                <div className="flex items-center gap-3 mt-2">
-                  <div className="flex items-center gap-1.5">
-                    <div className="h-2.5 w-2.5 rounded-[2px] bg-[#1a1a2e]" />
-                    <span className="text-[8px] text-mv-text-dim">No reading</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="h-2.5 w-2.5 rounded-[2px] bg-mv-accent" />
-                    <span className="text-[8px] text-mv-text-dim">Read</span>
-                  </div>
-                </div>
-              </div>
-            </>
-          ) : null}
-
-          {/* ─── History Timeline ─────────────────── */}
-          <div className="rounded-xl border border-mv-border bg-mv-darker p-5">
-            <p className="mb-4 text-[10px] font-semibold uppercase tracking-wider text-mv-text-muted">
-              History
-              {history && <span className="ml-2 text-mv-text-dim font-normal">({history.total} total)</span>}
-            </p>
-
+          {/* ─── Timeline ───────────────────────────── */}
+          <section aria-label="History timeline">
             {historyLoading ? (
-              <div className="space-y-2 animate-pulse">
+              <div className="space-y-3">
                 {Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="flex items-center gap-3 rounded-lg bg-mv-surface p-3">
-                    <div className="h-10 w-8 rounded bg-mv-border-light" />
+                  <div key={i} className="flex items-center gap-3 rounded-xl bg-mv-darker p-3.5">
+                    <div className="skeleton h-12 w-9 rounded" />
                     <div className="flex-1 space-y-1.5">
-                      <div className="h-3 w-48 rounded bg-mv-border-light" />
-                      <div className="h-2 w-24 rounded bg-mv-border-light" />
+                      <div className="skeleton h-3 w-48 rounded" />
+                      <div className="skeleton h-2 w-24 rounded" />
                     </div>
                   </div>
                 ))}
               </div>
-            ) : !history || history.items.length === 0 ? (
-              <div className="py-10 text-center">
-                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-mv-surface">
-                  <svg className="h-6 w-6 text-mv-text-dim" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                  </svg>
+            ) : !history || items.length === 0 ? (
+              <div className="card flex flex-col items-center rounded-3xl px-6 py-16 text-center">
+                <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-mv-purple/20 to-mv-accent/10">
+                  <Icon name="history" size={24} className="text-mv-violet" />
                 </div>
-                <p className="text-xs text-mv-text-muted">No reading history yet.</p>
-                <p className="text-[10px] text-mv-text-dim mt-1">Start reading to build your history!</p>
-                <Link
-                  href="/browse"
-                  className="btn-primary mt-4 px-5 py-2.5 text-xs"
-                >
+                <p className="text-sm font-medium text-mv-text">No reading history yet</p>
+                <p className="mt-1 max-w-sm text-xs text-mv-text-muted">
+                  Every chapter you read becomes a moment on this timeline. Start reading to build it.
+                </p>
+                <Link href="/browse" className="btn-primary mt-6 px-5 py-2.5 text-xs">
+                  <Icon name="search" size={13} className="mr-1.5 inline" />
                   Browse Titles
                 </Link>
               </div>
             ) : (
-              <>
-                <div className="space-y-1">
-                  {history.items.map((entry) => (
-                    <Link
-                      key={entry.id}
-                      href={`/reader/${entry.chapter.id}`}
-                      className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-mv-surface transition-colors"
-                    >
-                      <div className="flex h-10 w-8 items-center justify-center rounded bg-mv-surface text-[10px] shrink-0">
-                        {entry.chapter.series.title.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-mv-text truncate">
-                          {entry.chapter.series.title}
-                        </p>
-                        <p className="text-[10px] text-mv-text-muted">
-                          Ch. {entry.chapter.number}
-                          {entry.chapter.title ? ` — ${entry.chapter.title}` : ''}
-                          {entry.completed ? ' ✅' : ' 📖'}
-                        </p>
-                      </div>
-                      <span className="text-[9px] text-mv-text-dim shrink-0">
-                        {formatDate(entry.updatedAt)}
-                      </span>
-                    </Link>
-                  ))}
-                </div>
+              <div className="relative space-y-8">
+                {/* Vertical spine */}
+                <div aria-hidden="true" className="absolute bottom-4 left-[13px] top-2 w-px bg-mv-border" />
+                {groups.map((group) => (
+                  <div key={group.date} className="relative pl-9">
+                    {/* Dot */}
+                    <span aria-hidden="true" className="absolute left-[7px] top-1 h-3.5 w-3.5 rounded-full border-2 border-mv-violet bg-mv-darker" />
+                    <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-mv-text-muted">{dayLabel(group.date)}</p>
+                    <div className="overflow-hidden rounded-2xl border border-mv-border bg-mv-darker">
+                      {group.list.map((entry, idx) => (
+                        <Link
+                          key={entry.id}
+                          href={`/reader/${entry.chapter.id}`}
+                          className={cn(
+                            'group flex items-center gap-3.5 px-4 py-3 transition-colors hover:bg-mv-surface',
+                            idx > 0 && 'border-t border-mv-border/60',
+                          )}
+                        >
+                          <span className="relative h-12 w-9 shrink-0 overflow-hidden rounded-md bg-mv-surface">
+                            <CoverImage src={entry.chapter.series.coverUrl} title={entry.chapter.series.title} type="" className="h-full w-full" />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-xs font-medium text-mv-text transition-colors group-hover:text-mv-violet">
+                              {entry.chapter.series.title}
+                            </span>
+                            <span className="mt-0.5 flex items-center gap-1.5 text-[10px] text-mv-text-muted">
+                              <span className="rounded bg-white/5 px-1.5 py-0.5 font-medium">Ch. {entry.chapter.number}</span>
+                              {entry.chapter.title && <span className="truncate">{entry.chapter.title}</span>}
+                              <span className={cn('flex items-center gap-0.5', entry.completed ? 'text-mv-success' : 'text-mv-violet')}>
+                                <Icon name={entry.completed ? 'check' : 'book'} size={10} />
+                                {entry.completed ? 'Finished' : 'Read'}
+                              </span>
+                            </span>
+                          </span>
+                          <span className="shrink-0 text-[9px] text-mv-text-dim">{timeLabel(entry.updatedAt)}</span>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                ))}
 
                 {/* Pagination */}
                 {totalPages > 1 && (
-                  <div className="mt-5 flex items-center justify-center gap-2">
+                  <div className="flex items-center justify-center gap-3 pt-2">
                     <button
-                      onClick={() => setPage(p => Math.max(1, p - 1))}
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
                       disabled={page === 1}
-                      className="rounded-lg border border-mv-border-light bg-mv-surface px-3 py-1.5 text-[10px] text-mv-text-secondary transition-colors hover:text-mv-text disabled:opacity-30 disabled:cursor-not-allowed"
+                      className="flex items-center gap-1 rounded-lg border border-mv-border-light bg-mv-surface px-3.5 py-2 text-[10px] text-mv-text-secondary transition-colors hover:text-mv-text disabled:opacity-30"
                     >
-                      ← Prev
+                      <Icon name="chevronLeft" size={12} /> Prev
                     </button>
-                    <span className="text-[10px] text-mv-text-muted">Page {page} of {totalPages}</span>
+                    <span className="text-[10px] text-mv-text-muted">
+                      Page {page} of {totalPages}
+                    </span>
                     <button
-                      onClick={() => setPage(p => p + 1)}
-                      disabled={!history.hasMore}
-                      className="rounded-lg border border-mv-border-light bg-mv-surface px-3 py-1.5 text-[10px] text-mv-text-secondary transition-colors hover:text-mv-text disabled:opacity-30 disabled:cursor-not-allowed"
+                      onClick={() => setPage((p) => p + 1)}
+                      disabled={!history?.hasMore}
+                      className="flex items-center gap-1 rounded-lg border border-mv-border-light bg-mv-surface px-3.5 py-2 text-[10px] text-mv-text-secondary transition-colors hover:text-mv-text disabled:opacity-30"
                     >
-                      Next →
+                      Next <Icon name="chevronRight" size={12} />
                     </button>
                   </div>
                 )}
-              </>
+              </div>
             )}
-          </div>
+          </section>
         </div>
       </AppShell>
     </ProtectedRoute>

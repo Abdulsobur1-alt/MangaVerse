@@ -5,6 +5,11 @@ import { AppShell } from '@/components/AppShell';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useAuthStore } from '@/store/authStore';
 import { useUpdateProfile, useDeleteAccount, useNotificationPrefs, useUpdateNotificationPrefs } from '@/lib/hooks/useSettings';
+import { usePrefs, useUpdatePrefs, type LibraryView, type CardDensity } from '@/lib/hooks/usePrefs';
+import { GENRES_META } from '@/components/home/types';
+import { toDbGenre } from '@/components/discover/utils';
+import { Icon } from '@/components/ui/Icon';
+import { cn } from '@/lib/cn';
 
 export default function SettingsPage() {
   const { user, token } = useAuthStore();
@@ -198,6 +203,9 @@ export default function SettingsPage() {
             </div>
           </section>
 
+          {/* ─── Personalization Section ──────────── */}
+          <PersonalizationSection />
+
           {/* ─── Preferences Section ──────────────── */}
           <section className="mb-8">
             <h2 className="mb-4 text-sm font-medium text-white">Notification Preferences</h2>
@@ -309,5 +317,147 @@ export default function SettingsPage() {
         </div>
       </AppShell>
     </ProtectedRoute>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PersonalizationSection — library view, card density, preferred
+   genres and homepage recommendations. Persisted to /users/prefs
+   so choices sync across devices (Phase 7).
+   ═══════════════════════════════════════════════════════════════ */
+
+const VIEW_OPTIONS: { key: LibraryView; label: string; icon: 'grid' | 'list' | 'menu' }[] = [
+  { key: 'grid', label: 'Grid', icon: 'grid' },
+  { key: 'list', label: 'List', icon: 'list' },
+  { key: 'compact', label: 'Compact', icon: 'menu' },
+];
+
+function Segment({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        'flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[11px] font-medium transition-all',
+        active ? 'bg-gradient-to-r from-mv-purple to-mv-accent text-white shadow-glow-sm' : 'text-mv-text-secondary hover:bg-white/5 hover:text-mv-text',
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+function Toggle({ checked, onChange, label, desc }: { checked: boolean; onChange: (v: boolean) => void; label: string; desc: string }) {
+  return (
+    <div className="flex items-center justify-between gap-4 px-5 py-3.5">
+      <div>
+        <p className="text-xs font-medium text-mv-text">{label}</p>
+        <p className="mt-0.5 text-[10px] text-mv-text-muted">{desc}</p>
+      </div>
+      <label className="relative inline-flex cursor-pointer items-center">
+        <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="peer sr-only" />
+        <div className="h-5 w-9 rounded-full bg-mv-border-light after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:bg-mv-text-muted after:transition-all peer-checked:bg-mv-accent/60 peer-checked:after:translate-x-full peer-checked:after:bg-mv-accent" />
+      </label>
+    </div>
+  );
+}
+
+function PersonalizationSection() {
+  const { token } = useAuthStore();
+  const { data: prefs } = usePrefs(!!token);
+  const updatePrefs = useUpdatePrefs();
+
+  const set = (patch: Parameters<typeof updatePrefs.mutate>[0]) => {
+    if (!token) return;
+    updatePrefs.mutate(patch);
+  };
+
+  const selected = prefs?.preferredGenres ?? [];
+  const atCap = selected.length >= 15;
+
+  const toggleGenre = (dbSlug: string) => {
+    set({ preferredGenres: selected.includes(dbSlug) ? selected.filter((g) => g !== dbSlug) : [...selected, dbSlug] });
+  };
+
+  const density: CardDensity = prefs?.cardDensity ?? 'cozy';
+
+  return (
+    <section className="mb-8">
+      <h2 className="mb-1 text-sm font-medium text-white">Personalization</h2>
+      <p className="mb-4 text-[10px] text-mv-text-muted">
+        Preferences sync across your devices automatically.
+      </p>
+
+      <div className="rounded-xl border border-mv-border bg-mv-darker divide-y divide-mv-border">
+        {/* Library view */}
+        <div className="px-5 py-3.5">
+          <p className="text-xs font-medium text-mv-text">Default library view</p>
+          <p className="mt-0.5 text-[10px] text-mv-text-muted">How your shelf renders when you open the library.</p>
+          <div className="mt-3 flex gap-1 rounded-xl border border-mv-border-light bg-mv-surface/60 p-1">
+            {VIEW_OPTIONS.map((v) => (
+              <Segment key={v.key} active={(prefs?.libraryView ?? 'grid') === v.key} onClick={() => set({ libraryView: v.key })}>
+                <Icon name={v.icon} size={12} />
+                {v.label}
+              </Segment>
+            ))}
+          </div>
+        </div>
+
+        {/* Card density */}
+        <div className="px-5 py-3.5">
+          <p className="text-xs font-medium text-mv-text">Card density</p>
+          <p className="mt-0.5 text-[10px] text-mv-text-muted">Cozy shows larger covers; compact fits more on screen.</p>
+          <div className="mt-3 flex gap-1 rounded-xl border border-mv-border-light bg-mv-surface/60 p-1">
+            <Segment active={density === 'cozy'} onClick={() => set({ cardDensity: 'cozy' })}>Cozy</Segment>
+            <Segment active={density === 'compact'} onClick={() => set({ cardDensity: 'compact' })}>Compact</Segment>
+          </div>
+        </div>
+
+        {/* Preferred genres */}
+        <div className="px-5 py-3.5">
+          <p className="text-xs font-medium text-mv-text">Preferred genres</p>
+          <p className="mt-0.5 text-[10px] text-mv-text-muted">
+            Tell us what you love — future recommendations will lean into these.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {GENRES_META.map((g) => {
+              const dbSlug = toDbGenre(g.key);
+              const active = selected.includes(dbSlug);
+              return (
+                <button
+                  key={g.key}
+                  onClick={() => toggleGenre(dbSlug)}
+                  disabled={!active && atCap}
+                  aria-pressed={active}
+                  className={cn(
+                    'rounded-full border px-3 py-1.5 text-[10px] font-medium transition-all',
+                    active
+                      ? 'border-mv-violet/50 bg-mv-violet/20 text-mv-violet'
+                      : 'border-mv-border-light bg-mv-surface/60 text-mv-text-secondary hover:border-mv-violet/40 hover:text-mv-text',
+                    !active && atCap && 'cursor-not-allowed opacity-40 hover:border-mv-border-light hover:text-mv-text-secondary',
+                  )}
+                >
+                  {g.emoji} {g.label}
+                </button>
+              );
+            })}
+            {prefs && prefs.preferredGenres.length >= 15 && (
+              <p className="w-full pt-1 text-[9px] text-mv-text-dim">Maximum 15 genres selected.</p>
+            )}
+          </div>
+        </div>
+
+        {/* Homepage recommendations */}
+        <Toggle
+          checked={prefs?.homepageRecs ?? true}
+          onChange={(v) => set({ homepageRecs: v })}
+          label="Homepage recommendations"
+          desc="Personalized “Recommended for you” rails (powers the future homepage)."
+        />
+      </div>
+      {updatePrefs.isError && (
+        <p className="mt-2 text-[10px] text-red-400">Failed to save preference. Please try again.</p>
+      )}
+    </section>
   );
 }

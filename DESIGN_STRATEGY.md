@@ -464,3 +464,59 @@ Genre multi-select (live counts, "matches ALL" semantics), format, status, year 
 ### 15.8 Roadmap (flagged, not faked)
 
 Semantic/AI search (story-graph embeddings), voice search, publisher & character search, author biographies, real collection (list) models with community curation, and per-title "reading time" filters all need data-model additions first (see §4/§9).
+
+## 16. Phase 7 — Library, Collections & Personalization (as shipped)
+
+> The library stopped being a generic favorites page and became a personal reading hub. It answers five questions — what am I reading, what should I read next, what have I completed, how much have I read, and what kind of reader am I. Design intent: a digital bookshelf × reading journal × analytics dashboard — organized, motivating, and honest about what the data can actually say.
+
+### 16.1 Library UX audit (pre-pass)
+
+| Area | Pre | Post | Notes |
+|---|---|---|---|
+| Library home | 6 | 9 | Shelf page → personal hub: welcome header, Continue rail, collections strip, five shelves with stats |
+| Shelves | 7 | 8.5 | Existing 5 lists retained; added compact view + card density + prefs-synced default view |
+| Custom collections | 0 | 8.5 | New `Collection`/`CollectionItem` model, manager + detail pages, add-titles search flow |
+| Reading goals | 0 | 8 | New `ReadingGoal` model, six derivable goal types, live progress, quick-starts, archive |
+| Dashboard | 5 | 9 | Stats cards → premium reader command center (heatmap, genres/authors, activity, goals, badges) |
+| History | 6 | 8.5 | Flat list → day-grouped timeline + Recently Finished rail |
+| Personalization | 4 | 8 | View/density/preferred-genres/recs prefs on the User row — syncs across devices |
+| Empty states | 6 | 8.5 | Per-context guidance (empty shelf, empty collection, no goals, no history) with next-action CTAs |
+
+### 16.2 Data model (`apps/api/prisma`, migration `20260805120000_phase7_library`)
+
+| Table | Purpose |
+|---|---|
+| `collections` | User-curated shelves: name, description, tags[], is_private, cover |
+| `collection_items` | (collection_id, title_id) unique membership + note + sort_order |
+| `reading_goals` | title, type, target, active, ends_at — progress derived, never stored |
+| `users.prefs` (JSONB) | library view mode, card density, preferred genres, homepage-recs toggle |
+
+Apply with `docker compose up -d postgres && cd apps/api && npx prisma migrate deploy`.
+
+### 16.3 API surface (new routes)
+
+- `GET/POST/PATCH/DELETE /api/collections` — full CRUD, scoped to the owner, item counts + first-cover previews.
+- `POST /api/collections/:id/items`, `DELETE /api/collections/:id/items/:titleId`, `PATCH /api/collections/:id/items` (reorder) — idempotent adds.
+- `GET/POST/PATCH/DELETE /api/goals` — progress computed live from reading data per type (week resets Monday UTC, day resets midnight UTC).
+- `GET/PUT /api/users/prefs` — merge-based personalization prefs.
+- `GET /api/reading/stats` now returns `author` per title (powers favorite-author analytics).
+
+### 16.4 Goal types (all derivable, zero drift)
+
+`chapters_week` (rolling calendar week), `chapters_day`, `chapters_total`, `series_total` (distinct series with ≥1 completed chapter), `series_completed` (read the final known chapter), `streak_days` (hold a current streak). No counters to go stale — the API recomputes every read.
+
+### 16.5 Dashboard analytics (derived, labelled)
+
+90-day GitHub-style heatmap, favorite genres (colored bars), favorite authors (aggregated from per-title stats), recent activity feed, active-goals summary and achievement progress. Everything comes from existing `reading/stats` + `history` + `achievements` + `goals` — no new analytics endpoints.
+
+### 16.6 Personalization (synced, not local)
+
+Default library view (grid/list/compact), card density (cozy/compact), preferred genres (15 max, stored as DB slugs) and a homepage-recommendations toggle live on the User row via `/users/prefs`, so they follow the user across devices. Reader/theme prefs remain local (they're device-rendering concerns).
+
+### 16.7 Performance & a11y
+
+Library fetches up to 100 titles per request (API page cap); shelves filter client-side; dialog semantics (Esc/outside-click) on every modal; `aria-pressed` on view/shelf toggles; focus-visible everywhere; reduced-motion respected; empty states always teach the next action.
+
+### 16.8 Roadmap (flagged, not faked)
+
+Public/shared collections (is_private is ready but no public routing), per-title "Add to collection" menu on the details page, reading-session tracking for real reading-time analytics, bookmark folders/notes/export, download management for offline chapters (no download API exists), goal achievements, and pagination for libraries beyond 100 titles. Social layers (profiles, follows, shared lists) need the user-relationship model first.

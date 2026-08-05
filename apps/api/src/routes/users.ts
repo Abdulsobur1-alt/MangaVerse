@@ -188,6 +188,72 @@ usersRouter.put('/preferences', validate({ body: UpdatePrefsSchema }), async (re
   }
 });
 
+// ─── GET /api/users/prefs ────────────────────────────
+// Personalization preferences (library view, preferred genres, homepage
+// recommendations). Synced across devices — unlike the transient UI state.
+
+const DEFAULT_PREFS = {
+  libraryView: 'grid',
+  preferredGenres: [] as string[],
+  homepageRecs: true,
+  cardDensity: 'cozy',
+};
+
+const UpdatePersonalPrefsSchema = z.object({
+  libraryView: z.enum(['grid', 'list', 'compact']).optional(),
+  preferredGenres: z.array(z.string().trim().min(1).max(40)).max(15).optional(),
+  homepageRecs: z.boolean().optional(),
+  cardDensity: z.enum(['cozy', 'compact']).optional(),
+});
+
+usersRouter.get('/prefs', async (req, res, next) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { firebaseUid: req.user!.uid },
+      select: { prefs: true },
+    });
+    if (!user) throw new NotFoundError('User');
+
+    const prefs = user.prefs as Record<string, unknown> | null;
+    res.json({
+      success: true,
+      data: {
+        ...DEFAULT_PREFS,
+        ...(prefs || {}),
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+usersRouter.put('/prefs', validate({ body: UpdatePersonalPrefsSchema }), async (req, res, next) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { firebaseUid: req.user!.uid },
+      select: { id: true, prefs: true },
+    });
+    if (!user) throw new NotFoundError('User');
+
+    const body = req.body as z.infer<typeof UpdatePersonalPrefsSchema>;
+    const existing = user.prefs as Record<string, unknown> | null;
+    const updatedPrefs = {
+      ...DEFAULT_PREFS,
+      ...(existing || {}),
+      ...body,
+    };
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { prefs: updatedPrefs as any },
+    });
+
+    res.json({ success: true, data: updatedPrefs });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ─── DELETE /api/users/account ─────────────────────────
 
 usersRouter.delete('/account', async (req, res, next) => {

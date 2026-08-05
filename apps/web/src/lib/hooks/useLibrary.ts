@@ -21,7 +21,9 @@ export interface BookmarkItem {
 }
 
 export function useLibrary(listName?: string, enabled = true) {
-  const params = listName ? `?listName=${encodeURIComponent(listName)}` : '';
+  // Fetch up to the API's page cap so shelves render fully on one request;
+  // libraries beyond 100 titles use pagination (flagged roadmap in §16).
+  const params = `?limit=100${listName ? `&listName=${encodeURIComponent(listName)}` : ''}`;
   return useQuery<{ items: BookmarkItem[]; total: number }>({
     queryKey: ['library', listName],
     queryFn: () => api.get(`/library${params}`),
