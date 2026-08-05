@@ -173,21 +173,69 @@ Reader prose: serif (Georgia) default for light novels, 18–20px, line-height 1
 | TitleCard, StatTile, SectionHeader, EmptyState | ⚠️ duplicated per page | extract → `components/` (Phase 2) |
 | Tabs / SegmentedControl, Select, Switch | 📋 adopt from shadcn | §15 |
 | Dialog, DropdownMenu, Tooltip, Toast, Popover | 📋 adopt from shadcn | §15 |
-| CommentCard, GenreCard, MangaCard, Pagination, Breadcrumbs | 📋 composite (Phase 2–4) | — |
+| CommentCard, GenreCard, MangaCard, Pagination | 📋 composite (Phase 2–4) | — |
+| Modal / Drawer / ContextMenu systems | ⏳ deferred — planned as shadcn/Radix wrappers (`ui/dialog`, `ui/drawer`, `ui/context-menu`) when overlays are needed by features | §15 |
+| Sidebar favorites / collections | ⏳ covered by Library shelves today; pinned collections can slot into the sidebar's DISCOVER group later | §7 |
 
 **Architecture:** `primitives (ui/) → composites (components/) → features (pages)`. Primitives are dependency-free, token-driven, accessible.
 
 ---
 
-## 7. Navigation Spec
+## 7. Navigation Spec (Phase 2)
 
-- **Desktop sidebar:** rail of icon buttons; expands to labelled list on hover (`group-hover/side:w-60`). Primary: Home, Browse, Library, Community. Secondary: History, Dashboard, Alerts, Settings. Bottom: Get the App + Account.
-- **Topbar:** breadcrumb context (desktop), search affordance (⌘K), unread bell, avatar menu.
-- **⌘K palette:** global; live search with 220ms debounce, trending fallback, arrow-key nav, Esc/Enter; footer hints.
-- **Mobile bottom nav:** 5 slots + floating gradient search button; active pill; thumb-zone friendly (≥44px targets).
-- **Reader shortcut:** persistent "Continue" affordances on Home + Library resume maps.
-- **Keyboard shortcuts (reader):** ←/→ navigate · `A` auto-play · `F` strip · `C` chapters · `M` prose · `F11`-style fullscreen button.
-- **Recently viewed:** `/history` timeline; resumes via chapter links.
+### 7.1 Navigation UX audit (as-built)
+
+- **Fixed:** pages stranded on a legacy layout — all render inside `AppShell` (Phase 0).
+- **Fixed:** no breadcrumbs, no theme switch, no global route-change feedback.
+- **Fixed:** shell was one monolith — extracted into reusable `components/shell/*`.
+- **Resolved in this phase:** mobile lacked a persistent reader shortcut → sticky Continue pill; sidebar lacked reading progress + recently viewed → added; search lacked recents/trending/genres → added.
+
+### 7.2 Information architecture
+
+```
+DISCOVER    Home · Discover(browse) · Library · Community
+CONTINUE    Reading progress (top 3, per-series)      ← reader shortcut
+OVERVIEW    History · Profile · Alerts · Settings
+RECENT      Recently viewed (top 3, authed)
+FOOTER      Get the App · Theme · Offline chip · Account
+```
+
+- Everything reachable in ≤ 2 clicks; no dead ends (breadcrumbs + "View all" links + empty states).
+- Scales: new sections slot into a group; the rail collapses to icons on tablet.
+
+### 7.3 Shell component map
+
+| Component | Role |
+|---|---|
+| `Sidebar` | Desktop rail → expands on hover: sections, Continue Reading, Recently Viewed, unread badges, theme, offline chip |
+| `TopBar` | Logo (mobile) · Breadcrumb (desktop) · search · Get App · theme · bell · avatar |
+| `BottomNav` | Mobile: 5 thumb slots + floating search + sticky Continue pill with progress ring |
+| `CommandPalette` | Universal search overlay (⌘K / "/"): recents, trending, genre chips, live results, focus trap |
+| `Breadcrumb` | Pathname-derived trail; known routes mapped, slugs humanized |
+| `NotificationCenter` / `ProfileMenu` | Glass dropdowns, outside-click + Esc + route-change close |
+| `ThemeSwitcher` | Toggles `html[data-theme]`, persisted; labelled (sidebar) + icon (topbar) |
+| `ContinueReading` | `useResumeData` hook + list; powers sidebar + mobile pill |
+
+### 7.4 Keyboard experience
+
+| Key | Action |
+|---|---|
+| `⌘K` / `Ctrl+K` | Toggle command palette |
+| `/` | Open command palette (when not typing) |
+| `↑↓` + `↵` | Navigate / open in palette |
+| `Esc` | Close palette, dropdowns, overlays |
+| `← →` `A` `F` `C` `M` | Reader: navigate · auto-play · strip · chapters · prose |
+
+Focus: palette traps Tab, restores focus on close; dropdowns close on Esc; `aria-current="page"` on active nav.
+
+### 7.5 Motion (navigation)
+
+- Sidebar expand: 300ms `ease-out` width + 200ms label fade (via `group-hover/side`).
+- Palette/dropdowns: `scaleIn` 280ms `ease-out-expo`; overlay `fadeIn`.
+- Page transition: `pageEnter` 350ms (fade + 6px rise) keyed on `pathname`.
+- Route loading bar: 500ms gradient sweep, top of viewport, fades out.
+- Bottom Continue pill: `fadeUp`; progress ring animates via `stroke-dasharray`.
+- All durations zero out under `prefers-reduced-motion`.
 
 ---
 

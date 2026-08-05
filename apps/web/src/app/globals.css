@@ -67,10 +67,10 @@
   --color-surface-raised: #18181b;  /* cards / inputs             */
   --color-border-soft: #27272a;     /* hairline borders           */
   --color-border-strong: #3f3f46;   /* raised borders             */
-  --color-text-ink: #fafafa;        /* primary text               */
-  --color-text-secondary: #a1a1aa;  /* secondary text             */
-  --color-text-muted: #71717a;      /* tertiary text              */
-  --color-text-faint: #52525b;      /* placeholders / disabled    */
+  --color-ink: #fafafa;             /* primary text               */
+  --color-secondary: #a1a1aa;       /* secondary text             */
+  --color-muted: #71717a;           /* tertiary text              */
+  --color-faint: #52525b;           /* placeholders / disabled    */
   --color-brand: #7c3aed;           /* primary action             */
   --color-brand-hover: #8b5cf6;     /* primary hover              */
   --color-brand-soft: #a78bfa;      /* accent-on-dark / links     */
@@ -240,6 +240,14 @@ html.lenis, html.lenis body { height: auto; }
   0%, 100% { transform: translateY(0) rotate(var(--float-rot, 0deg)); }
   50% { transform: translateY(-12px) rotate(var(--float-rot, 0deg)); }
 }
+@keyframes pageEnter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes loadingBar {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
 
 .animate-fade-in { animation: fadeIn 0.3s ease-out both; }
 .animate-fade-up { animation: fadeUp 0.6s var(--ease-out-expo) both; }
@@ -247,6 +255,8 @@ html.lenis, html.lenis body { height: auto; }
 .animate-aurora { animation: auroraShift 18s ease-in-out infinite; }
 .animate-float { animation: float 6s ease-in-out infinite; }
 .animate-pulse-dot { animation: pulse-dot 1.6s ease-in-out infinite; }
+.animate-page-enter { animation: pageEnter 0.35s var(--ease-out-expo) both; }
+.animate-loading-bar { animation: loadingBar 0.5s var(--ease-out-expo) both; transform-origin: left; }
 
 /* ── Reveal on scroll ─────────────────────────────────────────── */
 .reveal {
@@ -497,8 +507,7 @@ html.lenis, html.lenis body { height: auto; }
    semantic tokens first, otherwise pages would render as a
    light/dark hybrid. A theme toggle/provider in a later phase
    sets the attribute after the migration completes.
-   ═══════════════════════════════════════════════════════════════ */
-html[data-theme='light'] {
+   ═══════════════════════════════════════════════════════════════ */html[data-theme='light'] {
   color-scheme: light;
   --color-app: #fafafa;
   --color-app-elevated: #ffffff;
@@ -506,14 +515,19 @@ html[data-theme='light'] {
   --color-surface-raised: #ffffff;
   --color-border-soft: #e4e4e7;
   --color-border-strong: #d4d4d8;
-  --color-text-ink: #18181b;
-  --color-text-secondary: #52525b;
-  --color-text-muted: #71717a;
-  --color-text-faint: #a1a1aa;
+  --color-ink: #18181b;
+  --color-secondary: #52525b;
+  --color-muted: #71717a;
+  --color-faint: #a1a1aa;
   --color-brand: #7c3aed;
   --color-brand-hover: #6d28d9;
   --color-brand-soft: #7c3aed;
+  scrollbar-color: #d4d4d8 #f4f4f5;
 }
+html[data-theme='light'] ::-webkit-scrollbar-track { background: #f4f4f5; }
+html[data-theme='light'] ::-webkit-scrollbar-thumb { background: #d4d4d8; border-color: #f4f4f5; }
+html[data-theme='light'] ::-webkit-scrollbar-thumb:hover { background: #a1a1aa; }
+html[data-theme='light'] ::selection { background: rgba(124, 58, 237, 0.25); color: #18181b; }
 
 /* Firefox scrollbar parity */
 html {
