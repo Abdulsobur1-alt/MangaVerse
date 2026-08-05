@@ -215,3 +215,63 @@ apps/web/src/
 ## 11. Deliverables Map (this brief → this document)
 
 1 UX audit → §1 · 2 Redesign strategy → §2 · 3 IA → §3 · 4 Sitemap → §3 · 5 User flows → §3 · 6 Design system → §4 · 7 Color system → §4 · 8 Typography → §4 · 9 Component inventory → §4 · 10 Wireframes → §3/§4 (high-fidelity in code) · 11 High-fidelity UI → this pass's code · 12 Motion → §5 · 13 A11y checklist → §6 · 14 Responsive → §7 · 15 Folder structure → §8 · 16 Component architecture → §8 · 17 Refactoring plan → §8 · 18 Roadmap → §9 · 19 Production code → this pass's changes · 20 Testing → §10.
+
+---
+
+## 12. Phase 3 — Home & Discovery (as shipped)
+
+> The homepage was rebuilt into a curated, intelligent discovery experience. It answers four questions in order: **where do I continue? → what should I read? → why should I read it? → what did I miss?** Design intent: Netflix hero × Spotify recommendations × Steam discovery queue — curated, cinematic, and personal, never a generic wall of covers.
+
+### 12.1 Homepage UX audit (pre-pass)
+
+| Area | Pre | Post | Notes |
+|---|---|---|---|
+| Hero | 7 | 9.5 | Was a static banner; now editorial + progress-aware |
+| Continue Reading | 6 | 9 | Was compact cards; now premium rail with ETA + last-read |
+| Manga cards | 6 | 9 | Inline markup per page → reusable `TitleCard` system |
+| Personalization | 4 | 8.5 | Now: Continue, Unread Updates, Because-You-Read, Recently Viewed |
+| Search | 6 | 8.5 | Global ⌘K kept + new inline HomeSearch preview |
+| Genre discovery | 5 | 8 | Chips → rich GenreExplorer cards with artwork + counts |
+| Empty states | 3 | 8 | Per-shelf/onboarding/guest states; skeleton loaders everywhere |
+| A11y (carousel) | 5 | 8 | ARIA carousel region, keyboard ←/→, touch swipe, pause on focus |
+
+### 12.2 Architecture (new `components/home/`)
+
+| File | Role |
+|---|---|
+| `Hero.tsx` | Editorial showcase: ken-burns artwork, aurora wash, live synopsis (fetched), genre tags, rating, status, progress-aware CTA (Continue → reader when resume exists), Save CTA, prev/next + autoplay progress dots, keyboard/touch, pause-on-hover/focus, reduced-motion aware |
+| `HomeSearch.tsx` | Inline discovery search: debounced live results, trending now, popular genres, quick format filters, recent searches (shared key with ⌘K), ↑↓/↵/esc, `combobox` semantics |
+| `TitleCard.tsx` | The reusable manga card system: rank/rating/status overlays, reading-progress bar, hover quick actions (bookmark + context menu for shelf actions), author/genres meta, fluid rail + grid variants, `TitleCardSkeleton` |
+| `BookmarkButton.tsx` | Library save/remove toggle (icon + pill variants); guests see nothing (no authed request) |
+| `ContinueRail.tsx` | Premium resume: blurred cover backdrop, chapter, progress bar, last-read date, estimated time left (pageCount-aware, LN ≈ 2.5 min/page else 1.25), one-click Resume; `ContinueRailSkeleton` |
+| `GenreExplorer.tsx` | Rich genre cards: emoji, blurb, representative artwork from the live discovery pool, on-shelf title counts, hover lift/glow/zoom |
+| `primitives.tsx` | Shared `Magnetic` / `Spotlight` / `Tilt` + `SectionHeader` (icons, subs, View-all) |
+| `types.ts` | `HomeTitle`, `ResumeInfo`, `buildResumeMap` (per-series latest progress), ETA helpers, `GENRES_META` |
+
+### 12.3 Personalization model (client-derived, no new endpoints)
+
+- **Continue Reading** — latest in-progress chapter per series from `/reading/progress`, newest first, up to 5; 🔥 streak chip when `streakDays > 1`.
+- **Unread Updates** — library titles whose `latestChapter.number` is newer than the last read chapter (intersection of `/library` × `/titles/recently-updated`).
+- **Because You Read** — top genre from `/reading/stats` `genreDistribution`, rated titles in that genre, excluding titles already in progress.
+- **Recently Viewed** — deduped per-series from `/reading/history`, resume links.
+- **Guests** — no empty rails: a curated onboarding card (sign-in CTA) + full discovery rails below.
+
+### 12.4 Motion (hero & rails)
+
+- Hero autoplay 8s, `hero-autoplay` progress fill on active dot; artwork `ken-burns` slow zoom; slide crossfade on the existing `opacity` transition; all pause under `:hover`, `:focus-within`, and `prefers-reduced-motion`.
+- Cards: 150–300ms lift/glow/zoom; image zoom 500ms expo; bookmark pop (`scale 1.3 → 1`).
+- Rails keep `scrollbar-none` horizontal scroll; grids keep `Reveal` on section containers only.
+
+### 12.5 Accessibility (hero/cards/search)
+
+- Hero: `role="region"` + `aria-roledescription="carousel"`, labelled controls, `role="tablist"` dots with per-slide labels, slide counter `aria-live="polite"`, keyboard ←/→, touch swipe, focus pauses autoplay.
+- Cards: full-cover `Link` with accessible name; bookmark/context buttons `aria-label` + `aria-pressed`/`aria-expanded`; context menu closes on outside click/Esc.
+- Search: `combobox` + `listbox` semantics, arrow-key + Enter + Esc, visible focus states, results have text labels.
+- All overlays respect `prefers-reduced-motion` via the global guard.
+
+### 12.6 Performance
+
+- Hero artwork and rail images all lazy via `CoverImage`; synopsis fetched only for the active slide (single request, cache-friendly).
+- `TitleCardSkeleton` / `ContinueRailSkeleton` reserve aspect-ratio boxes → no CLS.
+- Personalization queries are gated by auth (`enabled: !!token`) — guests never fire authed requests.
+- Genre counts derive from the already-fetched discovery pool — zero extra requests.

@@ -75,6 +75,7 @@ export function useTitles(params?: {
   genres?: string;
   sort?: string;
   search?: string;
+  enabled?: boolean;
 }) {
   const searchParams = new URLSearchParams();
   if (params?.page) searchParams.set('page', String(params.page));
@@ -89,6 +90,7 @@ export function useTitles(params?: {
   return useQuery<PaginatedResult<TitleListItem>>({
     queryKey: ['titles', params],
     queryFn: () => api.get<PaginatedResult<TitleListItem>>(`/titles?${searchParams}`),
+    enabled: params?.enabled ?? true,
   });
 }
 

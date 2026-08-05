@@ -248,6 +248,14 @@ html.lenis, html.lenis body { height: auto; }
   from { transform: scaleX(0); }
   to { transform: scaleX(1); }
 }
+@keyframes heroProgress {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+@keyframes kenBurns {
+  from { transform: scale(1.02) translateX(0); }
+  to { transform: scale(1.14) translateX(-2%); }
+}
 
 .animate-fade-in { animation: fadeIn 0.3s ease-out both; }
 .animate-fade-up { animation: fadeUp 0.6s var(--ease-out-expo) both; }
@@ -257,6 +265,8 @@ html.lenis, html.lenis body { height: auto; }
 .animate-pulse-dot { animation: pulse-dot 1.6s ease-in-out infinite; }
 .animate-page-enter { animation: pageEnter 0.35s var(--ease-out-expo) both; }
 .animate-loading-bar { animation: loadingBar 0.5s var(--ease-out-expo) both; transform-origin: left; }
+.hero-autoplay { animation: heroProgress 8s linear both; transform-origin: left; }
+.ken-burns { animation: kenBurns 8s var(--ease-out-quart) both; will-change: transform; }
 
 /* ── Reveal on scroll ─────────────────────────────────────────── */
 .reveal {

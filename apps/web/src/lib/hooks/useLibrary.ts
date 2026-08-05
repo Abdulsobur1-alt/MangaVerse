@@ -20,11 +20,13 @@ export interface BookmarkItem {
   };
 }
 
-export function useLibrary(listName?: string) {
+export function useLibrary(listName?: string, enabled = true) {
   const params = listName ? `?listName=${encodeURIComponent(listName)}` : '';
   return useQuery<{ items: BookmarkItem[]; total: number }>({
     queryKey: ['library', listName],
     queryFn: () => api.get(`/library${params}`),
+    enabled,
+    staleTime: 2 * 60 * 1000,
   });
 }
 
