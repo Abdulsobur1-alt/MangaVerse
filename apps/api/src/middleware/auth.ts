@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { UnauthorizedError, ForbiddenError } from '../lib/errors.js';
 import { prisma } from '../lib/prisma.js';
 import { verifyFirebaseToken, firebaseConfigured } from '../lib/firebase.js';
+import { config } from '../config/index.js';
 
 // Extend Express Request to include user info
 declare global {
@@ -24,8 +25,9 @@ export type UserRole = 'user' | 'moderator' | 'admin';
  * The token must be sent as `Authorization: Bearer <token>`.
  *
  * In production the token is a Firebase ID token verified via firebase-admin.
- * In development (without Firebase credentials) a `dev_<uid>` token is
- * accepted so the full stack remains testable locally.
+ * In development a `dev_<uid>` token is accepted so the full stack remains
+ * testable locally — but ONLY when dev auth is explicitly enabled
+ * (config.devAuth). It is never enabled in production.
  */
 export async function requireAuth(req: Request, _res: Response, next: NextFunction) {
   const token = extractToken(req);
@@ -34,8 +36,8 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
   }
 
   try {
-    // Dev token flow (only when Firebase isn't configured — local dev)
-    if (!firebaseConfigured() && token.startsWith('dev_')) {
+    // Dev token flow (config.devAuth is only true locally)
+    if (config.devAuth && !firebaseConfigured() && token.startsWith('dev_')) {
       req.user = {
         uid: token.replace('dev_', ''),
         email: 'dev@mangaverse.app',
@@ -71,7 +73,7 @@ export async function optionalAuth(req: Request, _res: Response, next: NextFunct
   }
 
   try {
-    if (!firebaseConfigured() && token.startsWith('dev_')) {
+    if (config.devAuth && !firebaseConfigured() && token.startsWith('dev_')) {
       req.user = {
         uid: token.replace('dev_', ''),
         email: 'dev@mangaverse.app',

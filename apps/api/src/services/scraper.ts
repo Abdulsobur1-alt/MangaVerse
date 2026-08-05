@@ -66,10 +66,15 @@ export const scraper = {
       $('.cover img, [class*="cover"] img, [class*="thumbnail"] img').first().attr('src') ||
       undefined;
 
-    // Extract genres from meta keywords
+    // Extract genres from meta keywords.
+    // Normalize to the same snake_case shape MangaDex produces ('slice_of_life',
+    // 'sci-fi') so genre filters work uniformly regardless of the source.
     const keywords = $('meta[name="keywords"]').attr('content');
     if (keywords) {
-      result.genres = keywords.split(',').map((k) => k.trim().toLowerCase());
+      result.genres = keywords
+        .split(',')
+        .map((k) => k.trim().toLowerCase().replace(/\s+/g, '_'))
+        .filter(Boolean);
     }
 
     // Extract from schema.org JSON-LD if available

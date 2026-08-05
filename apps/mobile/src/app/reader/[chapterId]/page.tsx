@@ -2,11 +2,24 @@ import { useState, useEffect, useRef } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Dimensions, StyleSheet, Platform, Image } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useChapter, useCoinBalance, useUnlockChapter } from '../../../lib/queryClient';
+import { useSaveProgress } from '../../../lib/hooks/useReading';
 import { COIN_UNLOCK_COST } from '@mangaverse/shared';
 import { useAuthStore } from '../../../store/authStore';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const PAGE_WIDTH = Math.min(SCREEN_WIDTH, 700);
+
+const DEFAULT_HOST = Platform.OS === 'android' ? '10.0.2.2' : 'localhost';
+export const API_BASE_URL = (process.env.EXPO_PUBLIC_API_URL || `http://${DEFAULT_HOST}:3001`) + '/api';
+
+/** Resolve a (possibly relative) proxied image URL to an absolute one.
+ *  Relative `/api/proxy/...` URLs from the API only work in a web browser —
+ *  React Native Image needs a full URL. */
+function resolveUrl(url: string): string {
+  if (/^https?:\/\//i.test(url)) return url;
+  if (url.startsWith('/')) return `${API_BASE_URL}${url}`;
+  return url;
+}
 
 interface PageData {
   index: number;
@@ -28,6 +41,7 @@ export default function ReaderScreen() {
   const { token } = useAuthStore();
   const { data: coinData } = useCoinBalance();
   const unlockChapter = useUnlockChapter();
+  const saveProgress = useSaveProgress();
   const [unlockError, setUnlockError] = useState<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
 
@@ -55,7 +69,8 @@ export default function ReaderScreen() {
     ])
       .then(([pagesRes, adjRes]) => {
         if (pagesRes.success) {
-          setPages(pagesRes.data.pages);
+          // Resolve proxied URLs to absolute so RN <Image> can load them
+          setPages((pagesRes.data.pages as PageData[]).map(p => ({ ...p, url: resolveUrl(p.url) })));
           setTotalPages(pagesRes.data.total);
         }
         if (adjRes.success) {
@@ -65,6 +80,22 @@ export default function ReaderScreen() {
       .catch(() => {})
       .finally(() => setPagesLoading(false));
   }, [chapterId, token, chapter?.unlocked, chapter?.locked]);
+
+  // Save reading progress — debounced, fires when the current page changes
+  // (and marks the chapter complete on the last page).
+  useEffect(() => {
+    if (!token || !chapterId || !chapter) return;
+    const timer = setTimeout(() => {
+      if (totalPages <= 0) return;
+      const pct = ((currentPage + 1) / totalPages) * 100;
+      saveProgress.mutate({
+        chapterId,
+        pageNumber: currentPage,
+        completed: pct >= 95,
+      });
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [token, chapterId, currentPage, totalPages, chapter]);
 
   // Auto-hide controls after 3 seconds
   useEffect(() => {

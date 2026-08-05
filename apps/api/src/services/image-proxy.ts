@@ -25,11 +25,16 @@ const PROXIED_HOSTS = [
 
 /**
  * Check if an image URL needs proxying.
+ * Host matching is strict: exact host or a subdomain of an allowlisted host.
+ * A bare IP literal is always rejected (blocks SSRF against private/metadata IPs).
  */
-function needsProxy(url: string): boolean {
+export function needsProxy(url: string): boolean {
   try {
-    const hostname = new URL(url).hostname;
-    return PROXIED_HOSTS.some((host) => hostname.includes(host));
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
+    const hostname = parsed.hostname.toLowerCase();
+    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(hostname)) return false;
+    return PROXIED_HOSTS.some((host) => hostname === host || hostname.endsWith(`.${host}`));
   } catch {
     return false;
   }
@@ -123,7 +128,8 @@ export function createImageProxyHandler() {
         return res.status(400).json({ error: 'Missing url parameter' });
       }
 
-      // Check if this is a placeholder request
+      // Check if this is a placeholder request FIRST — it's an internal
+      // relative path, so it must bypass the external-host SSRF guard below.
       if (imageUrl.includes('/api/proxy/placeholder')) {
         const url = new URL(imageUrl, 'http://localhost');
         const chapter = parseInt(url.searchParams.get('chapter') || '1', 10);
@@ -137,8 +143,16 @@ export function createImageProxyHandler() {
         return res.send(svg);
       }
 
+      // SSRF guard: the requested URL must resolve to an allowlisted host.
+      // Re-validate at request time — the needsProxy() checks applied when the
+      // URL was built do not protect this endpoint against direct calls.
+      if (!needsProxy(imageUrl)) {
+        return res.status(400).json({ error: 'URL not allowed for proxying' });
+      }
+
       // Fetch the image from the source
       const response = await fetch(imageUrl, {
+        redirect: 'follow',
         headers: {
           Referer: 'https://mangaverse.app/',
           'User-Agent': 'MangaVerse/0.1.0',
@@ -149,9 +163,21 @@ export function createImageProxyHandler() {
         return res.status(response.status).json({ error: 'Failed to fetch image' });
       }
 
+      // Verify the final host after redirects is still allowlisted (blocks
+      // redirect-to-internal SSRF chains).
+      if (!needsProxy(response.url || imageUrl)) {
+        return res.status(400).json({ error: 'URL not allowed for proxying' });
+      }
+
       // Stream the image with proper headers
       const buffer = await response.arrayBuffer();
+      if (buffer.byteLength > 10 * 1024 * 1024) {
+        return res.status(413).json({ error: 'Image too large' });
+      }
       const contentType = response.headers.get('content-type') || 'image/jpeg';
+      if (!contentType.startsWith('image/') && contentType !== 'application/octet-stream') {
+        return res.status(415).json({ error: 'Unsupported content type' });
+      }
 
       res.setHeader('Content-Type', contentType);
       res.setHeader('Cache-Control', 'public, max-age=86400');

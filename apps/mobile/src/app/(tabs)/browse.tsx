@@ -6,6 +6,14 @@ import type { TitleItem } from '../../lib/api';
 
 const FORMATS = ['All', 'manga', 'manhwa', 'manhua', 'light_novel'];
 const SORTS = ['trending', 'newest', 'rating'];
+const COVER_COLORS = ['#2d1b69','#1a3a2d','#4e2d1a','#1a2d4e','#3a1a4e','#1a4e3a','#4e3a1a','#1a4e4e','#4e1a4e'];
+
+/** Deterministic placeholder color so covers don't shift on every re-render. */
+function coverColor(id: string): string {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
+  return COVER_COLORS[hash % COVER_COLORS.length];
+}
 
 export default function BrowseScreen() {
   const router = useRouter();
@@ -115,7 +123,7 @@ export default function BrowseScreen() {
                   style={styles.gridCard}
                   onPress={() => router.push(`/title/${item.slug}` as any)}
                 >
-                  <View style={[styles.gridCover, { backgroundColor: ['#2d1b69','#1a3a2d','#4e2d1a','#1a2d4e','#3a1a4e','#1a4e3a','#4e3a1a','#1a4e4e','#4e1a4e'][Math.floor(Math.random()*9)] }]} />
+                  <View style={[styles.gridCover, { backgroundColor: coverColor(item.id) }]} />
                   <Text style={styles.gridTitle} numberOfLines={2}>{item.title}</Text>
                   <View style={styles.metaRow}>
                     <View style={styles.typeBadge}><Text style={styles.typeText}>{item.type?.slice(0, 2)}</Text></View>

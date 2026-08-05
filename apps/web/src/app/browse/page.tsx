@@ -20,6 +20,17 @@ const SORTS = [
 ];
 const RESULTS_PER_PAGE = 24;
 
+/** Normalize a display genre ("Sci-Fi", "Slice of Life") to the canonical
+ *  snake_case form stored by the API ("sci-fi", "slice_of_life"). */
+function normalizeGenre(g: string): string {
+  return g.trim().toLowerCase().replace(/\s+/g, '_');
+}
+
+/** Pretty-print a stored genre value for UI tags. */
+function prettyGenre(g: string): string {
+  return g.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 /** Read deep-link params from the URL: /browse?format=manhwa&sort=updated&genres=action */
 function readDeepLinkParams() {
   if (typeof window === 'undefined') return { format: '', status: '', genres: [] as string[], sort: 'trending' };
@@ -85,8 +96,8 @@ function BrowsePage() {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // Build genres query param
-  const genresParam = selectedGenres.length > 0 ? selectedGenres.join(',') : undefined;
+  // Build genres query param (normalized to canonical snake_case)
+  const genresParam = selectedGenres.length > 0 ? selectedGenres.map(normalizeGenre).join(',') : undefined;
 
   const { data, isLoading } = useTitles({
     page,
@@ -101,9 +112,13 @@ function BrowsePage() {
   const totalPages = data ? Math.ceil(data.total / data.limit) : 0;
 
   const handleGenreToggle = (genre: string) => {
-    setSelectedGenres(prev =>
-      prev.includes(genre) ? prev.filter(g => g !== genre) : [...prev, genre],
-    );
+    // Store canonical values in state so deep-linked (canonical) and
+    // panel-chosen (display) forms never create duplicates.
+    const norm = normalizeGenre(genre);
+    setSelectedGenres(prev => {
+      const existing = prev.find(g => normalizeGenre(g) === norm);
+      return existing ? prev.filter(g => g !== existing) : [...prev, norm];
+    });
     setPage(1);
   };
 
@@ -325,7 +340,7 @@ function BrowsePage() {
             )}
             {selectedGenres.map(g => (
               <span key={g} className="flex items-center gap-1 rounded-full bg-mv-purple/10 px-2 py-0.5 text-[9px] text-mv-purple">
-                {g}
+                {prettyGenre(g)}
                 <button onClick={() => handleGenreToggle(g)} className="hover:text-white">×</button>
               </span>
             ))}

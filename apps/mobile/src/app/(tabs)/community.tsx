@@ -245,7 +245,7 @@ export default function CommunityScreen() {
                   </View>
                 )}
                 <View style={{ marginTop: 8, gap: 6 }}>
-                  {pred.options.slice(0, 2).map((opt) => {
+                  {pred.options.map((opt) => {
                     const stake = pred.optionStakes[opt] || 0;
                     const pct = pred.totalStaked > 0 ? Math.round((stake / pred.totalStaked) * 100) : 0;
                     const isWinner = pred.result === opt;

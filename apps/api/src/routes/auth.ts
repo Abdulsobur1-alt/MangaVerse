@@ -3,9 +3,10 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { validate } from '../middleware/validate.js';
 import { requireAuth } from '../middleware/auth.js';
-import { ConflictError, UnauthorizedError } from '../lib/errors.js';
+import { ConflictError, ForbiddenError, UnauthorizedError } from '../lib/errors.js';
 import { seedDemoNotifications } from '../services/notifications.js';
 import { verifyFirebaseToken, firebaseConfigured } from '../lib/firebase.js';
+import { config } from '../config/index.js';
 
 export const authRouter = Router();
 
@@ -23,9 +24,20 @@ const LoginSchema = z.object({
 });
 
 // ─── POST /api/auth/register ─────────────────────────
+// Local-dev only: creates a DB user without a Firebase account. The client
+// does not call this endpoint when Firebase auth is configured. Exposing it
+// in production would let anyone mint user rows with an arbitrary firebaseUid,
+// so it's hard-gated behind config.devAuth.
 
 authRouter.post('/register', validate({ body: RegisterSchema }), async (req, res, next) => {
   try {
+    // Async handlers convert sync throws into rejected promises, which Express 4
+    // does NOT catch — an unhandled rejection crashes the whole process. The
+    // devAuth gate therefore lives inside the try so it flows to next(err).
+    if (!config.devAuth) {
+      throw new ForbiddenError('Registration is not available');
+    }
+
     const { email, displayName, firebaseUid } = req.body;
 
     // Check if user already exists
@@ -73,9 +85,9 @@ authRouter.post('/login', validate({ body: LoginSchema }), async (req, res, next
   try {
     const { firebaseToken } = req.body;
 
-    // Dev fallback (Firebase not configured locally): accept a dev token
-    // formatted as dev_<dbUserId> so the full stack stays testable.
-    if (!firebaseConfigured()) {
+    // Dev fallback (config.devAuth — never in production): accept a dev token
+    // formatted as dev_<dbUserId> so the full stack stays testable locally.
+    if (config.devAuth && !firebaseConfigured()) {
       const user = await prisma.user.findFirst();
       if (!user) {
         res.status(401).json({

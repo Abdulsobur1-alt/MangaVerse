@@ -1,4 +1,8 @@
 export const config = {
+  // Explicit opt-in for development auth flows (dev_ tokens, /auth/register).
+  // Must NEVER be enabled in production — it bypasses Firebase verification.
+  devAuth: process.env.DEV_AUTH === '1' || process.env.NODE_ENV === 'development',
+
   // MangaDex API
   mangadex: {
     baseUrl: 'https://api.mangadex.org',

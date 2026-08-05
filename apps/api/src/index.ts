@@ -26,6 +26,7 @@ import { createImageProxyHandler } from './services/image-proxy.js';
 import { getScraperQueue, startScraperWorker } from './queues/scraper.js';
 import { startPredictionsWorker } from './queues/predictions.js';
 import { meilisearch } from './services/meilisearch.js';
+import { prisma } from './lib/prisma.js';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3001', 10);
@@ -33,7 +34,14 @@ const PORT = parseInt(process.env.PORT || '3001', 10);
 // ─── Global Middleware ─────────────────────────────────
 
 app.use(helmet());
-app.use(cors({ origin: process.env.CORS_ORIGIN || '*', credentials: true }));
+// CORS: an explicit CORS_ORIGIN (comma-separated list) is enforced when set;
+// otherwise the request origin is reflected. Never `*` with credentials:true —
+// browsers reject that combination, silently breaking auth on VPS/Docker deploys.
+const corsOrigins = (process.env.CORS_ORIGIN || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+app.use(cors({ origin: corsOrigins.length > 0 ? corsOrigins : true, credentials: true }));
 app.use(morgan('dev'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -115,8 +123,16 @@ async function start() {
     const queue = await getScraperQueue();
     if (queue) {
       try {
-        await queue.add('seed-database', { count: 100 }, { delay: 30_000 });
-        console.log('📅 Initial content refresh scheduled (30s delay)');
+        // Only seed when the DB is empty — otherwise every cold start (free
+        // tier spins down idle instances) would re-enqueue the heavy
+        // MangaDex sync job and hammer the external API repeatedly.
+        const titleCount = await prisma.title.count();
+        if (titleCount > 0) {
+          console.log(`🌱 DB already has ${titleCount} titles — skipping initial seed`);
+        } else {
+          await queue.add('seed-database', { count: 100 }, { delay: 30_000 });
+          console.log('📅 Initial content refresh scheduled (30s delay)');
+        }
       } catch (err) {
         console.warn('⚠️  Could not schedule seed job — continuing without it:', (err as Error).message);
       }

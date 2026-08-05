@@ -339,6 +339,9 @@ export default function ReaderPage() {
         goNext();
       } else if (e.key === 'f' || e.key === 'F') {
         setMode(m => (m === 'strip' ? (formatKey === 'MANGA' ? 'page' : 'strip') : 'strip'));
+      } else if (e.key === 'm' || e.key === 'M') {
+        // Toggle prose reading (matches the "M Prose" hint shown in the UI)
+        if (hasProse) setMode(m => (m === 'prose' ? null : 'prose'));
       } else if (e.key === 'c' || e.key === 'C') {
         setShowSidebar(s => !s);
       } else if (e.key === 'a' || e.key === 'A') {
@@ -347,7 +350,7 @@ export default function ReaderPage() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [goNext, goPrev, formatKey]);
+  }, [goNext, goPrev, formatKey, hasProse]);
 
   // Loading / error / lock states (unchanged behavior)
   if (isLoading) {

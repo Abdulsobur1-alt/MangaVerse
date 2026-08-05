@@ -44,7 +44,19 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
     },
   });
 
-  const json: ApiResponse<T> = await res.json();
+  // Guard against non-JSON responses — res.json() would throw a confusing
+  // SyntaxError on proxy 404s / HTML error pages.
+  const raw = await res.text();
+  let json: ApiResponse<T>;
+  try {
+    json = JSON.parse(raw);
+  } catch {
+    throw new ApiError(
+      'INVALID_RESPONSE',
+      res.ok ? 'Unexpected response from server' : `Request failed (${res.status})`,
+      res.status,
+    );
+  }
 
   if (!json.success) {
     throw new ApiError(

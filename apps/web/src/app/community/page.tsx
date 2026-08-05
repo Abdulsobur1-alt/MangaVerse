@@ -328,7 +328,7 @@ export default function CommunityPage() {
                     )}
 
                     <div className="mt-2 space-y-1">
-                      {pred.options.slice(0, 2).map((opt) => {
+                      {pred.options.map((opt) => {
                         const stake = pred.optionStakes[opt] || 0;
                         const pct = pred.totalStaked > 0 ? Math.round((stake / pred.totalStaked) * 100) : 0;
                         const isWinner = pred.result === opt;

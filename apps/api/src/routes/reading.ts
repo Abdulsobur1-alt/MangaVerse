@@ -81,10 +81,26 @@ readingRouter.post('/progress', validate({ body: SaveProgressSchema }), async (r
     // If chapter newly completed, update streak, award coins, check milestones
     const newlyCompleted = completed && !existing?.completed;
     if (newlyCompleted) {
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { streakDays: { increment: 1 } },
+      // Streak counts one increment per distinct UTC day — reading 10 chapters
+      // in a single day must not inflate it. Skip the increment if the user
+      // already completed a (different) chapter today.
+      const todayStart = new Date();
+      todayStart.setUTCHours(0, 0, 0, 0);
+      const completedToday = await prisma.readingProgress.findFirst({
+        where: {
+          userId: user.id,
+          completed: true,
+          chapterId: { not: chapterId },
+          updatedAt: { gte: todayStart },
+        },
+        select: { id: true },
       });
+      if (!completedToday) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { streakDays: { increment: 1 } },
+        });
+      }
 
       // Award coins for completing a chapter (fire-and-forget)
       earnCoins(user.id, COIN_CHAPTER_REWARD, 'reward', chapterId, 'Completed a chapter').catch(() => {});
@@ -232,7 +248,9 @@ readingRouter.get('/stats', async (req, res, next) => {
         updatedAt: { gte: ninetyDaysAgo },
       },
       select: { updatedAt: true },
-      distinct: ['updatedAt'],
+      // distinct on 'updatedAt' is a no-op for timestamps — dedupe by calendar
+      // day in JS below instead (the Set already collapses same-day reads).
+      take: 5000,
     });
 
     const readingDates = new Set(

@@ -40,6 +40,19 @@ export function errorHandler(
     return;
   }
 
+  // Handle malformed JSON bodies (body-parser entity.parse.failed) — a client
+  // mistake, not a server error. Must be 400, never 500.
+  if ((err as { type?: string })?.type === 'entity.parse.failed') {
+    res.status(400).json({
+      success: false,
+      error: {
+        code: 'INVALID_JSON',
+        message: 'Malformed JSON in request body',
+      },
+    });
+    return;
+  }
+
   // Log unexpected errors
   console.error('❌ Unhandled error:', err);
 

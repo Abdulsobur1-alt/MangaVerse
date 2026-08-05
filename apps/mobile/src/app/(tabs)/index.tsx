@@ -114,7 +114,7 @@ export default function HomeScreen() {
                       <View style={styles.heroBadge}><Text style={styles.heroBadgeText}>🔥 Trending #{idx + 1}</Text></View>
                       <View style={styles.heroTypeBadge}>
                         <Text style={styles.heroTypeText}>
-                          {item.type === 'MANHWA' ? '🇰🇷 Manhwa' : item.type === 'MANHUA' ? '🇨🇳 Manhua' : item.type?.replace(/_/g, ' ')}
+                          {item.type?.toUpperCase() === 'MANHWA' ? '🇰🇷 Manhwa' : item.type?.toUpperCase() === 'MANHUA' ? '🇨🇳 Manhua' : item.type?.replace(/_/g, ' ')}
                         </Text>
                       </View>
                     </View>
@@ -202,7 +202,7 @@ export default function HomeScreen() {
                   </View>
                   <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
                   <Text style={styles.cardCh}>
-                    {item.type === 'LIGHT_NOVEL' ? 'LN' : item.type?.charAt(0).toUpperCase() + item.type?.slice(1).toLowerCase()} · {item.totalChapters || '?'} ch
+                    {item.type?.toUpperCase() === 'LIGHT_NOVEL' ? 'LN' : item.type?.charAt(0).toUpperCase() + item.type?.slice(1).toLowerCase()} · {item.totalChapters || '?'} ch
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -269,7 +269,7 @@ export default function HomeScreen() {
                   )}
                 </View>
                 <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
-                <Text style={styles.cardCh}>{item.type === 'LIGHT_NOVEL' ? 'LN' : item.type?.slice(0, 2)}</Text>
+                <Text style={styles.cardCh}>{item.type?.toUpperCase() === 'LIGHT_NOVEL' ? 'LN' : item.type?.slice(0, 2)}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>

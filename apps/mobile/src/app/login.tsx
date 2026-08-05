@@ -30,7 +30,13 @@ export default function LoginScreen() {
       } else {
         await register(email, password, displayName);
       }
-      router.back();
+      // Only pop if there's somewhere to go — deep-linked logins would strand
+      // the user on a blank screen after router.back().
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace('/(tabs)' as any);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Authentication failed. Please try again.');
     }

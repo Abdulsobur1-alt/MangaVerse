@@ -13,7 +13,7 @@ import { formatTimeAgo, statusColors, formatType, formatTypeFull } from '@/lib/f
 const GENRE_EMOJIS: Record<string, string> = {
   action: '⚔️', adventure: '🏔️', comedy: '😂', drama: '🎭', fantasy: '🧙',
   horror: '👻', isekai: '🌌', mecha: '🤖', mystery: '🔍', romance: '💕',
-  'sci-fi': '🚀', 'slice of life': '☕', sports: '🏀', supernatural: '👁️', thriller: '🔪',
+  'sci-fi': '🚀', slice_of_life: '☕', sports: '🏀', supernatural: '👁️', thriller: '🔪',
 };
 
 const CATEGORY_RAILS = [
@@ -521,7 +521,7 @@ export default function HomePage() {
                   className="group rounded-full border border-mv-border-light bg-mv-surface/60 px-4 py-2 text-xs text-mv-text-secondary transition-all duration-200 hover:-translate-y-0.5 hover:border-mv-accent/50 hover:bg-mv-accent/5 hover:text-mv-accent hover:shadow-lg hover:shadow-mv-accent/10"
                 >
                   <span className="mr-1.5 transition-transform group-hover:scale-110 inline-block">{emoji}</span>
-                  {genre.replace(/\b\w/g, c => c.toUpperCase())}
+                  {genre.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
                 </Link>
               ))}
             </div>

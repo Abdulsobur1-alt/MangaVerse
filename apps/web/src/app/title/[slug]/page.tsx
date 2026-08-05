@@ -289,7 +289,7 @@ export default function TitleDetailPage() {
                   {title.genres?.map((genre) => (
                     <Link
                       key={genre}
-                      href={`/browse?genre=${genre}`}
+                      href={`/browse?genres=${genre}`}
                       className="rounded-full border border-mv-border-light bg-mv-surface px-3 py-1 text-[10px] text-mv-text-secondary transition-colors hover:border-mv-accent hover:text-mv-accent"
                     >
                       {genre.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
