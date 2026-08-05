@@ -339,3 +339,59 @@ apps/web/src/
 ### 13.6 Honesty note
 
 The catalog doesn't model publisher / volume / characters / age rating, so those rows render an explicit "Not listed" chip instead of invented values — and the docs flag them as future data-model additions (see §4).
+
+## 14. Phase 5 — The Ultimate Reading Experience (as shipped)
+
+### 14.1 Reader UX audit (pre-pass)
+
+The pre-existing reader had strong bones (3 modes, RTL, prose themes, auto-scroll, coin-lock, progress sync) but presented chrome as a static top/bottom stack, made users hunt for chapter navigation (no in-reader list), and offered no image failure recovery, preloading, focus immersion, bookmarking, or offline awareness.
+
+| Dimension | Before | After |
+|---|---|---|
+| Chrome | Static bars | Floating, auto-hiding after 3.2s idle, re-poked by mouse/touch |
+| Focus immersion | — | Focus mode (Z) hides all chrome; tap/move to reveal |
+| Chapter navigation | No in-reader list | ChapterDrawer: full list, current ✓, search, sort, quick jump |
+| Controls | Dispersed | ControlCenter: brightness, zoom, mode, RTL, themes, font, line-height, auto-scroll, gestures, opacity |
+| Images | Bare `<img>` | PageImage: blur-up fade, retry on error, eager preload of adjacent pages |
+| Gestures | — | Tap zones (RTL-aware), swipe, double-tap zoom/toggle, pinch via browser |
+| Keyboard | — | ←→↑↓ space PgUp/PgDn Home/End F B T C A M Z ? Esc + help dialog |
+| Bookmarks | — | Per-chapter page bookmark (B), persisted locally, resumes page mode |
+| Offline | Blind | Offline badge in the floating bar; progress save fails silently |
+
+### 14.2 Architecture (new `components/reader/`)
+
+| File | Role |
+|---|---|
+| `readerPrefs.ts` | Typed prefs store (mode, theme, brightness, zoom, RTL, font size/line-height/family, auto-scroll speed, control opacity, auto-hide, gestures) + per-chapter page bookmarks; localStorage persistence with safe JSON parsing |
+| `PageImage.tsx` | Image with blur-up fade-in, `loading`/`decoding` hints, click-to-retry on failure (small ❌ chip + retry), preloading of neighbors via `new Image()` |
+| `ControlCenter.tsx` | Floating bottom-sheet panel: brightness slider, zoom toggle, mode picker, RTL flip, prose theme swatches, font controls, auto-scroll speed, gesture toggle, opacity, fullscreen, help link; respects effective mode |
+| `ShortcutHelp.tsx` | `role="dialog"` keyboard-map table (global + mode-specific), Esc/outside-click close |
+| `ChapterDrawer.tsx` | Right-side drawer fetching the real chapter list via `/api/titles/:slug/chapters`, current-chapter highlight, read state dots, search + asc/desc sort, one-tap jump |
+
+### 14.3 Mode & layout
+
+- `page` (manga, default): single-page with RTL-aware prev/next, tap thirds, swipe, preloaded neighbors, resume-at-saved-page.
+- `strip` (manhwa/manhua/webtoon): continuous vertical, optional zoom (fit-width → full), auto-scroll with speed 1–3 that advances to next chapter at the end.
+- `prose` (light novels): themed typography (dark/black/sepia/paper/contrast), adjustable font size, line-height, serif toggle, reading-time estimate (220 wpm) and minutes-left in the bar.
+
+### 14.4 Focus & gestures
+
+- Chrome auto-hides after 3.2s idle when `autoHideChrome` is on; any mouse-move/touch pokes it back.
+- Focus mode (Z): chrome never renders; a faint "move or tap to reveal" hint fades in; Esc or a tap returns.
+- Tap zones: left/right thirds navigate (mirrored under RTL); center toggles chrome. Double-tap zooms strip mode / toggles UI in page mode. Swipes only in page mode (threshold 60px, dominant axis).
+
+### 14.5 Keyboard map
+
+`←/→` page or scroll · `↑/↓` · `Space` next · `PageUp/PageDown` · `Home/End` · `F` fullscreen · `B` bookmark · `T` prose theme cycle · `C` chapter list · `A` auto-scroll · `M` prose toggle (LN) · `Z` focus · `?` help · `Esc` cascade (help → drawer → controls → fullscreen → focus → reveal chrome). Inputs are ignored while typing in a field.
+
+### 14.6 Performance & resilience
+
+- Adjacent pages preload via `new Image()` in page mode; strip mode eagers the first two pages.
+- Scroll progress throttled through `requestAnimationFrame`; progress POST debounced 2s and fails silently offline.
+- `PageImage` keeps its own loading/error state per index (no re-render storms); retry re-creates the `src`.
+- Programmatic auto-scroll is flagged so the "manual scroll stops auto-scroll" listener ignores its own ticks.
+- Fullscreen on the reader element, `fullscreenchange` tracked for the toggle icon state.
+
+### 14.7 Honesty note
+
+True offline reading (downloading chapters) is out of scope for the current API (no download endpoints); the reader delivers an offline *indicator*, graceful failure, and client-side page bookmarks instead. Custom key bindings, notes/highlights, and the statistics dashboard are flagged as roadmap items (see §9).
