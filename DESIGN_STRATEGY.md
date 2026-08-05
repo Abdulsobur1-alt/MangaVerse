@@ -395,3 +395,72 @@ The pre-existing reader had strong bones (3 modes, RTL, prose themes, auto-scrol
 ### 14.7 Honesty note
 
 True offline reading (downloading chapters) is out of scope for the current API (no download endpoints); the reader delivers an offline *indicator*, graceful failure, and client-side page bookmarks instead. Custom key bindings, notes/highlights, and the statistics dashboard are flagged as roadmap items (see §9).
+
+## 15. Phase 6 — Search, Discovery & Browse (as shipped)
+
+> The browse page stopped being a search page and became a discovery platform. It answers one question — **"what should I read next?"** — through a layered experience: a search bar that is never empty, curated collections, a future-ready AI teaser, dedicated genre and author pages, and a filter system where every state is a shareable URL. Design intent: Spotify Discovery × Steam store × Letterboxd genre pages — curated, transparent, and delightful at every zoom level.
+
+### 15.1 Discovery UX audit (pre-pass)
+
+| Area | Pre | Post | Notes |
+|---|---|---|---|
+| Search | 6 | 9 | Static input + suggestion list → premium combobox (recents/trending/genres/instant results) |
+| Browse page | 6 | 9 | Single results page → two-mode Discovery Hub (browse ↔ catalog) |
+| Filters | 5 | 9 | Format/status/genre/static sort → URL-synced FilterBar (genre counts, year range, rating slider, bookmarks sort) |
+| Genre discovery | 5 | 9 | Chip → dedicated /genre/[slug] pages with hero, stats, 4 rails, related genres |
+| Author discovery | 0 | 8 | None → /author/[name] pages with derived stats + honest creator section |
+| Collections | 0 | 8 | None → CuratedCollections (every card a real, shareable filter set) |
+| AI discovery | 0 | 7 | None → honest AiSearchCard teaser (no fake results) |
+| Empty states | 4 | 8.5 | Generic → per-context guidance (too-strict filters, no results, no genre data) |
+| Loading | 5 | 9 | Pagination buttons → skeletons, infinite load-more (IntersectionObserver) |
+| URL deep-linking | 3 | 9 | Read-once on mount → URL is the source of truth, filters shareable |
+
+### 15.2 Architecture (new `components/discover/` + pages)
+
+| File | Role |
+|---|---|
+| `utils.ts` | Genre slug bridging (`sci-fi` ↔ `sci_fi`), `FilterState` parse/serialize helpers, curated `COLLECTIONS` defs, sort/format/status option tables |
+| `DiscoverSearch.tsx` | Never-empty combobox: recents (shared key with ⌘K), trending searches, popular genres, debounced instant results with covers, smart genre fallbacks, keyboard nav (↑↓ ↵ esc), honest AI teaser modal |
+| `FilterBar.tsx` | Format/status chips, genre multi-select popover with LIVE counts, year range, rating slider, bookmarks-aware sort — all URL-synced, active-filter chips with one-tap removal |
+| `CuratedCollections.tsx` | 8 editorial cards (Completed Masterpieces, Critically Acclaimed, Most Bookmarked, …) each mapping to real /browse filters, with copy-share |
+| `GenreGrid.tsx` | 15 genre cards with live title counts, deep-linking to /genre/[slug] |
+| `AiSearchCard.tsx` | Future-ready semantic-search teaser: fake prompt bar, example prompts, honest "coming soon" modal — zero invented results |
+| `/browse` | Discovery Hub: discovery mode (collections → AI → genre grid → live rails) and catalog mode (FilterBar + infinite grid), URL as source of truth, per-mode skeletons/empty states |
+| `/genre/[slug]` | Gradient hero with count + derived stats strip (avg rating/top format/year/latest), Popular / Newest / Community Favorites / Hidden Gems rails, related genres, empty state |
+| `/author/[name]` | Works grid (top 100 by rating), derived stats (avg rating, dominant genre, formats, statuses), honest creator section, empty state |
+
+### 15.3 API extensions (already shipped in `apps/api/src/routes/titles.ts`)
+
+- New list filters: `author` (partial, case-insensitive), `yearFrom`/`yearTo` (1900–2100), `minRating` (0–10), `search` now also matches `artist`.
+- New sort: `bookmarks` (`bookmarks: { _count: 'desc' }`).
+- New endpoint `GET /api/titles/genres` → genre → title-count aggregation (Redis-cached 10 min).
+- Richer list select: `artist`, `releaseYear`, `_count.bookmarks`.
+
+### 15.4 Search model
+
+- **Instant**: 180ms debounce, live `/titles?search=` results with covers/author/rating, `aria-live`-friendly headers.
+- **Never empty**: idle state surfaces recent searches, trending titles, popular genres, quick genre links, and the AI teaser.
+- **Smart fallback**: when a term matches no titles, suggest matching genres by label.
+- **Recents**: localStorage key `mangaverse_recent_searches` — shared with the homepage search and ⌘K palette.
+- **Keyboard**: ↑↓ navigate, ↵ open (result → commit term; else search-all), esc close; combobox/listbox semantics.
+
+### 15.5 Filter system (all delightful, all URL-synced)
+
+Genre multi-select (live counts, "matches ALL" semantics), format, status, year range, min-rating slider, sort incl. Most Bookmarked. Every change rewrites the URL via `router.replace` (no scroll jump); filter sets are shareable (`/browse?genres=action&minRating=8&sort=bookmarks`). Search typing stays local and commits on Enter so history isn't spammed. Active-filter chips remove one at a time.
+
+### 15.6 Genre & author pages (honesty by design)
+
+- **Genre**: accepts either slug form (`sci-fi`/`sci_fi`); unknown genres get a neutral synthesized card instead of broken styling. Stats are explicitly labelled as derived from the sampled rails.
+- **Author**: the catalog has no biography/portrait/awards data — the page says so and derives everything verifiable (works, avg rating, dominant genre, formats, statuses) from the works themselves. No invented "About" copy, no fake follower counts.
+- **AI**: the teaser promises nothing false — the modal explains exactly what's coming (story-graph embeddings) and points to what already works.
+
+### 15.7 Performance & a11y
+
+- Catalog results accumulate via `useTitlesPages` (per-page react-query cache, dedupe by id, no full-list refetch); load-more fires 600px before the viewport bottom; only the first page triggers skeletons.
+- Discovery rails fetch only when in discovery mode (`enabled: !active`).
+- Genre counts are a single cached request shared by FilterBar + GenreGrid + genre pages.
+- Combobox keyboard support, focus-visible styles everywhere, `aria-expanded`/`aria-pressed` on toggles, dialog semantics on modals (Esc/outside-click close), reduced-motion respected globally.
+
+### 15.8 Roadmap (flagged, not faked)
+
+Semantic/AI search (story-graph embeddings), voice search, publisher & character search, author biographies, real collection (list) models with community curation, and per-title "reading time" filters all need data-model additions first (see §4/§9).

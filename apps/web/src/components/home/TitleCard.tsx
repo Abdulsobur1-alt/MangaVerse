@@ -75,7 +75,7 @@ export function TitleCard({
   const showMenu = !!token && !bookmarked;
 
   return (
-    <div className="group relative w-[130px] shrink-0 sm:w-[148px]">
+    <div className={cn('group relative shrink-0', fluid ? 'w-full' : 'w-[130px] sm:w-[148px]')}>
       <Spotlight className="rounded-xl">
         <div className="relative aspect-[3/4] overflow-hidden rounded-xl border border-mv-border bg-mv-surface">
           <Link href={`/title/${item.slug}`} className="img-zoom absolute inset-0" aria-label={`View ${item.title}`}>
@@ -139,7 +139,13 @@ export function TitleCard({
           {isComplete && <span className="font-medium text-mv-success">Done ✓</span>}
         </p>
         {!compact && item.author && (
-          <p className="mt-0.5 truncate text-[9px] italic text-mv-text-dim">{item.author}</p>
+          <Link
+            href={`/author/${encodeURIComponent(item.author)}`}
+            className="mt-0.5 block truncate text-[9px] italic text-mv-text-dim transition-colors hover:text-mv-violet"
+            title={`View works by ${item.author}`}
+          >
+            {item.author}
+          </Link>
         )}
         {!compact && item.genres && item.genres.length > 0 && (
           <div className="mt-1.5 flex flex-wrap gap-1">

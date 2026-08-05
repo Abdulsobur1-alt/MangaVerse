@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 import { formatTimeAgo } from '@/lib/format';
 import type { TitleDetail } from '@/lib/hooks/useTitles';
@@ -18,6 +19,8 @@ interface MetaItem {
   label: string;
   value: string;
   accent?: string;
+  /** Link target for clickable values (e.g. author pages). */
+  href?: string;
 }
 
 function NotListed() {
@@ -32,7 +35,8 @@ export function MetadataGrid({ title, chaptersTotal, views }: { title: TitleDeta
 
   const left: MetaItem[] = [
     { icon: 'book', label: 'Format', value: title.type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) },
-    { icon: 'tag', label: 'Author', value: title.author ?? '' },
+    { icon: 'tag', label: 'Author', value: title.author ?? '', href: title.author ? `/author/${encodeURIComponent(title.author)}` : undefined },
+    { icon: 'sparkles', label: 'Artist', value: title.artist ?? '', href: title.artist ? `/author/${encodeURIComponent(title.artist)}` : undefined },
     { icon: 'sparkles', label: 'Artist', value: title.artist ?? '' },
     { icon: 'calendar', label: 'Release year', value: title.releaseYear ? String(title.releaseYear) : '' },
     { icon: 'clock', label: 'Updated', value: title.updatedAt ? formatTimeAgo(title.updatedAt) : '' },
@@ -54,7 +58,16 @@ export function MetadataGrid({ title, chaptersTotal, views }: { title: TitleDeta
       <div className="min-w-0">
         <p className="text-[8px] font-semibold uppercase tracking-[0.12em] text-mv-text-dim">{m.label}</p>
         {m.value ? (
-          <p className="mt-0.5 truncate text-[11px] font-medium text-mv-text">{m.value}</p>
+          m.href ? (
+            <Link
+              href={m.href}
+              className="mt-0.5 block truncate text-[11px] font-medium text-mv-text underline decoration-mv-violet/40 decoration-1 underline-offset-2 transition-colors hover:text-mv-violet hover:decoration-mv-violet"
+            >
+              {m.value}
+            </Link>
+          ) : (
+            <p className="mt-0.5 truncate text-[11px] font-medium text-mv-text">{m.value}</p>
+          )
         ) : (
           <div className="mt-0.5"><NotListed /></div>
         )}

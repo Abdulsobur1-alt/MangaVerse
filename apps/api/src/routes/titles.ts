@@ -17,7 +17,11 @@ const ListQuerySchema = z.object({
   status: z.string().optional(),
   genre: z.string().optional(),
   genres: z.string().optional(), // comma-separated: "action,fantasy"
-  sort: z.enum(['trending', 'newest', 'updated', 'rating', 'title']).default('trending'),
+  author: z.string().optional(), // author name filter (partial, case-insensitive)
+  yearFrom: z.coerce.number().int().min(1900).max(2100).optional(),
+  yearTo: z.coerce.number().int().min(1900).max(2100).optional(),
+  minRating: z.coerce.number().min(0).max(10).optional(),
+  sort: z.enum(['trending', 'newest', 'updated', 'rating', 'title', 'bookmarks']).default('trending'),
   search: z.string().optional(),
 });
 
@@ -30,7 +34,7 @@ const TitleSlugParams = z.object({
 titlesRouter.get('/', validate({ query: ListQuerySchema }), async (req, res, next) => {
   try {
     const query = req.query as unknown as z.infer<typeof ListQuerySchema>;
-    const { page, limit, type, status, genre, genres, sort, search } = query;
+    const { page, limit, type, status, genre, genres, author, yearFrom, yearTo, minRating, sort, search } = query;
     const skip = (page - 1) * limit;
 
     // Build where clause
@@ -48,22 +52,35 @@ titlesRouter.get('/', validate({ query: ListQuerySchema }), async (req, res, nex
     } else if (genre) {
       where.genres = { has: genre };
     }
+    if (author) {
+      where.author = { contains: author, mode: 'insensitive' as const };
+    }
+    if (yearFrom || yearTo) {
+      where.releaseYear = {} as Record<string, number>;
+      if (yearFrom) (where.releaseYear as Record<string, number>).gte = yearFrom;
+      if (yearTo) (where.releaseYear as Record<string, number>).lte = yearTo;
+    }
+    if (minRating != null) {
+      where.rating = { gte: minRating };
+    }
     if (search) {
       where.OR = [
         { title: { contains: search, mode: 'insensitive' as const } },
         { author: { contains: search, mode: 'insensitive' as const } },
+        { artist: { contains: search, mode: 'insensitive' as const } },
       ];
     }
 
     // Build orderBy
-    const orderBy: Record<string, string> =
+    const orderBy: Record<string, unknown> =
       sort === 'newest' ? { createdAt: 'desc' } :
       sort === 'updated' ? { updatedAt: 'desc' } :
       sort === 'rating' ? { rating: 'desc' } :
       sort === 'title' ? { title: 'asc' } :
+      sort === 'bookmarks' ? { bookmarks: { _count: 'desc' } } :
       { rating: 'desc' };
 
-    const cacheKey = `titles:list:${JSON.stringify({ page, limit, type, status, genre, genres, sort, search })}`;
+    const cacheKey = `titles:list:${JSON.stringify({ page, limit, type, status, genre, genres, author, yearFrom, yearTo, minRating, sort, search })}`;
     const cached = await cacheGet<{ titles: unknown[]; total: number }>(cacheKey);
     if (cached) {
       res.json({ success: true, data: { items: cached.titles, total: cached.total, page, limit } });
@@ -84,10 +101,13 @@ titlesRouter.get('/', validate({ query: ListQuerySchema }), async (req, res, nex
           status: true,
           genres: true,
           author: true,
+          artist: true,
+          releaseYear: true,
           coverUrl: true,
           rating: true,
           totalChapters: true,
           createdAt: true,
+          _count: { select: { bookmarks: true } },
           // Latest chapter per title in a single query — avoids N+1
           chapters: {
             orderBy: { number: 'desc' },
@@ -111,6 +131,36 @@ titlesRouter.get('/', validate({ query: ListQuerySchema }), async (req, res, nex
       success: true,
       data: { items, total, page, limit, hasMore: skip + titles.length < total },
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── GET /api/titles/genres ───────────────────────────
+// Genre → title-count aggregation for genre explorers & genre pages.
+
+titlesRouter.get('/genres', async (_req, res, next) => {
+  try {
+    const cached = await cacheGet<{ genre: string; count: number }[]>('titles:genre-counts');
+    if (cached) {
+      res.json({ success: true, data: cached });
+      return;
+    }
+
+    // Prisma can't groupBy on Postgres arrays directly — pull ids + genres
+    // and aggregate in JS. Bounded set (titles are indexed) so this is cheap.
+    const titles = await prisma.title.findMany({
+      select: { genres: true },
+    });
+    const counts = new Map<string, number>();
+    titles.forEach((t) => t.genres.forEach((g) => counts.set(g, (counts.get(g) || 0) + 1)));
+    const result = [...counts.entries()]
+      .map(([genre, count]) => ({ genre, count }))
+      .sort((a, b) => b.count - a.count);
+
+    await cacheSet('titles:genre-counts', result, 600);
+
+    res.json({ success: true, data: result });
   } catch (err) {
     next(err);
   }
