@@ -378,7 +378,7 @@ export default function ReaderPage() {
             </svg>
             <p className="text-sm text-mv-text-muted mb-2">Chapter not found</p>
             <p className="text-xs text-mv-text-dim mb-4">It may have been removed or the link is invalid</p>
-            <Link href="/browse" className="inline-block rounded-md bg-mv-accent px-4 py-2 text-xs font-medium text-white hover:bg-red-500 transition-colors">
+            <Link href="/browse" className="inline-block rounded-md bg-mv-accent px-4 py-2 text-xs font-medium text-white hover:brightness-110 transition-colors">
               Browse titles
             </Link>
           </div>
@@ -424,7 +424,7 @@ export default function ReaderPage() {
               disabled={!canAfford || unlockChapter.isPending}
               className={`mt-6 w-full rounded-lg py-2.5 text-xs font-medium text-white transition-colors ${
                 canAfford && !unlockChapter.isPending
-                  ? 'bg-mv-accent hover:bg-red-500'
+                  ? 'bg-mv-accent hover:brightness-110'
                   : 'bg-mv-surface text-mv-text-dim cursor-not-allowed'
               }`}
             >
@@ -749,7 +749,7 @@ export default function ReaderPage() {
                 {adjacentInfo.nextChapter && (
                   <button
                     onClick={() => adjacentInfo.nextChapter && router.push(`/reader/${adjacentInfo.nextChapter.id}`)}
-                    className="rounded-lg bg-mv-accent px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-red-500"
+                    className="rounded-lg bg-mv-accent px-4 py-2 text-xs font-medium text-white transition-colors hover:brightness-110"
                   >
                     Next Chapter →
                   </button>

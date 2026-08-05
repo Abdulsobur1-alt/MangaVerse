@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { TopBar } from '@/components/TopBar';
+import { AppShell } from '@/components/AppShell';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useAuthStore } from '@/store/authStore';
 import { useUpdateProfile, useDeleteAccount, useNotificationPrefs, useUpdateNotificationPrefs } from '@/lib/hooks/useSettings';
@@ -65,12 +65,14 @@ export default function SettingsPage() {
 
   return (
     <ProtectedRoute>
-      <main className="min-h-screen bg-mv-dark">
-        <TopBar />
-        <div className="mx-auto max-w-2xl p-6">
-          <div className="mb-6">
-            <h1 className="text-xl font-semibold text-white">Settings</h1>
-            <p className="text-xs text-mv-text-muted mt-0.5">Manage your profile and account</p>
+      <AppShell>
+        <div className="mx-auto max-w-2xl px-5 py-8 sm:px-6 md:px-8">
+          <div className="mb-8">
+            <p className="eyebrow mb-2">Preferences</p>
+            <h1 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
+              Settings
+            </h1>
+            <p className="mt-1 text-xs text-mv-text-muted">Manage your profile, preferences, and account</p>
           </div>
 
           {/* ─── Profile Section ──────────────────── */}
@@ -181,7 +183,7 @@ export default function SettingsPage() {
                 <button
                   onClick={handleSaveProfile}
                   disabled={updateProfile.isPending || !displayName.trim()}
-                  className="rounded-lg bg-mv-accent px-5 py-2 text-xs font-medium text-white transition-colors hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="btn-primary px-5 py-2.5 text-xs disabled:opacity-50"
                 >
                   {updateProfile.isPending ? 'Saving...' : 'Save Changes'}
                 </button>
@@ -305,7 +307,7 @@ export default function SettingsPage() {
             </div>
           </section>
         </div>
-      </main>
+      </AppShell>
     </ProtectedRoute>
   );
 }

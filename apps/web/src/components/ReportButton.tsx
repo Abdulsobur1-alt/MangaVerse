@@ -128,7 +128,7 @@ export default function ReportButton({ contentType, targetId, label = 'Report' }
             <button
               onClick={handleSubmit}
               disabled={!reason || createReport.isPending}
-              className="rounded-md bg-mv-accent px-2.5 py-1 text-[9px] font-medium text-white transition-colors hover:bg-red-500 disabled:opacity-50"
+              className="rounded-md bg-mv-accent px-2.5 py-1 text-[9px] font-medium text-white transition-colors hover:brightness-110 disabled:opacity-50"
             >
               {createReport.isPending ? 'Submitting…' : 'Submit report'}
             </button>

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { TopBar } from '@/components/TopBar';
+import { AppShell } from '@/components/AppShell';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useMyReviews, useDeleteReview } from '@/lib/hooks/useReviews';
 
@@ -43,20 +43,19 @@ export default function MyReviewsPage() {
 
   return (
     <ProtectedRoute>
-      <main className="min-h-screen bg-mv-dark">
-        <TopBar />
-        <div className="mx-auto max-w-4xl p-6">
-          <div className="mb-6 flex items-center justify-between">
+      <AppShell>
+        <div className="mx-auto max-w-4xl px-5 py-8 sm:px-6 md:px-8">
+          <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
             <div>
-              <h1 className="text-xl font-semibold text-white">My Reviews</h1>
-              <p className="text-xs text-mv-text-muted mt-0.5">
+              <p className="eyebrow mb-2">Your Voice</p>
+              <h1 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
+                My <span className="text-gradient">Reviews</span>
+              </h1>
+              <p className="mt-1 text-xs text-mv-text-muted">
                 {reviews?.length || 0} review{reviews?.length !== 1 ? 's' : ''} written
               </p>
             </div>
-            <Link
-              href="/browse"
-              className="rounded-lg bg-mv-accent px-4 py-2 text-[10px] font-medium text-white transition-colors hover:bg-red-500"
-            >
+            <Link href="/browse" className="btn-ghost px-5 py-2.5 text-xs">
               Browse & Review
             </Link>
           </div>
@@ -84,7 +83,7 @@ export default function MyReviewsPage() {
               </p>
               <Link
                 href="/browse"
-                className="inline-flex items-center gap-1 rounded-lg bg-mv-accent px-4 py-2 text-[10px] font-medium text-white transition-colors hover:bg-red-500"
+                className="btn-primary px-5 py-2.5 text-xs"
               >
                 Browse Titles
               </Link>
@@ -154,7 +153,7 @@ export default function MyReviewsPage() {
             </div>
           )}
         </div>
-      </main>
+      </AppShell>
     </ProtectedRoute>
   );
 }

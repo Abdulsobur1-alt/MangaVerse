@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { TopBar } from '@/components/TopBar';
+import { AppShell } from '@/components/AppShell';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useReadingHistory, useReadingStats, getGenreColor } from '@/lib/hooks/useReadingStats';
 
@@ -29,12 +29,20 @@ export default function HistoryPage() {
 
   return (
     <ProtectedRoute>
-      <main className="min-h-screen bg-mv-dark">
-        <TopBar />
-        <div className="mx-auto max-w-5xl p-6">
-          <div className="mb-6">
-            <h1 className="text-xl font-semibold text-white">Reading History</h1>
-            <p className="text-xs text-mv-text-muted mt-0.5">Your reading journey at a glance</p>
+      <AppShell>
+        <div className="mx-auto max-w-5xl px-5 py-8 sm:px-6 md:px-8">
+          <div className="mb-8">
+            <p className="eyebrow mb-2">Reading Journey</p>
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <h1 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
+                Reading <span className="text-gradient">History</span>
+              </h1>
+              {history && !historyLoading && (
+                <span className="rounded-full border border-mv-border-light bg-mv-surface/60 px-3 py-1 text-[11px] text-mv-text-secondary">
+                  {history.total} entries
+                </span>
+              )}
+            </div>
           </div>
 
           {/* ─── Overview Stats ──────────────────── */}
@@ -195,7 +203,7 @@ export default function HistoryPage() {
                 <p className="text-[10px] text-mv-text-dim mt-1">Start reading to build your history!</p>
                 <Link
                   href="/browse"
-                  className="mt-4 inline-flex rounded-lg bg-mv-accent px-4 py-2 text-[10px] font-medium text-white transition-colors hover:bg-red-500"
+                  className="btn-primary mt-4 px-5 py-2.5 text-xs"
                 >
                   Browse Titles
                 </Link>
@@ -253,7 +261,7 @@ export default function HistoryPage() {
             )}
           </div>
         </div>
-      </main>
+      </AppShell>
     </ProtectedRoute>
   );
 }

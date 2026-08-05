@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { TopBar } from '@/components/TopBar';
+import { AppShell } from '@/components/AppShell';
 import { useAuthStore } from '@/store/authStore';
 import {
   useCommunityPosts,
@@ -86,27 +86,32 @@ export default function CommunityPage() {
   const onlineCount = 1240 + posts.length * 3;
 
   return (
-    <main className="min-h-screen bg-mv-dark">
-      <TopBar />
-
-      <div className="mx-auto max-w-7xl p-6">
-        <div className="flex items-center gap-3 mb-6">
-          <h1 className="text-xl font-semibold text-white">Community</h1>
-          <div className="flex items-center gap-1.5 rounded-md bg-mv-darker border border-red-900/30 px-2.5 py-1">
-            <div className="h-2 w-2 rounded-full bg-mv-accent animate-pulse" />
-            <span className="text-[10px] text-mv-accent">{onlineCount.toLocaleString()} online</span>
+    <AppShell>
+      <div className="mx-auto max-w-7xl px-5 py-8 sm:px-6 md:px-8">
+        <div className="mb-8">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className="eyebrow mb-2">Fandom Central</p>
+              <h1 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
+                Community
+              </h1>
+            </div>
+            <div className="flex items-center gap-1.5 rounded-full border border-mv-success/30 bg-mv-success/10 px-3 py-1">
+              <div className="h-2 w-2 animate-pulse-dot rounded-full bg-mv-success" />
+              <span className="text-[10px] font-medium text-mv-success">{onlineCount.toLocaleString()} online</span>
+            </div>
           </div>
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="mt-5 flex flex-wrap items-center gap-2">
             {/* Tag filter */}
-            <div className="flex items-center gap-1 rounded-lg bg-mv-darker border border-mv-border p-1">
+            <div className="flex items-center gap-1 rounded-xl border border-mv-border bg-mv-darker p-1">
               {TAGS.map((tag) => (
                 <button
                   key={tag}
                   onClick={() => setActiveTag(tag === 'All' ? undefined : tag)}
-                  className={`rounded-md px-2.5 py-1 text-[10px] transition-colors ${
+                  className={`rounded-lg px-3 py-1.5 text-[10px] transition-colors ${
                     (tag === 'All' && !activeTag) || tag === activeTag
-                      ? 'bg-mv-accent text-white'
+                      ? 'bg-gradient-to-r from-mv-purple to-mv-accent text-white shadow-glow-sm'
                       : 'text-mv-text-secondary hover:text-mv-text'
                   }`}
                 >
@@ -118,7 +123,7 @@ export default function CommunityPage() {
             {token && (
               <button
                 onClick={() => setShowCreate(!showCreate)}
-                className="rounded-lg bg-mv-accent px-3.5 py-1.5 text-[10px] font-medium text-white transition-colors hover:bg-red-500"
+                className="btn-primary px-4 py-2 text-[10px]"
               >
                 {showCreate ? 'Cancel' : '+ New Post'}
               </button>
@@ -165,7 +170,7 @@ export default function CommunityPage() {
               <button
                 onClick={handleCreatePost}
                 disabled={postTitle.length < 3 || postBody.length < 10 || createPost.isPending}
-                className="rounded-lg bg-mv-accent px-4 py-2 text-[10px] font-medium text-white transition-colors hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="btn-primary px-4 py-2 text-[10px] disabled:opacity-50"
               >
                 {createPost.isPending ? 'Publishing...' : 'Publish Post'}
               </button>
@@ -293,7 +298,7 @@ export default function CommunityPage() {
                         className={`rounded-full px-2 py-0.5 text-[8px] font-medium transition-colors ${
                           club.joined
                             ? 'bg-mv-surface text-mv-text-secondary hover:bg-mv-accent/20 hover:text-mv-accent'
-                            : 'bg-mv-accent text-white hover:bg-red-500'
+                            : 'bg-mv-accent text-white hover:bg-mv-purple'
                         }`}
                       >
                         {club.joined ? 'Joined' : 'Join'}
@@ -381,6 +386,6 @@ export default function CommunityPage() {
           </div>
         </div>
       </div>
-    </main>
+    </AppShell>
   );
 }

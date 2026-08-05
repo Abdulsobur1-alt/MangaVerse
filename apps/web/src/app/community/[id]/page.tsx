@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { TopBar } from '@/components/TopBar';
+import { AppShell } from '@/components/AppShell';
 import { useAuthStore } from '@/store/authStore';
 import { useCommunityPost, useVotePost, useAddComment } from '@/lib/hooks/useCommunity';
 import ReportButton from '@/components/ReportButton';
@@ -38,8 +38,7 @@ export default function PostDetailPage() {
 
   if (isLoading) {
     return (
-      <main className="min-h-screen bg-mv-dark">
-        <TopBar />
+      <AppShell>
         <div className="mx-auto max-w-3xl p-6">
           <div className="animate-pulse space-y-4">
             <div className="h-8 w-2/3 rounded bg-mv-surface" />
@@ -47,25 +46,23 @@ export default function PostDetailPage() {
             <div className="h-40 rounded bg-mv-surface" />
           </div>
         </div>
-      </main>
+      </AppShell>
     );
   }
 
   if (error || !post) {
     return (
-      <main className="min-h-screen bg-mv-dark">
-        <TopBar />
+      <AppShell>
         <div className="mx-auto max-w-3xl p-6 text-center py-20">
           <p className="text-sm text-mv-text-muted mb-2">Post not found</p>
           <Link href="/community" className="text-xs text-mv-accent hover:underline">← Back to Community</Link>
         </div>
-      </main>
+      </AppShell>
     );
   }
 
   return (
-    <main className="min-h-screen bg-mv-dark">
-      <TopBar />
+    <AppShell>
 
       <div className="mx-auto max-w-3xl p-6">
         <Link href="/community" className="mb-4 inline-flex items-center gap-1 text-[10px] text-mv-text-muted hover:text-mv-text transition-colors">
@@ -144,7 +141,7 @@ export default function PostDetailPage() {
               <button
                 onClick={handleComment}
                 disabled={commentBody.trim().length === 0 || addComment.isPending}
-                className="rounded-lg bg-mv-accent px-3.5 py-2 text-[10px] font-medium text-white transition-colors hover:bg-red-500 disabled:opacity-50"
+                className="btn-primary px-4 py-2 text-[10px] disabled:opacity-50"
               >
                 {addComment.isPending ? '...' : 'Reply'}
               </button>
@@ -180,6 +177,6 @@ export default function PostDetailPage() {
           )}
         </div>
       </div>
-    </main>
+    </AppShell>
   );
 }

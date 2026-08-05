@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { TopBar } from '@/components/TopBar';
+import { AppShell } from '@/components/AppShell';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useAuthStore } from '@/store/authStore';
 import {
@@ -84,10 +84,8 @@ export default function AdminPage() {
 
   return (
     <ProtectedRoute>
-      <main className="min-h-screen bg-mv-dark">
-        <TopBar />
-
-        <div className="mx-auto max-w-6xl p-6">
+      <AppShell>
+        <div className="mx-auto max-w-6xl px-5 py-8 sm:px-6 md:px-8">
           <div className="mb-6 flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-mv-accent/20 text-mv-accent">
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -491,7 +489,7 @@ export default function AdminPage() {
             </>
           )}
         </div>
-      </main>
+      </AppShell>
     </ProtectedRoute>
   );
 }

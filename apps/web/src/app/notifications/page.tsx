@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { TopBar } from '@/components/TopBar';
+import { AppShell } from '@/components/AppShell';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useNotifications, useMarkRead, useMarkAllRead, useDeleteNotification, getNotificationIcon, getNotificationTypeColor } from '@/lib/hooks/useNotifications';
 
@@ -32,13 +32,15 @@ export default function NotificationsPage() {
 
   return (
     <ProtectedRoute>
-      <main className="min-h-screen bg-mv-dark">
-        <TopBar />
-        <div className="mx-auto max-w-3xl p-6">
-          <div className="mb-6 flex items-center justify-between">
+      <AppShell>
+        <div className="mx-auto max-w-3xl px-5 py-8 sm:px-6 md:px-8">
+          <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
             <div>
-              <h1 className="text-xl font-semibold text-white">Notifications</h1>
-              <p className="text-xs text-mv-text-muted mt-0.5">
+              <p className="eyebrow mb-2">Activity</p>
+              <h1 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
+                Notifications
+              </h1>
+              <p className="mt-1 text-xs text-mv-text-muted">
                 {data?.total || 0} notification{data?.total !== 1 ? 's' : ''}
               </p>
             </div>
@@ -46,7 +48,7 @@ export default function NotificationsPage() {
               <button
                 onClick={() => markAllRead.mutate()}
                 disabled={markAllRead.isPending}
-                className="rounded-lg bg-mv-accent px-3.5 py-1.5 text-[10px] font-medium text-white transition-colors hover:bg-red-500 disabled:opacity-50"
+                className="btn-ghost px-4 py-2 text-[11px] disabled:opacity-50"
               >
                 {markAllRead.isPending ? '...' : 'Mark All Read'}
               </button>
@@ -76,7 +78,7 @@ export default function NotificationsPage() {
               <p className="text-xs text-mv-text-muted mb-4">You have no notifications right now.</p>
               <Link
                 href="/browse"
-                className="inline-flex items-center gap-1 rounded-lg bg-mv-accent px-4 py-2 text-[10px] font-medium text-white transition-colors hover:bg-red-500"
+                className="btn-primary px-5 py-2.5 text-xs"
               >
                 Browse Titles
               </Link>
@@ -183,7 +185,7 @@ export default function NotificationsPage() {
             </>
           )}
         </div>
-      </main>
+      </AppShell>
     </ProtectedRoute>
   );
 }

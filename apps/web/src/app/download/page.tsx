@@ -1,6 +1,6 @@
 'use client';
 
-import { TopBar } from '@/components/TopBar';
+import { AppShell } from '@/components/AppShell';
 import Link from 'next/link';
 
 const APP_FEATURES = [
@@ -18,9 +18,7 @@ const VERSIONS = [
 
 export default function DownloadPage() {
   return (
-    <main className="min-h-screen bg-mv-dark">
-      <TopBar />
-
+    <AppShell>
       {/* Hero */}
       <section className="relative overflow-hidden border-b border-white/5 bg-gradient-to-br from-[#0f0820] via-[#1a0535] to-[#0d1040] py-16">
         <div className="animate-aurora absolute -left-24 top-0 h-72 w-72 rounded-full bg-mv-purple/40 blur-3xl" />
@@ -223,6 +221,6 @@ export default function DownloadPage() {
           <span className="text-mv-accent">Get the App</span>
         </div>
       </footer>
-    </main>
+    </AppShell>
   );
 }

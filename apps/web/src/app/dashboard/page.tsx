@@ -1,8 +1,8 @@
 'use client';
 
 import { timeAgo } from '@mangaverse/shared';
+import { AppShell } from '@/components/AppShell';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
-import { TopBar } from '@/components/TopBar';
 import { useAuthStore } from '@/store/authStore';
 import { useUserStats } from '@/lib/hooks/useAuth';
 import { useReadingHistory } from '@/lib/hooks/useReading';
@@ -61,13 +61,15 @@ export default function DashboardPage() {
 
   return (
     <ProtectedRoute>
-      <main className="min-h-screen bg-mv-dark">
-        <TopBar />
-        <div className="mx-auto max-w-7xl p-6">
-          <div className="flex items-center justify-between mb-6">
+      <AppShell>
+        <div className="mx-auto max-w-7xl px-5 py-8 sm:px-6 md:px-8">
+          <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
             <div>
-              <h1 className="text-xl font-semibold text-white">Dashboard</h1>
-              <p className="text-xs text-mv-text-muted mt-0.5">
+              <p className="eyebrow mb-2">Your Profile</p>
+              <h1 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
+                Dashboard
+              </h1>
+              <p className="mt-1 text-xs text-mv-text-muted">
                 Welcome back, {user?.displayName || 'Reader'}
               </p>
             </div>
@@ -313,7 +315,7 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
-      </main>
+      </AppShell>
     </ProtectedRoute>
   );
 }
