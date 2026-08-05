@@ -1,10 +1,6 @@
 # MangaVerse — Product Redesign Strategy
 
 > **Mission:** Make MangaVerse *"the Apple + Netflix + Spotify experience for manga"* — premium, cinematic, minimal, fast, and emotionally resonant. Not flashy, not cluttered, not anime-themed — premium software.
-
-well and proper testing before formal launch
-PHASE 1: navigation and design system
-PHASE 2: Navbar and 
 >
 > This document is the single source of truth for the redesign. It covers the full audit, the information architecture, the design system, and the implementation roadmap. Code changes land in `apps/web` and follow this document.
 
@@ -109,7 +105,7 @@ MangaVerse
 | `mv-success` / `mv-warning` / `mv-danger` | `#10b981` / `#f59e0b` / `#ef4444` | State |
 | `mv-text` … `mv-text-dim` | `#fafafa` → `#52525b` | Type ramp |
 
-**Gap to close (roadmap):** a light theme variant via `prefers-color-scheme` overrides, plus a documented semantic alias layer (`--color-bg`, `--color-surface-raised`, …) so components stop hard-coding hex values.
+**Gap to close (roadmap):** the light theme variant now ships as gated semantic tokens (`html[data-theme="light"]` flips `--color-app`/`--color-surface`/`--color-text-*`; see `DESIGN_SYSTEM.md` §3.2) — components migrate from hard-coded value tokens to semantic tokens before a theme toggle is exposed.
 
 ### Typography
 - **Display:** Space Grotesk — headings, hero, chapter numbers. Tight tracking (`-0.02em`).

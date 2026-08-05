@@ -473,9 +473,9 @@ export default function ReaderPage() {
     effectiveMode === 'strip' ? (formatKey === 'MANGA' ? '📜 Strip' : '📜 Scroll') : '📄 Page';
 
   const themeStyles: Record<ProseTheme, { bg: string; text: string; muted: string }> = {
-    dark: { bg: '#0a0a14', text: '#d4d4d8', muted: '#8a8a96' },
-    sepia: { bg: '#2a2117', text: '#e8dcc3', muted: '#a8987a' },
-    light: { bg: '#f5f1e8', text: '#2a2419', muted: '#7a7364' },
+    dark: { bg: 'var(--reader-bg-dark)', text: 'var(--reader-text-dark)', muted: 'var(--reader-muted-dark)' },
+    sepia: { bg: 'var(--reader-bg-sepia)', text: 'var(--reader-text-sepia)', muted: 'var(--reader-muted-sepia)' },
+    light: { bg: 'var(--reader-bg-light)', text: 'var(--reader-text-light)', muted: 'var(--reader-muted-light)' },
   };
   const t = themeStyles[prefs.theme];
 

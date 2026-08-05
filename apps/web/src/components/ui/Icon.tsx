@@ -1,7 +1,5 @@
 'use client';
 
-import type { SVGProps } from 'react';
-
 /* ═══════════════════════════════════════════════════════════════
    Icon — the single icon primitive for MangaVerse.
    • One source of truth: 24×24 viewBox, stroke-based (heroicons
@@ -68,7 +66,7 @@ const PATHS: Record<string, string> = {
 
 export type IconName = keyof typeof PATHS;
 
-export interface IconProps extends Omit<SVGProps<SVGSVGElement>, 'name'> {
+export interface IconProps extends Omit<React.SVGProps<SVGSVGElement>, 'name'> {
   name: IconName;
   /** 16 inline · 20 default · 24 hero. */
   size?: number;
