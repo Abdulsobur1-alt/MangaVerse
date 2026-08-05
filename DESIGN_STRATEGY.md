@@ -275,3 +275,67 @@ apps/web/src/
 - `TitleCardSkeleton` / `ContinueRailSkeleton` reserve aspect-ratio boxes → no CLS.
 - Personalization queries are gated by auth (`enabled: !!token`) — guests never fire authed requests.
 - Genre counts derive from the already-fetched discovery pool — zero extra requests.
+
+---
+
+## 13. Phase 4 — Cinematic Manga Details (as shipped)
+
+> The title page is now a signature experience: it sells the story before chapter one. Every design decision reduces uncertainty — rating, taste-fit (genres), time-to-finish, community signal, and the one correct action to start reading. Design intent: Netflix title pages × Apple TV+ restraint × Steam store pages × Letterboxd reviews.
+
+### 13.1 Details-page UX audit (pre-pass)
+
+| Area | Pre | Post | Notes |
+|---|---|---|---|
+| Above the fold | 6 | 9.5 | Static blurred backdrop → adaptive cover-color hero |
+| Metadata | 5 | 9 | Flat `<dl>` table → glass info cards, honest "not listed" |
+| Chapters | 6 | 9 | Plain rows → search / sort / states / ETA / load-more |
+| Reading CTA | 6 | 9 | One button → state-aware action system |
+| Synopsis | 5 | 8.5 | Plain paragraph → editorial quote + spoiler guard + highlights |
+| Recommendations | 4 | 8 | None → Readers-Also-Enjoyed + same-author rails |
+| Community | 6 | 8.5 | Reviews wiki preserved, restyled + spoiler collapse + verified |
+| Share | 0 | 8 | None → share dialog with copy / native share / QR |
+| Statistics | 4 | 8 | Derived tiles + rating bar + genre ranking |
+
+### 13.2 Architecture (new `components/title/`)
+
+| File | Role |
+|---|---|
+| `useAdaptiveColors.ts` | Canvas-sampled palette from cover/banner art (dependency-free): base + accent + soft + luminance; drives the hero's per-title identity; graceful fallback |
+| `TitleHero.tsx` | Cinematic above-the-fold: adaptive gradient backdrop, blurred artwork, glass stats row (rating/views/saved/chapters), credits, alt titles, genres, ETA + reading-direction chips, CTA row, progress bar, cover tilt + shine sweep |
+| `ReadingCta.tsx` | State machine → Start / Continue · Ch. X / Re-read / Read Latest, with an animated SVG progress ring and locked-chapter hint |
+| `CollectionMenu.tsx` | One-click shelf picker (Reading / Plan to Read / Completed / On Hold / Dropped), current-shelf aware, remove-on-tap-again; sign-in CTA for guests |
+| `StoryPreview.tsx` | Editorial synopsis: pull-quote intro, spoiler guard (blur → reveal), expandable, genre-derived highlights |
+| `MetadataGrid.tsx` | Glass info cards (format/author/artist/year/updated/language/saved/views/chapters/reviews/schedule/age) with honest "Not listed" fallbacks + reading-direction strip |
+| `ChapterList.tsx` | Search by number/title, ↑/↓ sort, read ✓ / in-progress % / locked 🔒 states, per-chapter ETA + date, keyboard ↑↓/↵ with scroll-into-view, load-more (append pages, dedupe) |
+| `Recommendations.tsx` | Readers-Also-Enjoyed (same top-2 genres, rated) + More-from-author rails, reusing the homepage `TitleCard` |
+| `StatsDashboard.tsx` | Community rating bar (0–10 gradient fill), six stat tiles (rating/saved/views/chapters/progress/genre rank), genre ranking pills |
+| `CommunityPanel.tsx` | Reviews (stars, sub-scores sliders, spoiler collapse, helpful, verified badge, delete-own) + wiki (read/edit/history/revert/flag) |
+| `ShareDialog.tsx` | Modal with rich preview card, copy-link (clipboard + fallback), native Web Share, QR code, Esc/outside-click close |
+
+### 13.3 Reading-CTA state machine
+
+| User state | Primary action | Secondary |
+|---|---|---|
+| No chapters | disabled "No chapters yet" | — |
+| Fresh visitor | Start Reading (ch. 1) | Read Latest · locked hint |
+| In progress (0 < % < 100) | Continue · Ch. N (+ progress ring) | Read Latest |
+| Fully read | Re-read | Read Latest |
+| Guest | same as fresh + "Add to Library" → sign-in | Share · Read Offline |
+
+### 13.4 Motion & a11y
+
+- Hero: 1s color transition on palette swap, cover rotateY 3°→0 on hover with shine sweep, 700ms progress fill.
+- Chapters: 150ms hover, progress ring 600ms stroke-dashoffset, list keyboard-driven (↑/↓/↵) with `aria-selected` + scroll-into-view.
+- Share dialog: `role="dialog"` + `aria-modal`, Esc/outside-click, scroll lock, focusable actions.
+- Adaptive colors respect `prefers-reduced-motion` (color change is instant, no layout shift).
+- All icon-only buttons carry `aria-label`; rating stars are read as `N out of 10`.
+
+### 13.5 Performance
+
+- Chapters load 50 at a time and append via `useTitleChapters` (per-page react-query cache, dedupe by id) — no full-list fetch.
+- Color sampling runs on a 32×32 scratch canvas (`willReadFrequently`), blob-safe, and aborts on unmount.
+- Images stay lazy via `CoverImage`; skeletons reserve aspect-ratio boxes (no CLS); the hero blur uses the already-fetched cover.
+
+### 13.6 Honesty note
+
+The catalog doesn't model publisher / volume / characters / age rating, so those rows render an explicit "Not listed" chip instead of invented values — and the docs flag them as future data-model additions (see §4).

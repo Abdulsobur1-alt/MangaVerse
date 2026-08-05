@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueries } from '@tanstack/react-query';
 import { api } from '../api';
 
 // ─── Types ────────────────────────────────────────────
@@ -51,6 +51,7 @@ export interface TitleDetail extends TitleListItem {
   bannerUrl: string | null;
   synopsis: string | null;
   releaseYear: number | null;
+  updatedAt: string;
   _count: { chapters: number; bookmarks: number; reviews: number };
   chapters: TitleChapter[];
   chaptersPagination: ChapterPagination;
@@ -135,6 +136,39 @@ export function useTitle(slug: string, chaptersPage?: number, chaptersLimit?: nu
     queryFn: () => api.get<TitleDetail>(`/titles/${slug}${qs ? `?${qs}` : ''}`),
     enabled: !!slug,
   });
+}
+
+/**
+ * Fetch a title with multiple chapter pages accumulated (for load-more).
+ * Uses useQueries so every page is individually cached; the first page's
+ * detail is the title, chapters are flattened + deduped by id.
+ */
+export function useTitleChapters(slug: string, pages: number, limit: number) {
+  const queries = Array.from({ length: pages }, (_, i) => ({
+    queryKey: ['title', slug, i + 1, limit] as const,
+    queryFn: () => api.get<TitleDetail>(`/titles/${slug}?chaptersPage=${i + 1}&chaptersLimit=${limit}`),
+    enabled: !!slug,
+  }));
+
+  const results = useQueries({ queries });
+
+  const first = results.find((r) => r.data)?.data;
+  const last = results[results.length - 1];
+  const chapters = Array.from(
+    new Map(results.flatMap((r) => r.data?.chapters ?? []).map((c) => [c.id, c])).values(),
+  );
+
+  return {
+    title: first ?? undefined,
+    chapters,
+    pagination: last?.data?.chaptersPagination ?? { page: pages, limit, total: 0, hasMore: false },
+    // isLoading only matters while we have NO title yet — additional pages
+    // appended by load-more must not re-trigger the full-page skeleton.
+    isLoading: !first && results.some((r) => r.isLoading),
+    // Any in-flight request (page 2+ during load-more).
+    isFetching: results.some((r) => r.isFetching),
+    error: results.find((r) => r.error)?.error ?? undefined,
+  };
 }
 
 export function useSearchTitles(query: string, options?: {
