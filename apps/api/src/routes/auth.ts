@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { validate } from '../middleware/validate.js';
 import { requireAuth } from '../middleware/auth.js';
-import { ConflictError, ForbiddenError, UnauthorizedError } from '../lib/errors.js';
+import { AppError, ConflictError, ForbiddenError, UnauthorizedError } from '../lib/errors.js';
 import { seedDemoNotifications } from '../services/notifications.js';
 import { verifyFirebaseToken, firebaseConfigured } from '../lib/firebase.js';
 import { config } from '../config/index.js';
@@ -36,7 +36,9 @@ authRouter.post('/register', validate({ body: RegisterSchema }), async (req, res
     // does NOT catch — an unhandled rejection crashes the whole process. The
     // devAuth gate therefore lives inside the try so it flows to next(err).
     if (!config.devAuth) {
-      throw new ForbiddenError('Registration is not available');
+      throw new ForbiddenError(
+        'Sign-ups are currently disabled. Configure Firebase on the server (FIREBASE_SERVICE_ACCOUNT), or run with DEV_AUTH=1 in development.',
+      );
     }
 
     const { email, displayName, firebaseUid } = req.body;
@@ -152,7 +154,17 @@ authRouter.post('/login', validate({ body: LoginSchema }), async (req, res, next
       return;
     }
 
-    // Production: verify the Firebase ID token
+    // Production: verify the Firebase ID token. If the service account is
+    // missing, no token can ever verify — fail with an actionable config
+    // error instead of the misleading 'Invalid or expired token'.
+    if (!firebaseConfigured()) {
+      throw new AppError(
+        503,
+        'AUTH_NOT_CONFIGURED',
+        'Firebase auth is not configured on the server (FIREBASE_SERVICE_ACCOUNT is missing). ' +
+          'Set it in the API service environment to enable sign-in, or run locally with DEV_AUTH=1.',
+      );
+    }
     const decoded = await verifyFirebaseToken(firebaseToken);
     if (!decoded) {
       throw new UnauthorizedError('Invalid or expired token');
