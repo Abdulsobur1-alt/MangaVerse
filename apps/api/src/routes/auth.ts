@@ -7,6 +7,7 @@ import { ConflictError, ForbiddenError, UnauthorizedError } from '../lib/errors.
 import { seedDemoNotifications } from '../services/notifications.js';
 import { verifyFirebaseToken, firebaseConfigured } from '../lib/firebase.js';
 import { config } from '../config/index.js';
+import { checkAndRecordMilestones } from '../services/journey.js';
 
 export const authRouter = Router();
 
@@ -59,6 +60,9 @@ authRouter.post('/register', validate({ body: RegisterSchema }), async (req, res
     seedDemoNotifications(user.id).catch((err) =>
       console.warn('⚠️  Could not seed welcome notifications:', (err as Error).message),
     );
+
+    // The journey begins — the “Joined MangaVerse” milestone.
+    checkAndRecordMilestones(user.id).catch(() => {});
 
     res.status(201).json({
       success: true,
@@ -120,6 +124,20 @@ authRouter.post('/login', validate({ body: LoginSchema }), async (req, res, next
 
     const email = decoded.email || `user-${decoded.uid.slice(0, 8)}@mangaverse.app`;
     const displayName = decoded.name || 'Reader';
+
+    // Activity touch + journey seeding on every sign-in.
+    void (async () => {
+      try {
+        const me = await prisma.user.findUnique({ where: { firebaseUid: decoded.uid }, select: { id: true } });
+        if (me) {
+          await prisma.user.update({ where: { id: me.id }, data: { lastActiveAt: new Date() } });
+          // Seed the journey only for accounts that have none yet (new or
+          // pre-Phase-9) — never on every login.
+          const milestoneCount = await prisma.profileMilestone.count({ where: { userId: me.id } });
+          if (milestoneCount === 0) checkAndRecordMilestones(me.id).catch(() => {});
+        }
+      } catch { /* best-effort */ }
+    })();
 
     try {
       const user = await prisma.user.upsert({

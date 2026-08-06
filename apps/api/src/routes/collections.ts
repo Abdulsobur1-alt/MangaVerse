@@ -4,6 +4,7 @@ import { prisma } from '../lib/prisma.js';
 import { validate } from '../middleware/validate.js';
 import { requireAuth } from '../middleware/auth.js';
 import { NotFoundError, ConflictError } from '../lib/errors.js';
+import { checkAndRecordMilestones } from '../services/journey.js';
 
 /* ═══════════════════════════════════════════════════════════════
    Collections — user-curated shelves beyond the five default lists.
@@ -182,6 +183,9 @@ collectionsRouter.post('/', validate({ body: CreateCollectionSchema }), async (r
         isPrivate: body.isPrivate ?? true,
       },
     });
+
+    // First collection — a journey milestone.
+    checkAndRecordMilestones(userId).catch(() => {});
 
     res.status(201).json({
       success: true,

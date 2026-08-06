@@ -23,6 +23,29 @@ model User {
   // Personalization prefs (library view mode, preferred genres, etc.) —
   // synced across devices via the API (Phase 7).
   prefs            Json?    @default("{}") @map("prefs")
+
+  // ─── Identity (Phase 9) ─────────────────────────────
+  bio             String?  @db.Text
+  location        String?
+  website         String?
+  // {x, instagram, discord, youtube, twitch} — display labels, no links
+  // needed beyond the username/handle the platform expects.
+  socialLinks     Json?    @default("{}") @map("social_links")
+  bannerUrl       String?  @map("banner_url")
+  // Customization: accent hex + profile theme + layout/card style.
+  accentColor     String?  @map("accent_color")
+  profileTheme    String   @default("aurora") @map("profile_theme") // aurora | midnight | sunset | forest | ocean
+  layoutStyle     String   @default("editorial") @map("layout_style") // editorial | compact
+  cardStyle       String   @default("rounded") @map("card_style") // rounded | sharp
+  // Trust system (Phase 9) — opaque score; only tiers are shown publicly.
+  reputation      Int      @default(0)
+  // Estimated lifetime reading time (minutes), accrued from page/word counts.
+  totalReadingMinutes Int  @default(0) @map("total_reading_minutes")
+  lastActiveAt    DateTime? @map("last_active_at")
+  // Pinned showcase: {lists: [], reviews: [], collections: []} + pinnedManga ids.
+  pinnedItems     Json?    @default("{}") @map("pinned_items")
+  pinnedManga     String[] @map("pinned_manga") // Title ids, order = display order
+
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 
@@ -52,8 +75,52 @@ model User {
   postComments     PostComment[]
   reportsMade      ContentReport[] @relation("ContentReportsMade")
   reportsResolved  ContentReport[] @relation("ContentReportsResolved")
+  milestones       ProfileMilestone[]
+  wrapped          WrappedReport[]
 
   @@map("users")
+}
+
+// ─── Profile Milestones (Phase 9) ─────────────────────
+// The "reading journey" — a life story of a reader. Each row is a first:
+// first chapter, first review, first streak, first completed series…
+// Detected by services/journey.ts and stamped with an achievedAt; the
+// timeline reads oldest → newest as the reader's origin story.
+
+model ProfileMilestone {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  type       String
+  title      String
+  detail     String?
+  emoji      String   @default("✨")
+  data       Json?
+  achievedAt DateTime @default(now()) @map("achieved_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type])
+  @@index([userId, achievedAt])
+  @@map("profile_milestones")
+}
+
+// ─── Wrapped Reports (Phase 9) ────────────────────────
+// One per user per year — the annual "MangaVerse Wrapped" snapshot.
+// Generated on demand (POST /api/users/me/wrapped), cached here, and
+// shareable via /wrapped. `data` holds the full narrative payload.
+
+model WrappedReport {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  year      Int
+  data      Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, year])
+  @@index([year])
+  @@map("wrapped_reports")
 }
 
 // ─── Titles / Manga ────────────────────────────────────

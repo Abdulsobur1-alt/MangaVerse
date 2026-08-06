@@ -6,6 +6,7 @@ import { requireAuth, optionalAuth } from '../middleware/auth.js';
 import { NotFoundError, ForbiddenError, ConflictError } from '../lib/errors.js';
 import { resolveUserId, debitCoins } from '../services/coins.js';
 import { checkAndAwardAchievements } from '../services/achievements.js';
+import { checkAndRecordMilestones } from '../services/journey.js';
 import { notifyCommentAdded, notifyReplyAdded } from '../services/notifications.js';
 import { resolveDuePredictions, computePredictionReturn } from '../services/predictions.js';
 
@@ -276,6 +277,7 @@ communityRouter.post('/posts', requireAuth, validate({ body: CreatePostSchema })
 
     // Fire-and-forget: award community participation badges (first post, poster)
     checkAndAwardAchievements(dbUserId).catch(() => {});
+    checkAndRecordMilestones(dbUserId).catch(() => {});
 
     res.status(201).json({
       success: true,
@@ -486,6 +488,7 @@ communityRouter.post('/posts/:id/comments', requireAuth, validate({ params: Post
     }
     // Award community participation badges (first comment, conversationalist)
     checkAndAwardAchievements(dbUserId).catch(() => {});
+    checkAndRecordMilestones(dbUserId).catch(() => {});
 
     res.status(201).json({
       success: true,
@@ -565,6 +568,7 @@ communityRouter.post('/clubs', requireAuth, validate({ body: CreateClubSchema })
 
     // Fire-and-forget: award club badges (clubber, club hopper)
     checkAndAwardAchievements(dbUserId).catch(() => {});
+    checkAndRecordMilestones(dbUserId).catch(() => {});
 
     res.status(201).json({ success: true, data: { id: club.id, name: club.name, memberCount: 1, joined: true } });
   } catch (err) {
@@ -602,6 +606,7 @@ communityRouter.post('/clubs/:id/join', requireAuth, validate({ params: ClubPara
 
     // Fire-and-forget: award club badges (clubber, club hopper)
     checkAndAwardAchievements(dbUserId).catch(() => {});
+    checkAndRecordMilestones(dbUserId).catch(() => {});
 
     res.json({ success: true, data: { joined: true, memberCount: club.memberCount + 1 } });
   } catch (err) {
@@ -847,6 +852,7 @@ communityRouter.post('/wiki/:slug/revert', requireAuth, validate({ params: WikiP
 
     // Fire-and-forget: reverting is also a contribution (appends a revision)
     checkAndAwardAchievements(dbUserId).catch(() => {});
+    checkAndRecordMilestones(dbUserId).catch(() => {});
 
     res.json({
       success: true,
@@ -960,6 +966,7 @@ communityRouter.put('/wiki/:slug', requireAuth, validate({ params: WikiParams, b
 
     // Fire-and-forget: award wiki contribution badges (lore keeper, scribe)
     checkAndAwardAchievements(dbUserId).catch(() => {});
+    checkAndRecordMilestones(dbUserId).catch(() => {});
 
     const isNew = wiki.version === 1 && wiki.createdAt.getTime() > Date.now() - 5000;
     res.status(isNew ? 201 : 200).json({

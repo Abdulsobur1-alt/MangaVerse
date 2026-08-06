@@ -7,6 +7,7 @@ import { requireAuth, optionalAuth } from '../middleware/auth.js';
 import { NotFoundError, ForbiddenError } from '../lib/errors.js';
 import { notifyReviewAdded, notifyReviewHelpful } from '../services/notifications.js';
 import { checkAndAwardAchievements } from '../services/achievements.js';
+import { checkAndRecordMilestones } from '../services/journey.js';
 
 export const reviewsRouter = Router();
 
@@ -289,8 +290,9 @@ reviewsRouter.post('/title/:slug', requireAuth, validate({ body: CreateReviewSch
     // Notify users who bookmarked this title (fire-and-forget)
     notifyReviewAdded(title.id, user.displayName || 'A reader', user.id, body.rating);
 
-    // Check for review-related achievements (fire-and-forget)
+    // Check for review-related achievements + journey milestones (fire-and-forget)
     checkAndAwardAchievements(user.id).catch(() => {});
+    checkAndRecordMilestones(user.id).catch(() => {});
 
     res.status(201).json({
       success: true,

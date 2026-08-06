@@ -6,6 +6,7 @@ import { validate } from '../middleware/validate.js';
 import { requireAuth, optionalAuth } from '../middleware/auth.js';
 import { NotFoundError, ForbiddenError, ConflictError } from '../lib/errors.js';
 import { resolveUserId } from '../services/coins.js';
+import { checkAndRecordMilestones } from '../services/journey.js';
 
 export const listsRouter = Router();
 
@@ -192,6 +193,10 @@ listsRouter.post('/', requireAuth, validate({ body: CreateListSchema }), async (
         isPublic: body.isPublic ?? true,
       },
     });
+
+    // First list — a journey milestone.
+    checkAndRecordMilestones(me).catch(() => {});
+
     res.status(201).json({ success: true, data: { id: list.id, name: list.name, isPublic: list.isPublic } });
   } catch (err) {
     next(err);

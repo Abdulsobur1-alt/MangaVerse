@@ -7,6 +7,8 @@ import { NotFoundError } from '../lib/errors.js';
 import { checkAndNotifyMilestone } from '../services/notifications.js';
 import { earnCoins, COIN_CHAPTER_REWARD } from '../services/coins.js';
 import { checkAndAwardAchievements } from '../services/achievements.js';
+import { checkAndRecordMilestones } from '../services/journey.js';
+import { chapterMinutes, invalidateAnalytics } from '../services/analytics.js';
 
 export const readingRouter = Router();
 
@@ -108,7 +110,27 @@ readingRouter.post('/progress', validate({ body: SaveProgressSchema }), async (r
       // Fire-and-forget milestone + achievement checks
       checkAndNotifyMilestone(user.id);
       checkAndAwardAchievements(user.id).catch(() => {});
+      checkAndRecordMilestones(user.id).catch(() => {});
+      // Drop the cached analytics so the dashboard reflects the new chapter.
+      invalidateAnalytics(user.id);
+
+      // Accrue estimated reading minutes for the completed chapter
+      // (Phase 9) — image chapters ≈ 0.75 min/page, prose by word count.
+      prisma.chapter
+        .findUnique({ where: { id: chapterId }, select: { pageCount: true, contentText: true } })
+        .then((ch) => {
+          if (!ch) return;
+          const minutes = chapterMinutes(ch.pageCount, ch.contentText);
+          return prisma.user.update({
+            where: { id: user.id },
+            data: { totalReadingMinutes: { increment: minutes }, lastActiveAt: new Date() },
+          });
+        })
+        .catch(() => {});
     }
+
+    // Touch activity even on partial progress saves.
+    prisma.user.update({ where: { id: user.id }, data: { lastActiveAt: new Date() } }).catch(() => {});
 
     res.json({ success: true, data: progress });
   } catch (err) {

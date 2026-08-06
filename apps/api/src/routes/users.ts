@@ -12,9 +12,38 @@ usersRouter.use(requireAuth);
 
 // ─── Schemas ──────────────────────────────────────────
 
+const SOCIAL_KEYS = ['x', 'instagram', 'discord', 'youtube', 'twitch'] as const;
+
 const UpdateProfileSchema = z.object({
   displayName: z.string().min(1).max(50).optional(),
   avatarUrl: z.string().url().max(500).nullable().optional(),
+  // ─── Identity (Phase 9) ───
+  bio: z.string().max(500).nullable().optional(),
+  location: z.string().max(80).nullable().optional(),
+  website: z.string().url().max(300).nullable().optional(),
+  socialLinks: z
+    .object({
+      x: z.string().max(60).optional(),
+      instagram: z.string().max(60).optional(),
+      discord: z.string().max(60).optional(),
+      youtube: z.string().max(60).optional(),
+      twitch: z.string().max(60).optional(),
+    })
+    .partial()
+    .optional(),
+  bannerUrl: z.string().url().max(500).nullable().optional(),
+  accentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
+  profileTheme: z.enum(['aurora', 'midnight', 'sunset', 'forest', 'ocean']).optional(),
+  layoutStyle: z.enum(['editorial', 'compact']).optional(),
+  cardStyle: z.enum(['rounded', 'sharp']).optional(),
+  pinnedItems: z
+    .object({
+      lists: z.array(z.string().uuid()).max(3).optional(),
+      reviews: z.array(z.string().uuid()).max(3).optional(),
+      collections: z.array(z.string().uuid()).max(3).optional(),
+    })
+    .optional(),
+  pinnedManga: z.array(z.string().uuid()).max(6).optional(),
 });
 
 const UpdatePrefsSchema = z.object({
@@ -58,10 +87,23 @@ usersRouter.get('/profile', async (req, res, next) => {
         email: user.email,
         displayName: user.displayName,
         avatarUrl: user.avatarUrl,
+        bio: user.bio,
+        location: user.location,
+        website: user.website,
+        socialLinks: user.socialLinks as Record<string, string> | null,
+        bannerUrl: user.bannerUrl,
+        accentColor: user.accentColor,
+        profileTheme: user.profileTheme,
+        layoutStyle: user.layoutStyle,
+        cardStyle: user.cardStyle,
+        pinnedItems: user.pinnedItems as Record<string, string[]> | null,
+        pinnedManga: user.pinnedManga,
         coinBalance: user.coinBalance,
         role: user.role,
         subscriptionTier: user.subscriptionTier,
         streakDays: user.streakDays,
+        reputation: user.reputation,
+        totalReadingMinutes: user.totalReadingMinutes,
         stats: user._count,
         createdAt: user.createdAt.toISOString(),
       },
@@ -86,6 +128,18 @@ usersRouter.put('/profile', validate({ body: UpdateProfileSchema }), async (req,
 
     if (body.displayName !== undefined) updates.displayName = body.displayName;
     if (body.avatarUrl !== undefined) updates.avatarUrl = body.avatarUrl;
+    // Phase 9 identity + customization fields.
+    if (body.bio !== undefined) updates.bio = body.bio;
+    if (body.location !== undefined) updates.location = body.location;
+    if (body.website !== undefined) updates.website = body.website;
+    if (body.socialLinks !== undefined) updates.socialLinks = body.socialLinks as object;
+    if (body.bannerUrl !== undefined) updates.bannerUrl = body.bannerUrl;
+    if (body.accentColor !== undefined) updates.accentColor = body.accentColor;
+    if (body.profileTheme !== undefined) updates.profileTheme = body.profileTheme;
+    if (body.layoutStyle !== undefined) updates.layoutStyle = body.layoutStyle;
+    if (body.cardStyle !== undefined) updates.cardStyle = body.cardStyle;
+    if (body.pinnedItems !== undefined) updates.pinnedItems = body.pinnedItems as object;
+    if (body.pinnedManga !== undefined) updates.pinnedManga = body.pinnedManga;
 
     if (Object.keys(updates).length === 0) {
       res.status(400).json({
@@ -103,6 +157,17 @@ usersRouter.put('/profile', validate({ body: UpdateProfileSchema }), async (req,
         email: true,
         displayName: true,
         avatarUrl: true,
+        bio: true,
+        location: true,
+        website: true,
+        socialLinks: true,
+        bannerUrl: true,
+        accentColor: true,
+        profileTheme: true,
+        layoutStyle: true,
+        cardStyle: true,
+        pinnedItems: true,
+        pinnedManga: true,
         coinBalance: true,
         role: true,
         subscriptionTier: true,
@@ -118,6 +183,17 @@ usersRouter.put('/profile', validate({ body: UpdateProfileSchema }), async (req,
         email: updated.email,
         displayName: updated.displayName,
         avatarUrl: updated.avatarUrl,
+        bio: updated.bio,
+        location: updated.location,
+        website: updated.website,
+        socialLinks: updated.socialLinks as Record<string, string> | null,
+        bannerUrl: updated.bannerUrl,
+        accentColor: updated.accentColor,
+        profileTheme: updated.profileTheme,
+        layoutStyle: updated.layoutStyle,
+        cardStyle: updated.cardStyle,
+        pinnedItems: updated.pinnedItems as Record<string, string[]> | null,
+        pinnedManga: updated.pinnedManga,
         coinBalance: updated.coinBalance,
         role: updated.role,
         subscriptionTier: updated.subscriptionTier,
@@ -199,6 +275,17 @@ const DEFAULT_PREFS = {
   cardDensity: 'cozy',
   publicProfile: true,
   shareActivity: true,
+  // ─── Privacy (Phase 9) — per-section visibility ───
+  shareStats: true,
+  shareReading: true,
+  shareCollections: true,
+  shareBookmarks: true,
+  shareAchievements: true,
+  shareGoals: true,
+  shareLists: true,
+  shareReviews: true,
+  shareFollowers: true,
+  shareFollowing: true,
 };
 
 const UpdatePersonalPrefsSchema = z.object({
@@ -208,6 +295,16 @@ const UpdatePersonalPrefsSchema = z.object({
   cardDensity: z.enum(['cozy', 'compact']).optional(),
   publicProfile: z.boolean().optional(),
   shareActivity: z.boolean().optional(),
+  shareStats: z.boolean().optional(),
+  shareReading: z.boolean().optional(),
+  shareCollections: z.boolean().optional(),
+  shareBookmarks: z.boolean().optional(),
+  shareAchievements: z.boolean().optional(),
+  shareGoals: z.boolean().optional(),
+  shareLists: z.boolean().optional(),
+  shareReviews: z.boolean().optional(),
+  shareFollowers: z.boolean().optional(),
+  shareFollowing: z.boolean().optional(),
 });
 
 usersRouter.get('/prefs', async (req, res, next) => {

@@ -4,6 +4,12 @@ import { requireAuth, optionalAuth } from '../middleware/auth.js';
 import { NotFoundError, ConflictError } from '../lib/errors.js';
 import { resolveUserId } from '../services/coins.js';
 import { notifyFollowed } from '../services/notifications.js';
+import { getReadingAnalytics } from '../services/analytics.js';
+import { getPublicPersonality } from '../services/personality.js';
+import { checkAndRecordMilestones } from '../services/journey.js';
+import { tierForScore } from '../services/reputation.js';
+import { readingLevel, usernameFor } from '../services/identity.js';
+import { ACHIEVEMENT_CATALOG } from '../services/achievements.js';
 
 /* ═══════════════════════════════════════════════════════════════
    Social — the Phase 8 social graph.
@@ -24,10 +30,21 @@ async function getPublicUser(userId: string) {
     where: { id: userId },
     select: {
       id: true,
+      email: true,
       displayName: true,
       avatarUrl: true,
+      bannerUrl: true,
+      bio: true,
+      location: true,
+      website: true,
+      socialLinks: true,
+      accentColor: true,
+      profileTheme: true,
+      layoutStyle: true,
+      cardStyle: true,
       role: true,
       streakDays: true,
+      reputation: true,
       createdAt: true,
       prefs: true,
       _count: { select: { followers: true, following: true, reviews: true, communityPosts: true, achievements: true } },
@@ -151,6 +168,30 @@ async function getActivity(userId: string) {
   return activity.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime()).slice(0, 30);
 }
 
+/** Count of mutual follows (followers who the target also follows back). */
+async function getMutualCount(userId: string): Promise<number> {
+  const [theirFollowers, theirFollowing] = await Promise.all([
+    prisma.follow.findMany({ where: { followingId: userId }, select: { followerId: true }, take: 500 }),
+    prisma.follow.findMany({ where: { followerId: userId }, select: { followingId: true }, take: 500 }),
+  ]);
+  const followingSet = new Set(theirFollowing.map((f) => f.followingId));
+  return theirFollowers.filter((f) => followingSet.has(f.followerId)).length;
+}
+
+/** Genres shared between the viewer and the target (for “Shared interests”). */
+async function getSharedGenres(viewerId: string | null, targetId: string): Promise<string[]> {
+  if (!viewerId || viewerId === targetId) return [];
+  const [mine, theirs] = await Promise.all([
+    prisma.bookmark.findMany({ where: { userId: viewerId }, select: { title: { select: { genres: true } } }, take: 200 }),
+    prisma.bookmark.findMany({ where: { userId: targetId }, select: { title: { select: { genres: true } } }, take: 200 }),
+  ]);
+  const mySet = new Set<string>();
+  for (const b of mine) for (const g of b.title.genres) mySet.add(g);
+  const shared = new Set<string>();
+  for (const b of theirs) for (const g of b.title.genres) if (mySet.has(g)) shared.add(g);
+  return [...shared].slice(0, 6);
+}
+
 /** Follow-state between two users (isFollowing / followsYou / mutual). */
 async function getFollowState(viewerId: string | null, targetId: string) {
   if (!viewerId || viewerId === targetId) {
@@ -220,62 +261,149 @@ socialRouter.get('/users/:id', optionalAuth, async (req, res, next) => {
     const prefs = (user.prefs as Record<string, unknown>) || {};
     const publicProfile = prefs.publicProfile !== false;
     const shareActivity = prefs.shareActivity !== false;
+    const shareStats = prefs.shareStats !== false;
+    const shareReading = prefs.shareReading !== false;
+    const shareAchievements = prefs.shareAchievements !== false;
+    const shareCollections = prefs.shareCollections !== false;
+    const shareBookmarks = prefs.shareBookmarks !== false;
+    const shareReviews = prefs.shareReviews !== false;
+    const shareGoals = prefs.shareGoals !== false;
 
     const followState = await getFollowState(viewerId, userId);
+    const username = usernameFor(user.email, user.id);
+    const reputationTier = tierForScore(user.reputation);
 
-    // Private profile: only identity + counts (and nothing for the owner themselves).
+    const base = {
+      id: user.id,
+      displayName: user.displayName,
+      username,
+      avatarUrl: user.avatarUrl,
+      bannerUrl: user.bannerUrl,
+      bio: user.bio,
+      location: user.location,
+      website: user.website,
+      socialLinks: (user.socialLinks as Record<string, string>) || {},
+      accentColor: user.accentColor,
+      profileTheme: user.profileTheme,
+      layoutStyle: user.layoutStyle,
+      cardStyle: user.cardStyle,
+      role: user.role,
+      createdAt: user.createdAt.toISOString(),
+      streakDays: user.streakDays,
+      reputationTier,
+      followerCount: user._count.followers,
+      followingCount: user._count.following,
+      reviewCount: user._count.reviews,
+      postCount: user._count.communityPosts,
+      achievementCount: user._count.achievements,
+      isFollowing: followState.isFollowing,
+      followsYou: followState.followsYou,
+      mutual: followState.mutual,
+    };
+
+    // Private profile: identity + trust signal only.
     if (!publicProfile && viewerId !== userId) {
-      res.json({
-        success: true,
-        data: {
-          id: user.id,
-          displayName: user.displayName,
-          avatarUrl: user.avatarUrl,
-          role: user.role,
-          createdAt: user.createdAt.toISOString(),
-          streakDays: user.streakDays,
-          followerCount: user._count.followers,
-          followingCount: user._count.following,
-          reviewCount: user._count.reviews,
-          postCount: user._count.communityPosts,
-          achievementCount: user._count.achievements,
-          isFollowing: followState.isFollowing,
-          followsYou: followState.followsYou,
-          mutual: followState.mutual,
-          private: true,
-        },
-      });
+      res.json({ success: true, data: { ...base, private: true } });
       return;
     }
 
-    const [genres, reading, activity] = await Promise.all([
-      getUserGenreCounts(userId),
-      getCurrentReading(userId),
+    const [genres, reading, activity, mutualCount, sharedGenres] = await Promise.all([
+      shareStats ? getUserGenreCounts(userId) : Promise.resolve([]),
+      shareReading ? getCurrentReading(userId) : Promise.resolve([]),
       viewerId === userId || shareActivity ? getActivity(userId) : Promise.resolve([]),
+      getMutualCount(userId),
+      getSharedGenres(viewerId, userId),
     ]);
+
+    // ─── Gated showcase sections ───────────────────
+    const sections: Record<string, unknown> = {};
+
+    if (viewerId === userId || shareStats) {
+      const stats = await getReadingAnalytics(userId);
+      sections.stats = stats;
+      sections.readingLevel = readingLevel(stats.totalChapters);
+      sections.personality = await getPublicPersonality(userId);
+    }
+    if (viewerId === userId || shareAchievements) {
+      const earned = await prisma.achievement.findMany({
+        where: { userId },
+        select: { badgeId: true, earnedAt: true },
+        orderBy: { earnedAt: 'desc' },
+        take: 12,
+      });
+      sections.achievements = earned
+        .map((a) => {
+          const badge = ACHIEVEMENT_CATALOG.find((b) => b.id === a.badgeId);
+          if (!badge) return null;
+          return { badgeId: badge.id, name: badge.name, emoji: badge.emoji, description: badge.description, category: badge.category, earnedAt: a.earnedAt.toISOString() };
+        })
+        .filter(Boolean);
+    }
+    if (viewerId === userId || shareCollections) {
+      const collections = await prisma.collection.findMany({
+        where: { userId, isPrivate: false },
+        include: { _count: { select: { items: true } } },
+        orderBy: { updatedAt: 'desc' },
+        take: 6,
+      });
+      sections.collections = collections.map((c) => ({
+        id: c.id,
+        name: c.name,
+        description: c.description,
+        coverUrl: c.coverUrl,
+        itemCount: c._count.items,
+        updatedAt: c.updatedAt.toISOString(),
+      }));
+    }
+    if (viewerId === userId || shareReviews) {
+      const reviews = await prisma.review.findMany({
+        where: { userId },
+        include: { title: { select: { slug: true, title: true, coverUrl: true, type: true } } },
+        orderBy: { createdAt: 'desc' },
+        take: 6,
+      });
+      sections.reviews = reviews.map((r) => ({
+        id: r.id,
+        rating: r.rating,
+        headline: r.headline,
+        spoiler: r.spoiler,
+        helpfulCount: r.helpfulCount,
+        createdAt: r.createdAt.toISOString(),
+        title: r.title,
+      }));
+    }
+    if (viewerId === userId || shareBookmarks) {
+      const bookmarks = await prisma.bookmark.findMany({
+        where: { userId },
+        include: { title: { select: { slug: true, title: true, coverUrl: true, type: true, rating: true, totalChapters: true } } },
+        orderBy: { createdAt: 'desc' },
+        take: 8,
+      });
+      sections.bookmarks = bookmarks.map((b) => b.title);
+    }
+    if (viewerId === userId || shareGoals) {
+      const goals = await prisma.readingGoal.findMany({ where: { userId, active: true }, orderBy: { createdAt: 'asc' }, take: 3 });
+      sections.goals = goals.map((g) => ({
+        id: g.id,
+        title: g.title,
+        type: g.type,
+        target: g.target,
+        endsAt: g.endsAt ? g.endsAt.toISOString() : null,
+      }));
+    }
 
     res.json({
       success: true,
       data: {
-        id: user.id,
-        displayName: user.displayName,
-        avatarUrl: user.avatarUrl,
-        role: user.role,
-        createdAt: user.createdAt.toISOString(),
-        streakDays: user.streakDays,
-        followerCount: user._count.followers,
-        followingCount: user._count.following,
-        reviewCount: user._count.reviews,
-        postCount: user._count.communityPosts,
-        achievementCount: user._count.achievements,
-        isFollowing: followState.isFollowing,
-        followsYou: followState.followsYou,
-        mutual: followState.mutual,
+        ...base,
         private: false,
         shareActivity,
+        mutualCount,
+        sharedGenres,
         favoriteGenres: genres,
         currentReading: reading,
         activity: viewerId === userId || shareActivity ? activity : [],
+        sections,
       },
     });
   } catch (err) {
@@ -291,6 +419,20 @@ socialRouter.get('/users/:id/followers', optionalAuth, async (req, res, next) =>
     let viewerId: string | null = null;
     if (req.user?.uid) {
       try { viewerId = await resolveUserId(req.user.uid); } catch { /* anonymous */ }
+    }
+
+    // Honor the shareFollowers privacy pref: non-owners get an empty list
+    // when the target has turned their follower list off (Phase 9).
+    if (viewerId !== userId) {
+      const target = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { prefs: true },
+      });
+      const prefs = (target?.prefs as Record<string, unknown>) || {};
+      if (prefs.shareFollowers === false) {
+        res.json({ success: true, data: [] });
+        return;
+      }
     }
 
     const rows = await prisma.follow.findMany({
@@ -321,6 +463,19 @@ socialRouter.get('/users/:id/following', optionalAuth, async (req, res, next) =>
     let viewerId: string | null = null;
     if (req.user?.uid) {
       try { viewerId = await resolveUserId(req.user.uid); } catch { /* anonymous */ }
+    }
+
+    // Honor the shareFollowing privacy pref (Phase 9).
+    if (viewerId !== userId) {
+      const target = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { prefs: true },
+      });
+      const prefs = (target?.prefs as Record<string, unknown>) || {};
+      if (prefs.shareFollowing === false) {
+        res.json({ success: true, data: [] });
+        return;
+      }
     }
 
     const rows = await prisma.follow.findMany({
@@ -431,6 +586,9 @@ socialRouter.post('/users/:id/follow', requireAuth, async (req, res, next) => {
     await prisma.follow.create({
       data: { followerId: me, followingId: targetId },
     });
+
+    // First follower — a journey milestone for the target.
+    checkAndRecordMilestones(targetId).catch(() => {});
 
     // Fire-and-forget: tell the target someone followed them.
     const meInfo = await prisma.user.findUnique({ where: { id: me }, select: { displayName: true } });
