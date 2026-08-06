@@ -67,3 +67,14 @@ export async function cacheDel(key: string): Promise<void> {
     // silently fail
   }
 }
+
+/** True when Redis is actually reachable (used by the admin health check). */
+export async function redisHealthy(): Promise<boolean> {
+  if (!redisClient) return false;
+  try {
+    const pong = await redisClient.ping();
+    return pong === 'PONG';
+  } catch {
+    return false;
+  }
+}

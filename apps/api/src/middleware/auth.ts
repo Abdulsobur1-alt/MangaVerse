@@ -36,28 +36,46 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
   }
 
   try {
+    let uid: string;
+    let email: string;
+    let displayName: string | undefined;
+
     // Dev token flow (config.devAuth is only true locally)
     if (config.devAuth && !firebaseConfigured() && token.startsWith('dev_')) {
-      req.user = {
-        uid: token.replace('dev_', ''),
-        email: 'dev@mangaverse.app',
-        displayName: 'Developer',
-      };
-      return next();
+      uid = token.replace('dev_', '');
+      email = 'dev@mangaverse.app';
+      displayName = 'Developer';
+    } else {
+      // Production: verify the Firebase ID token
+      const decoded = await verifyFirebaseToken(token);
+      if (!decoded) {
+        return next(new UnauthorizedError('Invalid or expired token'));
+      }
+      uid = decoded.uid;
+      email = decoded.email || '';
+      displayName = decoded.name || undefined;
     }
 
-    // Production: verify the Firebase ID token
-    const decoded = await verifyFirebaseToken(token);
-    if (!decoded) {
-      return next(new UnauthorizedError('Invalid or expired token'));
+    // Phase 11 moderation gate: banned accounts and active suspensions are
+    // blocked at the auth boundary, so every authed route is covered.
+    const dbUser = await prisma.user.findUnique({
+      where: { firebaseUid: uid },
+      select: { id: true, bannedAt: true, suspendedUntil: true },
+    });
+    if (!dbUser) {
+      return next(new UnauthorizedError('Account not found'));
     }
-    req.user = {
-      uid: decoded.uid,
-      email: decoded.email || '',
-      displayName: decoded.name || undefined,
-    };
+    if (dbUser.bannedAt) {
+      return next(new ForbiddenError('This account has been banned'));
+    }
+    if (dbUser.suspendedUntil && dbUser.suspendedUntil > new Date()) {
+      return next(new ForbiddenError('This account is temporarily suspended'));
+    }
+
+    req.user = { uid, email, displayName, dbUserId: dbUser.id };
     next();
-  } catch {
+  } catch (err) {
+    if (err instanceof ForbiddenError) return next(err);
     next(new UnauthorizedError('Invalid or expired token'));
   }
 }
@@ -73,20 +91,34 @@ export async function optionalAuth(req: Request, _res: Response, next: NextFunct
   }
 
   try {
+    let uid: string | null = null;
+    let email = '';
+    let displayName: string | undefined;
+
     if (config.devAuth && !firebaseConfigured() && token.startsWith('dev_')) {
-      req.user = {
-        uid: token.replace('dev_', ''),
-        email: 'dev@mangaverse.app',
-        displayName: 'Developer',
-      };
+      uid = token.replace('dev_', '');
+      email = 'dev@mangaverse.app';
+      displayName = 'Developer';
     } else {
       const decoded = await verifyFirebaseToken(token);
       if (decoded) {
-        req.user = {
-          uid: decoded.uid,
-          email: decoded.email || '',
-          displayName: decoded.name || undefined,
-        };
+        uid = decoded.uid;
+        email = decoded.email || '';
+        displayName = decoded.name || undefined;
+      }
+    }
+
+    // Banned/suspended users are treated as anonymous on public routes
+    // (they must never leak into profile views or feeds while gated).
+    if (uid) {
+      const dbUser = await prisma.user.findUnique({
+        where: { firebaseUid: uid },
+        select: { id: true, bannedAt: true, suspendedUntil: true },
+      });
+      if (!dbUser || dbUser.bannedAt || (dbUser.suspendedUntil && dbUser.suspendedUntil > new Date())) {
+        uid = null;
+      } else {
+        req.user = { uid, email, displayName, dbUserId: dbUser.id };
       }
     }
   } catch {

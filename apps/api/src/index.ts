@@ -27,7 +27,7 @@ import { coinsRouter } from './routes/coins.js';
 import { achievementsRouter } from './routes/achievements.js';
 import { communityRouter } from './routes/community.js';
 import { socialRouter } from './routes/social.js';
-import { adminRouter } from './routes/admin.js';
+import { adminRouter } from './routes/admin/index.js';
 import { pushRouter } from './routes/push.js';
 import { healthRouter } from './routes/health.js';
 import { createImageProxyHandler } from './services/image-proxy.js';
@@ -65,6 +65,47 @@ const limiter = rateLimit({
   message: { success: false, error: { code: 'RATE_LIMITED', message: 'Too many requests, please try again later.' } },
 });
 app.use(limiter);
+
+// ─── Maintenance Mode ─────────────────────────────────
+// When the "maintenance" platform setting is enabled (toggled from the
+// admin console), every non-exempt API request returns 503. Exempt:
+// health (uptime checks), auth (staff still needs to log in), admin
+// (the console must stay reachable to lift the flag). The setting is
+// cached for 30s so the toggle propagates within half a minute.
+
+let maintenanceCache: { at: number; enabled: boolean; message: string | null } | null = null;
+
+async function maintenanceGate(_req: express.Request, res: express.Response, next: express.NextFunction) {
+  // Mounted at '/api', so req.path is RELATIVE (/health, /admin…) — use the
+  // full original URL for the exemption checks or they never match.
+  const path = _req.originalUrl;
+  if (path.startsWith('/api/health') || path.startsWith('/api/auth') || path.startsWith('/api/admin')) {
+    next();
+    return;
+  }
+  if (maintenanceCache && Date.now() - maintenanceCache.at < 30_000) {
+    if (maintenanceCache.enabled) {
+      res.status(503).json({ success: false, error: { code: 'MAINTENANCE', message: maintenanceCache.message || 'We are doing maintenance — back in a bit!' } });
+      return;
+    }
+    next();
+    return;
+  }
+  try {
+    const row = await prisma.platformSetting.findUnique({ where: { key: 'maintenance' } });
+    const value = (row?.value ?? {}) as { enabled?: boolean; message?: string | null };
+    maintenanceCache = { at: Date.now(), enabled: value.enabled === true, message: value.message ?? null };
+  } catch {
+    maintenanceCache = { at: Date.now(), enabled: false, message: null };
+  }
+  if (maintenanceCache.enabled) {
+    res.status(503).json({ success: false, error: { code: 'MAINTENANCE', message: maintenanceCache.message || 'We are doing maintenance — back in a bit!' } });
+    return;
+  }
+  next();
+}
+
+app.use('/api', maintenanceGate);
 
 // ─── Routes ───────────────────────────────────────────
 

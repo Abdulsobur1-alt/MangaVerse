@@ -1,16 +1,19 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { prisma } from '../lib/prisma.js';
-import { validate } from '../middleware/validate.js';
-import { requireAuth, requireRole } from '../middleware/auth.js';
-import { NotFoundError, ForbiddenError } from '../lib/errors.js';
-import { broadcastNotification } from '../services/notifications.js';
+import { prisma } from '../../lib/prisma.js';
+import { validate } from '../../middleware/validate.js';
+import { requireAuth, requireRole } from '../../middleware/auth.js';
+import { NotFoundError, ForbiddenError } from '../../lib/errors.js';
+import { broadcastNotification } from '../../services/notifications.js';
+import { logAudit } from '../../services/audit.js';
+import { ROLES } from '../../services/rbac.js';
 
-export const adminRouter = Router();
+export const adminCoreRouter = Router();
 
-// All admin routes require auth + at least moderator role
-adminRouter.use(requireAuth);
-adminRouter.use(requireRole('moderator', 'admin'));
+// All admin routes require auth + at least moderator role (legacy gate —
+// the granular modules mount their own requirePermission checks).
+adminCoreRouter.use(requireAuth);
+adminCoreRouter.use(requireRole('moderator', 'admin'));
 
 // ─── Schemas ──────────────────────────────────────────
 
@@ -20,70 +23,76 @@ const ListQuery = z.object({
   search: z.string().max(100).optional(),
 });
 
-const IdParams = z.object({
-  id: z.string().uuid(),
-});
+const IdParams = z.object({ id: z.string().uuid() });
 
 const SetRoleSchema = z.object({
-  role: z.enum(['user', 'moderator', 'admin']),
+  role: z.string().min(1).max(40),
+  rolePermissions: z.array(z.string().min(1).max(60)).max(100).optional(),
 });
 
-const WikiParams = z.object({
-  slug: z.string().min(1),
-});
+const WikiParams = z.object({ slug: z.string().min(1) });
 
 const ReportsQuery = z.object({
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
-  status: z.enum(['pending', 'resolved', 'dismissed']).optional(),
+  status: z.enum(['pending', 'resolved', 'dismissed', 'escalated']).optional(),
 });
 
 const ResolveReportSchema = z.object({
-  status: z.enum(['resolved', 'dismissed']),
+  status: z.enum(['resolved', 'dismissed', 'escalated']),
+  note: z.string().max(500).optional(),
+});
+
+const BroadcastSchema = z.object({
+  type: z.enum(['system', 'announcement', 'security', 'moderator', 'recommendation', 'milestone']),
+  title: z.string().min(1).max(140),
+  body: z.string().max(1000).optional(),
+  link: z.string().max(500).optional(),
+  imageUrl: z.string().max(500).optional(),
+  priority: z.enum(['critical', 'high', 'normal', 'silent', 'background']).optional(),
+  audience: z.enum(['all', 'logged_in', 'moderators']).default('all'),
+});
+
+const TemplateSchema = z.object({
+  key: z.string().min(1).max(80),
+  name: z.string().min(1).max(120),
+  type: z.string().min(1).max(40),
+  category: z.string().default('system'),
+  priority: z.enum(['critical', 'high', 'normal', 'silent', 'background']).default('normal'),
+  title: z.string().min(1).max(200),
+  body: z.string().max(1000).optional(),
+  link: z.string().max(500).optional(),
+  active: z.boolean().default(true),
+});
+
+// ─── GET /api/admin/roles ─────────────────────────────
+// Exposes the role catalog (for the RBAC UI).
+
+adminCoreRouter.get('/roles', async (_req, res) => {
+  res.json({ success: true, data: { items: ROLES } });
 });
 
 // ─── GET /api/admin/stats ─────────────────────────────
 
-adminRouter.get('/stats', async (_req, res, next) => {
+adminCoreRouter.get('/stats', async (_req, res, next) => {
   try {
-    const [
-      users,
-      posts,
-      comments,
-      clubs,
-      wikiPages,
-      predictions,
-      openPredictions,
-      reviews,
-      chapters,
-      pendingReports,
-    ] = await Promise.all([
-      prisma.user.count(),
-      prisma.communityPost.count(),
-      prisma.postComment.count(),
-      prisma.readingClub.count(),
-      prisma.wikiPage.count(),
-      prisma.prediction.count(),
-      prisma.prediction.count({ where: { result: null, resolvesAt: { gt: new Date() } } }),
-      prisma.review.count(),
-      prisma.chapter.count(),
-      prisma.contentReport.count({ where: { status: 'pending' } }),
-    ]);
+    const [users, posts, comments, clubs, wikiPages, predictions, openPredictions, reviews, chapters, pendingReports] =
+      await Promise.all([
+        prisma.user.count(),
+        prisma.communityPost.count(),
+        prisma.postComment.count(),
+        prisma.readingClub.count(),
+        prisma.wikiPage.count(),
+        prisma.prediction.count(),
+        prisma.prediction.count({ where: { result: null, resolvesAt: { gt: new Date() } } }),
+        prisma.review.count(),
+        prisma.chapter.count(),
+        prisma.contentReport.count({ where: { status: 'pending' } }),
+      ]);
 
     res.json({
       success: true,
-      data: {
-        users,
-        posts,
-        comments,
-        clubs,
-        wikiPages,
-        predictions,
-        openPredictions,
-        reviews,
-        chapters,
-        pendingReports,
-      },
+      data: { users, posts, comments, clubs, wikiPages, predictions, openPredictions, reviews, chapters, pendingReports },
     });
   } catch (err) {
     next(err);
@@ -92,7 +101,7 @@ adminRouter.get('/stats', async (_req, res, next) => {
 
 // ─── GET /api/admin/users ─────────────────────────────
 
-adminRouter.get('/users', validate({ query: ListQuery }), async (req, res, next) => {
+adminCoreRouter.get('/users', validate({ query: ListQuery }), async (req, res, next) => {
   try {
     const query = req.query as unknown as z.infer<typeof ListQuery>;
     const { page, limit, search } = query;
@@ -119,8 +128,10 @@ adminRouter.get('/users', validate({ query: ListQuery }), async (req, res, next)
           avatarUrl: true,
           role: true,
           streakDays: true,
+          bannedAt: true,
+          suspendedUntil: true,
           createdAt: true,
-          _count: { select: { communityPosts: true, postComments: true, reviews: true } },
+          _count: { select: { communityPosts: true, postComments: true, reviews: true, warningsReceived: { where: { active: true } } } },
         },
       }),
       prisma.user.count({ where }),
@@ -132,6 +143,9 @@ adminRouter.get('/users', validate({ query: ListQuery }), async (req, res, next)
         items: users.map((u) => ({
           ...u,
           createdAt: u.createdAt.toISOString(),
+          bannedAt: u.bannedAt?.toISOString() ?? null,
+          suspendedUntil: u.suspendedUntil?.toISOString() ?? null,
+          warnings: u._count.warningsReceived,
         })),
         total,
         page,
@@ -146,33 +160,74 @@ adminRouter.get('/users', validate({ query: ListQuery }), async (req, res, next)
 
 // ─── PATCH /api/admin/users/:id/role ──────────────────
 
-adminRouter.patch('/users/:id/role', requireRole('admin'), validate({ params: IdParams, body: SetRoleSchema }), async (req, res, next) => {
+adminCoreRouter.patch('/users/:id/role', requireRole('admin'), validate({ params: IdParams, body: SetRoleSchema }), async (req, res, next) => {
   try {
     const id = req.params.id as string;
     const body = req.body as z.infer<typeof SetRoleSchema>;
 
-    // Resolve the acting user's DB id from their firebase uid
-    const acting = await prisma.user.findUnique({
-      where: { firebaseUid: req.user!.uid },
-      select: { id: true },
-    });
+    const acting = await prisma.user.findUnique({ where: { firebaseUid: req.user!.uid }, select: { id: true } });
     if (!acting) throw new NotFoundError('User');
 
-    // Admins cannot change their own role (prevents locking out the last admin)
     if (acting.id === id) {
       throw new ForbiddenError('You cannot change your own role');
     }
 
-    const target = await prisma.user.findUnique({
-      where: { id },
-      select: { id: true, role: true },
-    });
+    const target = await prisma.user.findUnique({ where: { id }, select: { id: true, role: true } });
     if (!target) throw new NotFoundError('User', id);
 
     const updated = await prisma.user.update({
       where: { id },
-      data: { role: body.role },
+      data: {
+        role: body.role,
+        ...(body.rolePermissions !== undefined ? { rolePermissions: body.rolePermissions as never } : {}),
+      },
       select: { id: true, displayName: true, email: true, role: true },
+    });
+
+    await logAudit({
+      actorId: acting.id,
+      action: 'role.change',
+      resource: 'user',
+      resourceId: id,
+      targetUserId: id,
+      details: { from: target.role, to: body.role },
+      ip: req.ip,
+    });
+
+    res.json({ success: true, data: updated });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── PATCH /api/admin/users/:id/permissions ───────────
+// Granular override (add "x:y", remove "-x:y").
+
+const PermissionsSchema = z.object({
+  rolePermissions: z.array(z.string().min(1).max(60)).max(100),
+});
+
+adminCoreRouter.patch('/users/:id/permissions', validate({ params: IdParams, body: PermissionsSchema }), async (req, res, next) => {
+  try {
+    const id = req.params.id as string;
+    const body = req.body as z.infer<typeof PermissionsSchema>;
+    const acting = await prisma.user.findUnique({ where: { firebaseUid: req.user!.uid }, select: { id: true } });
+    if (!acting) throw new NotFoundError('User');
+
+    const updated = await prisma.user.update({
+      where: { id },
+      data: { rolePermissions: body.rolePermissions as never },
+      select: { id: true, displayName: true, role: true },
+    });
+
+    await logAudit({
+      actorId: acting.id,
+      action: 'role.permissions',
+      resource: 'user',
+      resourceId: id,
+      targetUserId: id,
+      details: { permissions: body.rolePermissions },
+      ip: req.ip,
     });
 
     res.json({ success: true, data: updated });
@@ -183,8 +238,7 @@ adminRouter.patch('/users/:id/role', requireRole('admin'), validate({ params: Id
 
 // ─── Moderation: posts ────────────────────────────────
 
-// List recent posts (for moderation queue)
-adminRouter.get('/posts', validate({ query: ListQuery }), async (req, res, next) => {
+adminCoreRouter.get('/posts', validate({ query: ListQuery }), async (req, res, next) => {
   try {
     const query = req.query as unknown as z.infer<typeof ListQuery>;
     const { page, limit } = query;
@@ -229,8 +283,7 @@ adminRouter.get('/posts', validate({ query: ListQuery }), async (req, res, next)
 
 // ─── Moderation: content reports (flags) ─────────────
 
-// List content reports with optional status filter
-adminRouter.get('/reports', validate({ query: ReportsQuery }), async (req, res, next) => {
+adminCoreRouter.get('/reports', validate({ query: ReportsQuery }), async (req, res, next) => {
   try {
     const query = req.query as unknown as z.infer<typeof ReportsQuery>;
     const { page, limit, status } = query;
@@ -239,8 +292,6 @@ adminRouter.get('/reports', validate({ query: ReportsQuery }), async (req, res, 
     const where: Record<string, unknown> = {};
     if (status) where.status = status;
 
-    // Newest first. The UI always passes a status filter (defaulting to
-    // 'pending') so the queue is surfaced pending-first by construction.
     const [reports, total] = await Promise.all([
       prisma.contentReport.findMany({
         where,
@@ -255,7 +306,6 @@ adminRouter.get('/reports', validate({ query: ReportsQuery }), async (req, res, 
       prisma.contentReport.count({ where }),
     ]);
 
-    // Attach a preview of the reported content by type (batched, no N+1)
     const postIds = reports.filter((r) => r.contentType === 'post').map((r) => r.targetId);
     const commentIds = reports.filter((r) => r.contentType === 'comment').map((r) => r.targetId);
     const wikiIds = reports.filter((r) => r.contentType === 'wiki').map((r) => r.targetId);
@@ -327,16 +377,13 @@ adminRouter.get('/reports', validate({ query: ReportsQuery }), async (req, res, 
 });
 
 // Update a report's status (moderator+)
-adminRouter.patch('/reports/:id', validate({ params: IdParams, body: ResolveReportSchema }), async (req, res, next) => {
+
+adminCoreRouter.patch('/reports/:id', validate({ params: IdParams, body: ResolveReportSchema }), async (req, res, next) => {
   try {
     const id = req.params.id as string;
     const body = req.body as z.infer<typeof ResolveReportSchema>;
 
-    // Resolve the acting user's DB id from their firebase uid
-    const acting = await prisma.user.findUnique({
-      where: { firebaseUid: req.user!.uid },
-      select: { id: true },
-    });
+    const acting = await prisma.user.findUnique({ where: { firebaseUid: req.user!.uid }, select: { id: true } });
     if (!acting) throw new NotFoundError('User');
 
     const report = await prisma.contentReport.findUnique({ where: { id }, select: { id: true, status: true } });
@@ -344,12 +391,17 @@ adminRouter.patch('/reports/:id', validate({ params: IdParams, body: ResolveRepo
 
     const updated = await prisma.contentReport.update({
       where: { id },
-      data: {
-        status: body.status,
-        resolvedById: acting.id,
-        resolvedAt: new Date(),
-      },
+      data: { status: body.status, resolvedById: acting.id, resolvedAt: new Date() },
       select: { id: true, status: true, resolvedAt: true },
+    });
+
+    await logAudit({
+      actorId: acting.id,
+      action: 'report.update',
+      resource: 'report',
+      resourceId: id,
+      details: { from: report.status, to: body.status, note: body.note ?? null },
+      ip: req.ip,
     });
 
     res.json({
@@ -362,13 +414,16 @@ adminRouter.patch('/reports/:id', validate({ params: IdParams, body: ResolveRepo
 });
 
 // Delete any post (moderator+)
-adminRouter.delete('/posts/:id', validate({ params: IdParams }), async (req, res, next) => {
+
+adminCoreRouter.delete('/posts/:id', validate({ params: IdParams }), async (req, res, next) => {
   try {
     const id = req.params.id as string;
     const post = await prisma.communityPost.findUnique({ where: { id }, select: { id: true } });
     if (!post) throw new NotFoundError('Post', id);
 
     await prisma.communityPost.delete({ where: { id } });
+    const acting = await prisma.user.findUnique({ where: { firebaseUid: req.user!.uid }, select: { id: true } });
+    await logAudit({ actorId: acting?.id ?? null, action: 'post.delete', resource: 'post', resourceId: id, ip: req.ip });
     res.json({ success: true, data: { deleted: true, id } });
   } catch (err) {
     next(err);
@@ -377,8 +432,7 @@ adminRouter.delete('/posts/:id', validate({ params: IdParams }), async (req, res
 
 // ─── Moderation: comments ─────────────────────────────
 
-// List recent comments (for moderation queue)
-adminRouter.get('/comments', validate({ query: ListQuery }), async (req, res, next) => {
+adminCoreRouter.get('/comments', validate({ query: ListQuery }), async (req, res, next) => {
   try {
     const query = req.query as unknown as z.infer<typeof ListQuery>;
     const { page, limit } = query;
@@ -400,13 +454,7 @@ adminRouter.get('/comments', validate({ query: ListQuery }), async (req, res, ne
     res.json({
       success: true,
       data: {
-        items: comments.map((c) => ({
-          id: c.id,
-          body: c.body,
-          author: c.author,
-          post: c.post,
-          createdAt: c.createdAt.toISOString(),
-        })),
+        items: comments.map((c) => ({ id: c.id, body: c.body, author: c.author, post: c.post, createdAt: c.createdAt.toISOString() })),
         total,
         page,
         limit,
@@ -418,14 +466,15 @@ adminRouter.get('/comments', validate({ query: ListQuery }), async (req, res, ne
   }
 });
 
-// Delete any comment (moderator+)
-adminRouter.delete('/comments/:id', validate({ params: IdParams }), async (req, res, next) => {
+adminCoreRouter.delete('/comments/:id', validate({ params: IdParams }), async (req, res, next) => {
   try {
     const id = req.params.id as string;
     const comment = await prisma.postComment.findUnique({ where: { id }, select: { id: true } });
     if (!comment) throw new NotFoundError('Comment', id);
 
     await prisma.postComment.delete({ where: { id } });
+    const acting = await prisma.user.findUnique({ where: { firebaseUid: req.user!.uid }, select: { id: true } });
+    await logAudit({ actorId: acting?.id ?? null, action: 'comment.delete', resource: 'comment', resourceId: id, ip: req.ip });
     res.json({ success: true, data: { deleted: true, id } });
   } catch (err) {
     next(err);
@@ -434,8 +483,7 @@ adminRouter.delete('/comments/:id', validate({ params: IdParams }), async (req, 
 
 // ─── Moderation: wiki pages ───────────────────────────
 
-// List wiki pages (for moderation queue)
-adminRouter.get('/wiki', validate({ query: ListQuery }), async (req, res, next) => {
+adminCoreRouter.get('/wiki', validate({ query: ListQuery }), async (req, res, next) => {
   try {
     const query = req.query as unknown as z.infer<typeof ListQuery>;
     const { page, limit } = query;
@@ -477,18 +525,17 @@ adminRouter.get('/wiki', validate({ query: ListQuery }), async (req, res, next) 
   }
 });
 
-// Delete a wiki page by title slug (moderator+)
-adminRouter.delete('/wiki/:slug', validate({ params: WikiParams }), async (req, res, next) => {
+adminCoreRouter.delete('/wiki/:slug', validate({ params: WikiParams }), async (req, res, next) => {
   try {
     const slug = req.params.slug as string;
     const title = await prisma.title.findUnique({ where: { slug }, select: { id: true } });
     if (!title) throw new NotFoundError('Title', slug);
 
-    const deleted = await prisma.wikiPage.deleteMany({
-      where: { titleId: title.id, slug },
-    });
+    const deleted = await prisma.wikiPage.deleteMany({ where: { titleId: title.id, slug } });
     if (deleted.count === 0) throw new NotFoundError('WikiPage', slug);
 
+    const acting = await prisma.user.findUnique({ where: { firebaseUid: req.user!.uid }, select: { id: true } });
+    await logAudit({ actorId: acting?.id ?? null, action: 'wiki.delete', resource: 'wiki', resourceId: slug, ip: req.ip });
     res.json({ success: true, data: { deleted: true, slug } });
   } catch (err) {
     next(err);
@@ -497,8 +544,7 @@ adminRouter.delete('/wiki/:slug', validate({ params: WikiParams }), async (req, 
 
 // ─── Moderation: clubs ────────────────────────────────
 
-// List clubs (for moderation queue)
-adminRouter.get('/clubs', validate({ query: ListQuery }), async (req, res, next) => {
+adminCoreRouter.get('/clubs', validate({ query: ListQuery }), async (req, res, next) => {
   try {
     const query = req.query as unknown as z.infer<typeof ListQuery>;
     const { page, limit } = query;
@@ -509,39 +555,29 @@ adminRouter.get('/clubs', validate({ query: ListQuery }), async (req, res, next)
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
-        select: {
-          id: true,
-          name: true,
-          memberCount: true,
-          createdAt: true,
-        },
+        select: { id: true, name: true, memberCount: true, createdAt: true },
       }),
       prisma.readingClub.count(),
     ]);
 
     res.json({
       success: true,
-      data: {
-        items: clubs.map((c) => ({ ...c, createdAt: c.createdAt.toISOString() })),
-        total,
-        page,
-        limit,
-        hasMore: skip + clubs.length < total,
-      },
+      data: { items: clubs.map((c) => ({ ...c, createdAt: c.createdAt.toISOString() })), total, page, limit, hasMore: skip + clubs.length < total },
     });
   } catch (err) {
     next(err);
   }
 });
 
-// Delete a club (moderator+)
-adminRouter.delete('/clubs/:id', validate({ params: IdParams }), async (req, res, next) => {
+adminCoreRouter.delete('/clubs/:id', validate({ params: IdParams }), async (req, res, next) => {
   try {
     const id = req.params.id as string;
     const club = await prisma.readingClub.findUnique({ where: { id }, select: { id: true } });
     if (!club) throw new NotFoundError('ReadingClub', id);
 
     await prisma.readingClub.delete({ where: { id } });
+    const acting = await prisma.user.findUnique({ where: { firebaseUid: req.user!.uid }, select: { id: true } });
+    await logAudit({ actorId: acting?.id ?? null, action: 'club.delete', resource: 'club', resourceId: id, ip: req.ip });
     res.json({ success: true, data: { deleted: true, id } });
   } catch (err) {
     next(err);
@@ -550,10 +586,7 @@ adminRouter.delete('/clubs/:id', validate({ params: IdParams }), async (req, res
 
 // ═══ Engagement tools (Phase 10) ═══════════════════════
 
-// ─── GET /api/admin/engagement/stats ───────────────────
-// Delivery analytics: volumes per day/category/priority, push reach.
-
-adminRouter.get('/engagement/stats', async (_req, res, next) => {
+adminCoreRouter.get('/engagement/stats', async (_req, res, next) => {
   try {
     const days = 7;
     const since = new Date(Date.now() - days * 86_400_000);
@@ -566,9 +599,7 @@ adminRouter.get('/engagement/stats', async (_req, res, next) => {
       prisma.notification.count(),
       prisma.pushSubscription.count(),
       prisma.announcement.count(),
-      prisma.user.count({
-        where: { notificationPrefs: { path: ['digest'], not: 'off' } },
-      }),
+      prisma.user.count({ where: { notificationPrefs: { path: ['digest'], not: 'off' } } }),
     ]);
 
     const perDay = new Map<string, number>();
@@ -584,13 +615,7 @@ adminRouter.get('/engagement/stats', async (_req, res, next) => {
     res.json({
       success: true,
       data: {
-        totals: {
-          notifications: totals,
-          last7Days: recent.length,
-          pushSubscriptions: pushSubs,
-          announcements,
-          digestEnabledUsers: digestUsers,
-        },
+        totals: { notifications: totals, last7Days: recent.length, pushSubscriptions: pushSubs, announcements, digestEnabledUsers: digestUsers },
         perDay: Object.fromEntries([...perDay.entries()].sort()),
         byCategory: Object.fromEntries(byCategory),
         byPriority: Object.fromEntries(byPriority),
@@ -601,20 +626,7 @@ adminRouter.get('/engagement/stats', async (_req, res, next) => {
   }
 });
 
-// ─── POST /api/admin/notifications/broadcast ───────────
-// Composer: send a notification to an audience (with push for high/critical).
-
-const BroadcastSchema = z.object({
-  type: z.enum(['system', 'announcement', 'security', 'moderator', 'recommendation', 'milestone']),
-  title: z.string().min(1).max(140),
-  body: z.string().max(1000).optional(),
-  link: z.string().max(500).optional(),
-  imageUrl: z.string().max(500).optional(),
-  priority: z.enum(['critical', 'high', 'normal', 'silent', 'background']).optional(),
-  audience: z.enum(['all', 'logged_in', 'moderators']).default('all'),
-});
-
-adminRouter.post('/notifications/broadcast', validate({ body: BroadcastSchema }), async (req, res, next) => {
+adminCoreRouter.post('/notifications/broadcast', validate({ body: BroadcastSchema }), async (req, res, next) => {
   try {
     const body = req.body as z.infer<typeof BroadcastSchema>;
     const sent = await broadcastNotification({
@@ -626,6 +638,14 @@ adminRouter.post('/notifications/broadcast', validate({ body: BroadcastSchema })
       priority: body.priority,
       audience: body.audience,
     });
+    const acting = await prisma.user.findUnique({ where: { firebaseUid: req.user!.uid }, select: { id: true } });
+    await logAudit({
+      actorId: acting?.id ?? null,
+      action: 'notification.broadcast',
+      resource: 'notification',
+      details: { type: body.type, audience: body.audience, sent },
+      ip: req.ip,
+    });
     res.json({ success: true, data: { sent } });
   } catch (err) {
     next(err);
@@ -634,21 +654,9 @@ adminRouter.post('/notifications/broadcast', validate({ body: BroadcastSchema })
 
 // ─── Notification templates (editor) ───────────────────
 
-const TemplateSchema = z.object({
-  key: z.string().min(1).max(80),
-  name: z.string().min(1).max(120),
-  type: z.string().min(1).max(40),
-  category: z.string().default('system'),
-  priority: z.enum(['critical', 'high', 'normal', 'silent', 'background']).default('normal'),
-  title: z.string().min(1).max(200),
-  body: z.string().max(1000).optional(),
-  link: z.string().max(500).optional(),
-  active: z.boolean().default(true),
-});
-
 const TemplateKeyParams = z.object({ key: z.string().min(1) });
 
-adminRouter.get('/notification-templates', async (_req, res, next) => {
+adminCoreRouter.get('/notification-templates', async (_req, res, next) => {
   try {
     const templates = await prisma.notificationTemplate.findMany({ orderBy: { key: 'asc' } });
     res.json({ success: true, data: { items: templates } });
@@ -657,35 +665,30 @@ adminRouter.get('/notification-templates', async (_req, res, next) => {
   }
 });
 
-adminRouter.post('/notification-templates', validate({ body: TemplateSchema }), async (req, res, next) => {
+adminCoreRouter.post('/notification-templates', validate({ body: TemplateSchema }), async (req, res, next) => {
   try {
     const body = req.body as z.infer<typeof TemplateSchema>;
-    const created = await prisma.notificationTemplate.upsert({
-      where: { key: body.key },
-      create: body,
-      update: body,
-    });
+    const created = await prisma.notificationTemplate.upsert({ where: { key: body.key }, create: body, update: body });
+    const acting = await prisma.user.findUnique({ where: { firebaseUid: req.user!.uid }, select: { id: true } });
+    await logAudit({ actorId: acting?.id ?? null, action: 'template.update', resource: 'notification_template', resourceId: body.key, ip: req.ip });
     res.status(201).json({ success: true, data: created });
   } catch (err) {
     next(err);
   }
 });
 
-adminRouter.patch('/notification-templates/:key', validate({ params: TemplateKeyParams, body: TemplateSchema.partial() }), async (req, res, next) => {
+adminCoreRouter.patch('/notification-templates/:key', validate({ params: TemplateKeyParams, body: TemplateSchema.partial() }), async (req, res, next) => {
   try {
     const { key } = req.params as unknown as z.infer<typeof TemplateKeyParams>;
     const body = req.body as Partial<z.infer<typeof TemplateSchema>>;
-    const updated = await prisma.notificationTemplate.update({
-      where: { key },
-      data: body,
-    });
+    const updated = await prisma.notificationTemplate.update({ where: { key }, data: body });
     res.json({ success: true, data: updated });
   } catch (err) {
     next(err);
   }
 });
 
-adminRouter.delete('/notification-templates/:key', validate({ params: TemplateKeyParams }), async (req, res, next) => {
+adminCoreRouter.delete('/notification-templates/:key', validate({ params: TemplateKeyParams }), async (req, res, next) => {
   try {
     const { key } = req.params as unknown as z.infer<typeof TemplateKeyParams>;
     await prisma.notificationTemplate.deleteMany({ where: { key } });

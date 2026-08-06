@@ -47,11 +47,17 @@ authRouter.post('/register', validate({ body: RegisterSchema }), async (req, res
       throw new ConflictError('A user with this email already exists');
     }
 
+    // The first account registered in dev mode becomes the local admin — dev
+    // login always returns the first user, so this gives the person running
+    // the stack one admin account to explore the Phase 11 admin console.
+    const wasFirstUser = (await prisma.user.count()) === 0;
+
     const user = await prisma.user.create({
       data: {
         email,
         displayName,
         firebaseUid: firebaseUid ?? null,
+        ...(wasFirstUser && config.devAuth ? { role: 'admin' } : {}),
       },
     });
 
@@ -101,7 +107,15 @@ authRouter.post('/login', validate({ body: LoginSchema }), async (req, res, next
     // Dev fallback (config.devAuth — never in production): accept a dev token
     // formatted as dev_<dbUserId> so the full stack stays testable locally.
     if (config.devAuth && !firebaseConfigured()) {
-      let user = await prisma.user.findFirst();
+      // Deterministic + admin-preferring: sign in lands on the oldest admin
+      // (stable across runs — findFirst() without ORDER BY is arbitrary in
+      // Postgres), falling back to the oldest user when no admin exists yet.
+      let user =
+        (await prisma.user.findFirst({
+          where: { role: { in: ['admin', 'super_admin', 'platform_admin'] } },
+          orderBy: { createdAt: 'asc' },
+        })) ??
+        (await prisma.user.findFirst({ orderBy: { createdAt: 'asc' } }));
       if (!user) {
         res.status(401).json({
           success: false,
@@ -113,6 +127,14 @@ authRouter.post('/login', validate({ body: LoginSchema }), async (req, res, next
       // resolve for rows created before this backfill existed.
       if (!user.firebaseUid) {
         user = await prisma.user.update({ where: { id: user.id }, data: { firebaseUid: user.id } });
+      }
+
+      // Dev convenience: if no admin exists on the stack yet, promote the
+      // first user so the Phase 11 admin console is reachable by simply
+      // signing in. Prod flow untouched (devAuth is never on there).
+      const adminCount = await prisma.user.count({ where: { role: { in: ['admin', 'super_admin', 'platform_admin'] } } });
+      if (adminCount === 0) {
+        user = await prisma.user.update({ where: { id: user.id }, data: { role: 'admin' } });
       }
       res.json({
         success: true,

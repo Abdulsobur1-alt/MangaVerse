@@ -23,6 +23,12 @@ model User {
   // Personalization prefs (library view mode, preferred genres, etc.) —
   // synced across devices via the API (Phase 7).
   prefs            Json?    @default("{}") @map("prefs")
+  // ─── Admin platform (Phase 11) ──────────────────────
+  // Granular permission overrides (resource:action pairs) layered on the
+  // role's base matrix. Bans/suspensions gate auth middleware.
+  rolePermissions  Json?     @map("role_permissions")
+  bannedAt         DateTime? @map("banned_at")
+  suspendedUntil   DateTime? @map("suspended_until")
 
   // ─── Identity (Phase 9) ─────────────────────────────
   bio             String?  @db.Text
@@ -71,6 +77,17 @@ model User {
   notifications    Notification[]
   announcements    Announcement[]
   announcementDismissals AnnouncementDismissal[]
+  auditLogsMade    AuditLog[]         @relation("AuditLogsMade")
+  auditLogsTargeted AuditLog[]        @relation("AuditLogsTargeted")
+  warningsGiven    UserWarning[]      @relation("WarningsGiven")
+  warningsReceived UserWarning[]      @relation("WarningsTargeted")
+  ticketsOwned     SupportTicket[]    @relation("TicketsOwned")
+  ticketsAssigned  SupportTicket[]    @relation("TicketsAssigned")
+  mediaAssets      MediaAsset[]
+  contentRevisions ContentRevision[]
+  editorialPicks   EditorialPick[]
+  flagOverrides    FeatureFlagOverride[]
+  settingsUpdated  PlatformSetting[]
   creatorProfile   Creator?
   communityPosts   CommunityPost[]
   postVotes        PostVote[]
@@ -157,6 +174,7 @@ model Title {
   wikiPages        WikiPage[]
   predictions      Prediction[]
   communityPosts   CommunityPost[]
+  editorialPicks   EditorialPick[]
 
   @@index([slug])
   @@index([type, status])
@@ -778,6 +796,189 @@ model NotificationTemplate {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("notification_templates")
+}
+
+// ═══ Phase 11 — Admin Platform ═══════════════════════
+
+// ─── Audit Logs ───────────────────────────────────────
+// Every critical action is logged: role changes, publishes, bans,
+// feature toggles, settings edits, moderator resolutions, impersonation.
+
+model AuditLog {
+  id           String   @id @default(uuid()) @db.Uuid
+  actorId      String?  @map("actor_id") @db.Uuid
+  action       String   // e.g. "role.change", "title.publish", "user.ban"
+  resource     String   // e.g. "user", "title", "chapter", "feature_flag"
+  resourceId   String?  @map("resource_id")
+  targetUserId String?  @map("target_user_id") @db.Uuid
+  details      Json?
+  ip           String?
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  actor      User? @relation("AuditLogsMade", fields: [actorId], references: [id], onDelete: SetNull)
+  targetUser User? @relation("AuditLogsTargeted", fields: [targetUserId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([resource, action])
+  @@index([actorId])
+  @@map("audit_logs")
+}
+
+// ─── Feature Flags ────────────────────────────────────
+// Kill switches, beta features, experiments and seasonal events — with
+// rollout percentages and per-user overrides.
+
+model FeatureFlag {
+  id           String   @id @default(uuid()) @db.Uuid
+  key          String   @unique
+  name         String
+  description  String?
+  enabled      Boolean  @default(false)
+  rolloutPct   Int      @default(100) @map("rollout_pct")
+  environments String[] @default([])
+  updatedById  String?  @map("updated_by_id") @db.Uuid
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  overrides FeatureFlagOverride[]
+
+  @@index([enabled])
+  @@map("feature_flags")
+}
+
+model FeatureFlagOverride {
+  id      String  @id @default(uuid()) @db.Uuid
+  flagId  String  @map("flag_id") @db.Uuid
+  userId  String  @map("user_id") @db.Uuid
+  enabled Boolean
+
+  flag FeatureFlag @relation(fields: [flagId], references: [id], onDelete: Cascade)
+  user User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([flagId, userId])
+  @@map("feature_flag_overrides")
+}
+
+// ─── Support Tickets ──────────────────────────────────
+// Internal ticketing with assignment, priority and threaded internal notes.
+
+model SupportTicket {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  subject       String
+  body          String   @db.Text
+  status        String   @default("open") // open | in_progress | resolved | closed
+  priority      String   @default("normal") // low | normal | high | urgent
+  assigneeId    String?  @map("assignee_id") @db.Uuid
+  internalNotes Json?    @default("[]") @map("internal_notes") // [{actorName, body, at}]
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  user     User  @relation("TicketsOwned", fields: [userId], references: [id], onDelete: Cascade)
+  assignee User? @relation("TicketsAssigned", fields: [assigneeId], references: [id], onDelete: SetNull)
+
+  @@index([status, priority])
+  @@index([assigneeId])
+  @@map("support_tickets")
+}
+
+// ─── User Warnings / Moderation ───────────────────────
+// Warn → mute → suspend → ban ladder, each an auditable record.
+
+model UserWarning {
+  id            String    @id @default(uuid()) @db.Uuid
+  userId        String    @map("user_id") @db.Uuid
+  actorId       String?   @map("actor_id") @db.Uuid
+  reason        String
+  severity      String    // notice | warning | mute | suspend | ban
+  durationHours Int?      @map("duration_hours")
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  user  User? @relation("WarningsTargeted", fields: [userId], references: [id], onDelete: Cascade)
+  actor User? @relation("WarningsGiven", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([userId, active])
+  @@index([severity])
+  @@map("user_warnings")
+}
+
+// ─── Media Library ────────────────────────────────────
+// Centralized asset manager: covers, banners, icons, illustrations.
+
+model MediaAsset {
+  id          String   @id @default(uuid()) @db.Uuid
+  url         String
+  type        String   @default("image") // image | banner | cover | icon | video
+  name        String?
+  size        Int?     // bytes
+  width       Int?
+  height      Int?
+  tags        String[] @default([])
+  folder      String?
+  usageCount  Int      @default(0) @map("usage_count")
+  createdById String?  @map("created_by_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  createdBy User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([type, folder])
+  @@map("media_assets")
+}
+
+// ─── Content Revisions ────────────────────────────────
+// Generic version history for CMS entities (title, chapter, editorial
+// pick) — supports preview of old versions and rollback.
+
+model ContentRevision {
+  id         String   @id @default(uuid()) @db.Uuid
+  entityType String   @map("entity_type") // title | chapter | editorial_pick
+  entityId   String   @map("entity_id")
+  version    Int
+  data       Json
+  note       String?
+  actorId    String?  @map("actor_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@unique([entityType, entityId, version])
+  @@index([entityType, entityId])
+  @@map("content_revisions")
+}
+
+// ─── Editorial Picks / Featured Content ───────────────
+
+model EditorialPick {
+  id          String    @id @default(uuid()) @db.Uuid
+  titleId     String    @map("title_id") @db.Uuid
+  position    Int       @default(0)
+  label       String?
+  active      Boolean   @default(true)
+  startsAt    DateTime? @map("starts_at")
+  endsAt      DateTime? @map("ends_at")
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  title     Title @relation(fields: [titleId], references: [id], onDelete: Cascade)
+  createdBy User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([active, position])
+  @@map("editorial_picks")
+}
+
+// ─── Platform Settings ────────────────────────────────
+// Branding, homepage, SEO, maintenance mode, integrations… key/value.
+
+model PlatformSetting {
+  id          String    @id @default(uuid()) @db.Uuid
+  key         String    @unique
+  value       Json
+  updatedById String?   @map("updated_by_id") @db.Uuid
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  updatedBy User? @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@map("platform_settings")
 }
 
 // ─── Creators ──────────────────────────────────────────
