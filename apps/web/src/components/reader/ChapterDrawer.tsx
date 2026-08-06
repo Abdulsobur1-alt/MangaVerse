@@ -6,6 +6,7 @@ import { Icon } from '@/components/ui/Icon';
 import { useChapters } from '@/lib/hooks/useChapters';
 import { useReadingProgress } from '@/lib/hooks/useReading';
 import { useAuthStore } from '@/store/authStore';
+import { enqueueDownload, removeDownload, cancelDownload, useDownloads } from '@/lib/downloads';
 import { cn } from '@/lib/cn';
 
 /* ═══════════════════════════════════════════════════════════════
@@ -20,15 +21,18 @@ interface ChapterDrawerProps {
   onClose: () => void;
   seriesSlug: string;
   seriesTitle: string;
+  seriesTitleId: string;
+  coverUrl: string | null;
   currentChapterId: string;
 }
 
-export function ChapterDrawer({ open, onClose, seriesSlug, seriesTitle, currentChapterId }: ChapterDrawerProps) {
+export function ChapterDrawer({ open, onClose, seriesSlug, seriesTitle, seriesTitleId, coverUrl, currentChapterId }: ChapterDrawerProps) {
   const router = useRouter();
   const { token } = useAuthStore();
   const [query, setQuery] = useState('');
   const { data } = useChapters(undefined, seriesSlug, { page: 1, limit: 100 });
   const { data: progressData } = useReadingProgress(!!token);
+  const downloads = useDownloads();
 
   // chapterId → completed (for read marks)
   const readMap = useMemo(() => {
@@ -94,33 +98,78 @@ export function ChapterDrawer({ open, onClose, seriesSlug, seriesTitle, currentC
             {chapters.map((ch) => {
               const isCurrent = ch.id === currentChapterId;
               const isRead = readMap.has(ch.id);
+              const dl = downloads.find((d) => d.chapterId === ch.id);
+              const dlBusy = dl?.status === 'queued' || dl?.status === 'downloading';
+              const dlDone = !!dl && !dlBusy;
               return (
-                <button
+                <div
                   key={ch.id}
-                  onClick={() => {
-                    onClose();
-                    router.push(`/reader/${ch.id}`);
-                  }}
                   className={cn(
-                    'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-colors',
-                    isCurrent ? 'bg-mv-accent/20 text-mv-accent' : 'text-mv-text-secondary hover:bg-white/5 hover:text-white',
+                    'group/ch flex items-center gap-1 rounded-lg pl-1 pr-1.5 transition-colors',
+                    isCurrent ? 'bg-mv-accent/20' : 'hover:bg-white/5',
                   )}
                 >
-                  <span
+                  <button
+                    onClick={() => {
+                      onClose();
+                      router.push(`/reader/${ch.id}`);
+                    }}
                     className={cn(
-                      'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[9px]',
-                      isRead ? 'border-mv-success/50 bg-mv-success/15 text-mv-success' : 'border-mv-border-light text-mv-text-dim',
+                      'flex min-w-0 flex-1 items-center gap-2.5 rounded-lg py-2 pl-2 text-left transition-colors',
+                      isCurrent ? 'text-mv-accent' : 'text-mv-text-secondary hover:text-white',
                     )}
                   >
-                    {isRead ? <Icon name="check" size={10} strokeWidth={3} /> : <span>{ch.number}</span>}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[11px] font-medium">Chapter {ch.number}</span>
-                    {ch.title && <span className="block truncate text-[9px] text-mv-text-dim">{ch.title}</span>}
-                  </span>
-                  {ch.coinLocked && !isRead && <Icon name="lock" size={11} className="shrink-0 text-mv-warning" />}
-                  {isCurrent && <Icon name="chevronRight" size={12} className="shrink-0 text-mv-accent" />}
-                </button>
+                    <span
+                      className={cn(
+                        'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[9px]',
+                        isRead ? 'border-mv-success/50 bg-mv-success/15 text-mv-success' : 'border-mv-border-light text-mv-text-dim',
+                      )}
+                    >
+                      {isRead ? <Icon name="check" size={10} strokeWidth={3} /> : <span>{ch.number}</span>}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[11px] font-medium">Chapter {ch.number}</span>
+                      {ch.title && <span className="block truncate text-[9px] text-mv-text-dim">{ch.title}</span>}
+                    </span>
+                    {ch.coinLocked && !isRead && <Icon name="lock" size={11} className="shrink-0 text-mv-warning" />}
+                    {isCurrent && <Icon name="chevronRight" size={12} className="shrink-0 text-mv-accent" />}
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (dlBusy) {
+                        cancelDownload(ch.id);
+                      } else if (dl) {
+                        void removeDownload(ch.id);
+                      } else {
+                        enqueueDownload({
+                          chapterId: ch.id,
+                          titleId: seriesTitleId,
+                          seriesSlug,
+                          seriesTitle,
+                          coverUrl,
+                          chapterNumber: ch.number,
+                          chapterTitle: ch.title,
+                        });
+                      }
+                    }}
+                    aria-label={dlBusy ? `Cancel download of chapter ${ch.number}` : dlDone ? `Remove offline copy of chapter ${ch.number}` : `Download chapter ${ch.number} for offline`}
+                    title={dlBusy ? 'Cancel download' : dlDone ? 'Downloaded — tap to remove' : 'Download for offline'}
+                    className={cn(
+                      'flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors',
+                      dlBusy
+                        ? 'text-mv-warning'
+                        : dlDone
+                          ? 'text-mv-accent'
+                          : 'text-mv-text-dim opacity-0 hover:text-mv-text focus-visible:opacity-100 group-hover/ch:opacity-100',
+                    )}
+                  >
+                    {dlBusy ? (
+                      <span className="h-3 w-3 animate-spin rounded-full border-[1.5px] border-current border-t-transparent" aria-hidden="true" />
+                    ) : (
+                      <Icon name="download" size={12} />
+                    )}
+                  </button>
+                </div>
               );
             })}
           </div>

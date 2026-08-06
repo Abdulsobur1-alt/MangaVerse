@@ -33,9 +33,12 @@ const PRIMARY: NavItem[] = [
 
 const OVERVIEW: NavItem[] = [
   { href: '/history', label: 'History', icon: 'history' },
+  { href: '/bookmarks', label: 'Bookmarks', icon: 'bookmark' },
+  { href: '/lists', label: 'Lists', icon: 'quote' },
   { href: '/dashboard', label: 'Profile', icon: 'dashboard' },
   { href: '/collections', label: 'Collections', icon: 'sparkles' },
   { href: '/goals', label: 'Goals', icon: 'zap' },
+  { href: '/download', label: 'Downloads', icon: 'download' },
   { href: '/notifications', label: 'Alerts', icon: 'bell' },
   { href: '/settings', label: 'Settings', icon: 'settings' },
 ];
@@ -175,12 +178,12 @@ export function Sidebar() {
         <div className="mt-auto flex flex-col gap-1.5 border-t border-mv-border/50 pt-2">
           <Link
             href="/download"
-            title="Get the App"
+            title="Offline downloads"
             className="flex items-center gap-3 rounded-xl px-2.5 py-2.5 text-mv-text-muted transition-colors hover:bg-white/5 hover:text-mv-violet"
           >
-            <Icon name="download" size={20} className="shrink-0" />
+            <Icon name="database" size={20} className="shrink-0" />
             <span className="whitespace-nowrap text-xs font-medium opacity-0 transition-opacity duration-200 group-hover/side:opacity-100">
-              Get the App
+              Offline Library
             </span>
           </Link>
 

@@ -17,6 +17,8 @@ import {
 } from '@/components/reader/readerPrefs';
 import { useUnlockChapter, useCoinBalance } from '@/lib/hooks/useCoins';
 import { COIN_UNLOCK_COST } from '@mangaverse/shared';
+import { useChapterBookmark, useCreateBookmark, useDeleteBookmark } from '@/lib/hooks/useBookmarks';
+import { enqueueDownload, removeDownload, cancelDownload, useDownloads } from '@/lib/downloads';
 import { cn } from '@/lib/cn';
 
 /* ═══════════════════════════════════════════════════════════════
@@ -58,6 +60,10 @@ export default function ReaderPage() {
   const { token } = useAuthStore();
   const unlockChapter = useUnlockChapter();
   const { data: coinData } = useCoinBalance();
+  const { data: serverBookmark } = useChapterBookmark(chapterId, !!token);
+  const createBookmark = useCreateBookmark();
+  const deleteBookmark = useDeleteBookmark();
+  const downloads = useDownloads();
 
   const [pages, setPages] = useState<PageData[]>([]);
   const [currentPage, setCurrentPage] = useState(0);
@@ -177,22 +183,59 @@ export default function ReaderPage() {
   }, [chapterId, token, chapter?.unlocked, chapter?.locked]);
 
   // ─── Bookmark state ──────────────────────────────────
+  // Local store (instant, offline) is mirrored to the server when signed
+  // in — page bookmarks sync across devices (Phase 7 completion).
+  const serverBookmarked = !!serverBookmark;
   useEffect(() => {
-    setBookmarked(chapterId in loadChapterBookmarks());
-  }, [chapterId]);
+    setBookmarked(chapterId in loadChapterBookmarks() || serverBookmarked);
+  }, [chapterId, serverBookmarked]);
 
   const toggleBookmark = useCallback(() => {
-    if (!chapterId) return;
+    if (!chapterId || !chapter) return;
     const all = loadChapterBookmarks();
-    if (chapterId in all) {
+    const hasLocal = chapterId in all;
+    if (hasLocal || serverBookmarked) {
       clearChapterBookmark(chapterId);
       setBookmarked(false);
+      if (hasLocal && serverBookmark?.id && token) deleteBookmark.mutate(serverBookmark.id);
     } else {
       // Use the scroll-derived page so strip/prose bookmarks aren't page 0
       saveChapterBookmark(chapterId, activePageNumber);
       setBookmarked(true);
+      if (token) {
+        createBookmark.mutate({
+          titleId: chapter.series.id,
+          chapterId,
+          pageNumber: activePageNumber,
+          note: `Chapter ${chapter.number}${chapter.title ? ` — ${chapter.title}` : ''}`,
+          folder: 'Reader marks',
+        });
+      }
     }
-  }, [chapterId, activePageNumber]);
+  }, [chapterId, activePageNumber, token, chapter, serverBookmarked, serverBookmark?.id, deleteBookmark, createBookmark]);
+
+  // ─── Download state ───────────────────────────────────
+  const downloadRecord = downloads.find((d) => d.chapterId === chapterId);
+  const downloadBusy = downloadRecord?.status === 'queued' || downloadRecord?.status === 'downloading';
+  const downloaded = !!downloadRecord && !downloadBusy;
+
+  const handleDownload = async () => {
+    if (!chapter) return;
+    if (downloadRecord) {
+      if (downloadBusy) cancelDownload(chapterId);
+      else await removeDownload(chapterId);
+    } else {
+      enqueueDownload({
+        chapterId: chapter.id,
+        titleId: chapter.series.id,
+        seriesSlug: chapter.series.slug,
+        seriesTitle: chapter.series.title,
+        coverUrl: chapter.series.coverUrl,
+        chapterNumber: chapter.number,
+        chapterTitle: chapter.title,
+      });
+    }
+  };
 
   // ─── Resume at saved page (page mode) ────────────────
   useEffect(() => {
@@ -720,6 +763,19 @@ export default function ReaderPage() {
             </span>
           )}
           <button
+            onClick={handleDownload}
+            aria-pressed={downloaded || downloadBusy}
+            aria-label={downloadBusy ? 'Cancel download' : downloaded ? 'Remove offline copy' : 'Download for offline'}
+            title={downloadBusy ? 'Cancel download' : downloaded ? 'Downloaded — tap to remove' : 'Download for offline'}
+            className={cn('flex h-8 w-8 items-center justify-center rounded-lg transition-colors', downloadBusy ? 'text-mv-warning' : downloaded ? 'text-mv-accent' : 'text-mv-text-muted hover:bg-white/5 hover:text-white')}
+          >
+            {downloadBusy ? (
+              <span className="h-3.5 w-3.5 animate-spin rounded-full border-[1.5px] border-current border-t-transparent" aria-hidden="true" />
+            ) : (
+              <Icon name="download" size={15} />
+            )}
+          </button>
+          <button
             onClick={toggleBookmark}
             aria-pressed={bookmarked}
             aria-label={bookmarked ? 'Remove bookmark' : 'Bookmark this page'}
@@ -829,6 +885,8 @@ export default function ReaderPage() {
         onClose={() => setShowDrawer(false)}
         seriesSlug={chapter.series.slug}
         seriesTitle={chapter.series.title}
+        seriesTitleId={chapter.series.id}
+        coverUrl={chapter.series.coverUrl}
         currentChapterId={chapter.id}
       />
 

@@ -182,6 +182,20 @@ export default function LibraryPage() {
                   </span>
                 )}
                 <Link
+                  href="/bookmarks"
+                  className="flex items-center gap-1.5 rounded-full border border-mv-border-light bg-mv-surface/60 px-3 py-1 text-[11px] font-medium text-mv-text-secondary transition-colors hover:border-mv-violet/40 hover:text-mv-violet"
+                >
+                  <Icon name="bookmark" size={12} />
+                  Bookmarks
+                </Link>
+                <Link
+                  href="/download"
+                  className="flex items-center gap-1.5 rounded-full border border-mv-border-light bg-mv-surface/60 px-3 py-1 text-[11px] font-medium text-mv-text-secondary transition-colors hover:border-mv-violet/40 hover:text-mv-violet"
+                >
+                  <Icon name="download" size={12} />
+                  Downloads
+                </Link>
+                <Link
                   href="/goals"
                   className="flex items-center gap-1.5 rounded-full border border-mv-border-light bg-mv-surface/60 px-3 py-1 text-[11px] font-medium text-mv-text-secondary transition-colors hover:border-mv-violet/40 hover:text-mv-violet"
                 >
