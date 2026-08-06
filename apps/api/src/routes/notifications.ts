@@ -15,6 +15,7 @@ notificationsRouter.get('/', async (req, res, next) => {
   try {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 20;
+    const type = (req.query.type as string) || undefined;
     const skip = (page - 1) * limit;
 
     const user = await prisma.user.findUnique({
@@ -23,14 +24,17 @@ notificationsRouter.get('/', async (req, res, next) => {
     });
     if (!user) throw new NotFoundError('User');
 
+    const where: { userId: string; type?: string } = { userId: user.id };
+    if (type) where.type = type;
+
     const [notifications, total] = await Promise.all([
       prisma.notification.findMany({
-        where: { userId: user.id },
+        where,
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
       }),
-      prisma.notification.count({ where: { userId: user.id } }),
+      prisma.notification.count({ where }),
     ]);
 
     res.json({

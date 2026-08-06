@@ -6,7 +6,7 @@ import { requireAuth, optionalAuth } from '../middleware/auth.js';
 import { NotFoundError, ForbiddenError, ConflictError } from '../lib/errors.js';
 import { resolveUserId, debitCoins } from '../services/coins.js';
 import { checkAndAwardAchievements } from '../services/achievements.js';
-import { notifyCommentAdded } from '../services/notifications.js';
+import { notifyCommentAdded, notifyReplyAdded } from '../services/notifications.js';
 import { resolveDuePredictions, computePredictionReturn } from '../services/predictions.js';
 
 export const communityRouter = Router();
@@ -18,6 +18,7 @@ const PostListQuery = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
   tag: z.enum(['theory', 'prediction', 'discussion', 'review']).optional(),
   sort: z.enum(['newest', 'top']).default('newest'),
+  search: z.string().trim().max(120).optional(),
 });
 
 const CreatePostSchema = z.object({
@@ -29,7 +30,24 @@ const CreatePostSchema = z.object({
 
 const AddCommentSchema = z.object({
   body: z.string().min(1).max(5000),
+  parentId: z.string().uuid().optional(),
 });
+
+// Meaningful reactions — one per user per post (Phase 8).
+const REACTIONS = ['upvote', 'helpful', 'insightful', 'funny', 'agree', 'love'] as const;
+
+const ReactSchema = z.object({
+  reaction: z.enum(REACTIONS),
+});
+
+const REACTION_EMOJI: Record<string, string> = {
+  upvote: '👍',
+  helpful: '🤝',
+  insightful: '💡',
+  funny: '😂',
+  agree: '✅',
+  love: '❤️',
+};
 
 const CreateClubSchema = z.object({
   name: z.string().min(3).max(60),
@@ -146,11 +164,17 @@ communityRouter.post('/reports', requireAuth, validate({ body: CreateReportSchem
 communityRouter.get('/posts', optionalAuth, validate({ query: PostListQuery }), async (req, res, next) => {
   try {
     const query = req.query as unknown as z.infer<typeof PostListQuery>;
-    const { page, limit, tag, sort } = query;
+    const { page, limit, tag, sort, search } = query;
     const skip = (page - 1) * limit;
 
     const where: Record<string, unknown> = {};
     if (tag) where.tag = tag;
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: 'insensitive' as const } },
+        { body: { contains: search, mode: 'insensitive' as const } },
+      ];
+    }
 
     const orderBy: Record<string, unknown> =
       sort === 'top' ? { votes: { _count: 'desc' } } : { createdAt: 'desc' };
@@ -170,16 +194,23 @@ communityRouter.get('/posts', optionalAuth, validate({ query: PostListQuery }), 
       prisma.communityPost.count({ where: where as any }),
     ]);
 
-    // Per-user vote state
-    let votedPostIds = new Set<string>();
+    // Reaction tallies per post (one query, grouped by reaction) + per-user state
+    const postIds = posts.map((p) => p.id);
+    const allVotes = postIds.length > 0
+      ? await prisma.postVote.findMany({ where: { postId: { in: postIds } }, select: { postId: true, reaction: true, userId: true } })
+      : [];
+    const reactionCounts = new Map<string, Record<string, number>>();
+    for (const v of allVotes) {
+      const cur = reactionCounts.get(v.postId) ?? {};
+      cur[v.reaction] = (cur[v.reaction] || 0) + 1;
+      reactionCounts.set(v.postId, cur);
+    }
+    let myReactions = new Map<string, string>();
     if (req.user?.uid) {
       try {
         const dbUserId = await resolveUserId(req.user.uid);
-        const votes = await prisma.postVote.findMany({
-          where: { userId: dbUserId, postId: { in: posts.map((p) => p.id) } },
-          select: { postId: true },
-        });
-        votedPostIds = new Set(votes.map((v) => v.postId));
+        const mine = allVotes.filter((v) => v.userId === dbUserId);
+        myReactions = new Map(mine.map((v) => [v.postId, v.reaction]));
       } catch {
         // anonymous or unknown user
       }
@@ -199,9 +230,11 @@ communityRouter.get('/posts', optionalAuth, validate({ query: PostListQuery }), 
           updatedAt: p.updatedAt.toISOString(),
           author: p.author,
           series: p.series,
-          upvotes: p._count.votes,
+          reactions: reactionCounts.get(p.id) ?? {},
+          totalReactions: p._count.votes,
           comments: p._count.comments,
-          voted: votedPostIds.has(p.id),
+          voted: myReactions.has(p.id),
+          myReaction: myReactions.get(p.id) ?? null,
         })),
         total,
         page,
@@ -291,14 +324,19 @@ communityRouter.get('/posts/:id', optionalAuth, validate({ params: PostParams })
     // Increment view count (fire-and-forget)
     prisma.communityPost.update({ where: { id }, data: { views: { increment: 1 } } }).catch(() => {});
 
-    let voted = false;
+    // Reaction tallies + per-user state
+    const allVotes = await prisma.postVote.findMany({
+      where: { postId: id },
+      select: { reaction: true, userId: true },
+    });
+    const reactionCounts: Record<string, number> = {};
+    for (const v of allVotes) reactionCounts[v.reaction] = (reactionCounts[v.reaction] || 0) + 1;
+
+    let myReaction: string | null = null;
     if (req.user?.uid) {
       try {
         const dbUserId = await resolveUserId(req.user.uid);
-        const vote = await prisma.postVote.findUnique({
-          where: { postId_userId: { postId: id, userId: dbUserId } },
-        });
-        voted = !!vote;
+        myReaction = allVotes.find((v) => v.userId === dbUserId)?.reaction ?? null;
       } catch {
         // ignore
       }
@@ -318,10 +356,13 @@ communityRouter.get('/posts/:id', optionalAuth, validate({ params: PostParams })
         author: post.author,
         series: post.series,
         upvotes: post._count.votes,
-        voted,
+        voted: !!myReaction,
+        myReaction,
+        reactions: reactionCounts,
         comments: post.comments.map((c) => ({
           id: c.id,
           body: c.body,
+          parentId: c.parentId,
           createdAt: c.createdAt.toISOString(),
           author: c.author,
         })),
@@ -360,6 +401,46 @@ communityRouter.post('/posts/:id/vote', requireAuth, validate({ params: PostPara
   }
 });
 
+// ─── POST /api/community/posts/:id/reaction ──────────
+// Set / switch / clear the viewer's reaction (one per user per post).
+// Tapping the same reaction again removes it; a different reaction swaps.
+
+communityRouter.post('/posts/:id/reaction', requireAuth, validate({ params: PostParams, body: ReactSchema }), async (req, res, next) => {
+  try {
+    const id = req.params.id as string;
+    const dbUserId = await resolveUserId(req.user!.uid);
+    const body = req.body as z.infer<typeof ReactSchema>;
+
+    const post = await prisma.communityPost.findUnique({ where: { id }, select: { id: true } });
+    if (!post) throw new NotFoundError('Post', id);
+
+    const existing = await prisma.postVote.findUnique({
+      where: { postId_userId: { postId: id, userId: dbUserId } },
+    });
+
+    if (existing && existing.reaction === body.reaction) {
+      // Same reaction tapped again → clear it
+      await prisma.postVote.delete({ where: { id: existing.id } });
+      res.json({ success: true, data: { reacted: false, reaction: body.reaction, reactions: null } });
+      return;
+    }
+
+    if (existing) {
+      const updated = await prisma.postVote.update({
+        where: { id: existing.id },
+        data: { reaction: body.reaction },
+      });
+      res.json({ success: true, data: { reacted: true, reaction: updated.reaction, reactions: null } });
+      return;
+    }
+
+    await prisma.postVote.create({ data: { postId: id, userId: dbUserId, reaction: body.reaction } });
+    res.json({ success: true, data: { reacted: true, reaction: body.reaction, reactions: null } });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ─── POST /api/community/posts/:id/comments ───────────
 
 communityRouter.post('/posts/:id/comments', requireAuth, validate({ params: PostParams, body: AddCommentSchema }), async (req, res, next) => {
@@ -374,13 +455,33 @@ communityRouter.post('/posts/:id/comments', requireAuth, validate({ params: Post
     });
     if (!post) throw new NotFoundError('Post', id);
 
+    // If this is a reply, the parent must exist and belong to the same post.
+    // Threading is capped at two levels (top-level + replies) so discussion
+    // trees stay readable and cheap to render — a reply to a reply is flattened.
+    let parentAuthorId: string | null = null;
+    if (body.parentId) {
+      const parent = await prisma.postComment.findUnique({
+        where: { id: body.parentId },
+        select: { id: true, postId: true, authorId: true, parentId: true },
+      });
+      if (!parent) throw new NotFoundError('Comment', body.parentId);
+      if (parent.postId !== id) throw new NotFoundError('Comment', body.parentId);
+      if (parent.parentId) throw new ConflictError('Replies can only nest one level deep');
+      parentAuthorId = parent.authorId;
+    }
+
     const comment = await prisma.postComment.create({
-      data: { postId: id, authorId: dbUserId, body: body.body },
+      data: { postId: id, authorId: dbUserId, body: body.body, parentId: body.parentId ?? null },
       include: { author: { select: { id: true, displayName: true, avatarUrl: true } } },
     });
 
-    // Fire-and-forget: notify the post author (unless they commented on their own post)
-    if (post.authorId !== dbUserId) {
+    // Fire-and-forget notifications: a reply pings the parent comment's
+    // author; a top-level comment pings the post author (never yourself).
+    if (body.parentId) {
+      if (parentAuthorId && parentAuthorId !== dbUserId) {
+        notifyReplyAdded(parentAuthorId, comment.author.displayName, post.title, id).catch(() => {});
+      }
+    } else if (post.authorId !== dbUserId) {
       notifyCommentAdded(post.authorId, comment.author.displayName, post.title, id).catch(() => {});
     }
     // Award community participation badges (first comment, conversationalist)
@@ -391,6 +492,7 @@ communityRouter.post('/posts/:id/comments', requireAuth, validate({ params: Post
       data: {
         id: comment.id,
         body: comment.body,
+        parentId: comment.parentId,
         createdAt: comment.createdAt.toISOString(),
         author: comment.author,
       },

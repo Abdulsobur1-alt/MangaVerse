@@ -197,6 +197,8 @@ const DEFAULT_PREFS = {
   preferredGenres: [] as string[],
   homepageRecs: true,
   cardDensity: 'cozy',
+  publicProfile: true,
+  shareActivity: true,
 };
 
 const UpdatePersonalPrefsSchema = z.object({
@@ -204,6 +206,8 @@ const UpdatePersonalPrefsSchema = z.object({
   preferredGenres: z.array(z.string().trim().min(1).max(40)).max(15).optional(),
   homepageRecs: z.boolean().optional(),
   cardDensity: z.enum(['cozy', 'compact']).optional(),
+  publicProfile: z.boolean().optional(),
+  shareActivity: z.boolean().optional(),
 });
 
 usersRouter.get('/prefs', async (req, res, next) => {

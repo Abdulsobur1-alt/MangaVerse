@@ -27,9 +27,15 @@ model User {
   updatedAt        DateTime @updatedAt @map("updated_at")
 
   bookmarks        Bookmark[]
+  pageBookmarks    PageBookmark[]
+  userLists        UserList[]
+  listLikes        UserListLike[]
   collections      Collection[]
   readingGoals     ReadingGoal[]
   readingProgress  ReadingProgress[]
+  following        Follow[]   @relation("UserFollowing")
+  followers        Follow[]   @relation("UserFollowers")
+  reviewVotes      ReviewVote[]
   coinTransactions CoinTransaction[]
   subscriptions    Subscription[]
   pushSubscriptions PushSubscription[]
@@ -75,7 +81,9 @@ model Title {
 
   chapters         Chapter[]
   bookmarks        Bookmark[]
+  pageBookmarks    PageBookmark[]
   collectionItems  CollectionItem[]
+  listItems        UserListItem[]
   reviews          Review[]
   wikiPages        WikiPage[]
   predictions      Prediction[]
@@ -105,6 +113,7 @@ model Chapter {
 
   series          Title             @relation(fields: [titleId], references: [id], onDelete: Cascade)
   readingProgress ReadingProgress[]
+  pageBookmarks   PageBookmark[]
 
   @@unique([titleId, number])
   @@index([titleId, number])
@@ -166,6 +175,93 @@ model CollectionItem {
   @@unique([collectionId, titleId])
   @@index([titleId])
   @@map("collection_items")
+}
+
+// ─── User Lists (Phase 8) ───────────────────────────────
+// Curated, shareable public lists — "Top Romance Manga", "Best Villains",
+// "Must Read Before 2027". Unlike private Collections (a shelf), lists are
+// public by default, likeable, and browsable by the community. Items carry
+// an optional note; sorting is by sort_order then insertion. Collaboration
+// is future-ready (the schema is flat and shareable).
+
+model UserList {
+  id          String         @id @default(uuid()) @db.Uuid
+  userId      String         @map("user_id") @db.Uuid
+  name        String
+  description String?        @db.Text
+  tags        String[]
+  coverUrl    String?        @map("cover_url")
+  isPublic    Boolean        @default(true) @map("is_public")
+  likeCount   Int            @default(0) @map("like_count")
+  viewCount   Int            @default(0) @map("view_count")
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  user  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items UserListItem[]
+  likes UserListLike[]
+
+  @@index([userId, createdAt])
+  @@index([isPublic, likeCount])
+  @@map("user_lists")
+}
+
+model UserListItem {
+  id        String   @id @default(uuid()) @db.Uuid
+  listId    String   @map("list_id") @db.Uuid
+  titleId   String   @map("title_id") @db.Uuid
+  note      String?
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  list  UserList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  title Title    @relation(fields: [titleId], references: [id], onDelete: Cascade)
+
+  @@unique([listId, titleId])
+  @@index([titleId])
+  @@map("user_list_items")
+}
+
+model UserListLike {
+  id        String   @id @default(uuid()) @db.Uuid
+  listId    String   @map("list_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  list UserList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  user User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([listId, userId])
+  @@map("user_list_likes")
+}
+
+// ─── Page Bookmarks (Phase 7 completion) ───────────────
+// Rich, server-synced marks at the page level: a quote, a scene, a note,
+// a panel — attached to a chapter+page and optionally filed under a
+// user-defined folder with tags. "B" in the reader creates one of these;
+// they sync across devices through the API (no more localStorage-only
+// marks). Folders are a plain string (normalized by the client) — no
+// separate table needed, but the shape is future-ready for one.
+
+model PageBookmark {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  titleId    String   @map("title_id") @db.Uuid
+  chapterId  String   @map("chapter_id") @db.Uuid
+  pageNumber Int      @map("page_number")
+  quote      String?  @db.Text
+  note       String?  @db.Text
+  folder     String?  // null = uncategorized
+  tags       String[]
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title   Title   @relation(fields: [titleId], references: [id], onDelete: Cascade)
+  chapter Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, folder])
+  @@map("page_bookmarks")
 }
 
 // ─── Reading Goals (Phase 7) ─────────────────────────
@@ -252,6 +348,9 @@ model PostVote {
   id        String   @id @default(uuid()) @db.Uuid
   postId    String   @map("post_id") @db.Uuid
   userId    String   @map("user_id") @db.Uuid
+  // One reaction per user per post. upvote is the classic "like";
+  // helpful/insightful/funny/agree/love are the meaningful set (Phase 8).
+  reaction  String   @default("upvote")
   createdAt DateTime @default(now()) @map("created_at")
 
   post CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
@@ -262,17 +361,40 @@ model PostVote {
 }
 
 model PostComment {
-  id        String   @id @default(uuid()) @db.Uuid
-  postId    String   @map("post_id") @db.Uuid
-  authorId  String   @map("author_id") @db.Uuid
-  body      String   @db.Text
-  createdAt DateTime @default(now()) @map("created_at")
+  id        String    @id @default(uuid()) @db.Uuid
+  postId    String    @map("post_id") @db.Uuid
+  authorId  String    @map("author_id") @db.Uuid
+  // Threaded replies: null = top-level comment (Phase 8).
+  parentId  String?   @map("parent_id") @db.Uuid
+  body      String    @db.Text
+  createdAt DateTime  @default(now()) @map("created_at")
 
-  post   CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
-  author User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  post     CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author   User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parent   PostComment?  @relation("CommentTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children PostComment[] @relation("CommentTree")
 
   @@index([postId])
+  @@index([parentId])
   @@map("post_comments")
+}
+
+// ─── Social Graph (Phase 8) ──────────────────────────
+// Directed follow edges. Two rows between the same pair are impossible
+// (unique on (followerId, followingId)); mutual follow is two rows.
+
+model Follow {
+  id          String   @id @default(uuid()) @db.Uuid
+  followerId  String   @map("follower_id") @db.Uuid
+  followingId String   @map("following_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  follower User @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("UserFollowers", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@index([followingId])
+  @@map("follows")
 }
 
 // ─── Content Reports (Flags) ──────────────────────────
@@ -324,17 +446,40 @@ model Review {
   userId       String   @map("user_id") @db.Uuid
   titleId      String   @map("title_id") @db.Uuid
   rating       Int
+  // Optional headline — reviews read like blog posts (Phase 8).
+  headline     String?
+  // When true the body is blurred until the reader reveals it.
+  spoiler      Boolean  @default(false) @map("spoiler")
   subScores    Json?    @map("sub_scores")
   body         String?
   helpfulCount Int      @default(0) @map("helpful_count")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title Title @relation(fields: [titleId], references: [id], onDelete: Cascade)
+  user  User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title Title        @relation(fields: [titleId], references: [id], onDelete: Cascade)
+  votes ReviewVote[]
 
   @@unique([userId, titleId])
   @@map("reviews")
+}
+
+// ─── Review Helpful Votes (Phase 8) ──────────────────
+// Per-user helpful vote (one per review, toggleable). Counts are derived
+// from this table — helpfulCount on Review is kept denormalized for fast
+// list sorts and updated in the same transaction as the vote.
+
+model ReviewVote {
+  id        String   @id @default(uuid()) @db.Uuid
+  reviewId  String   @map("review_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([reviewId, userId])
+  @@map("review_votes")
 }
 
 // ─── Wiki Pages ────────────────────────────────────────

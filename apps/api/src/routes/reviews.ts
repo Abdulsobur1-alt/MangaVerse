@@ -5,7 +5,7 @@ import { cacheDel } from '../lib/redis.js';
 import { validate } from '../middleware/validate.js';
 import { requireAuth, optionalAuth } from '../middleware/auth.js';
 import { NotFoundError, ForbiddenError } from '../lib/errors.js';
-import { notifyReviewAdded } from '../services/notifications.js';
+import { notifyReviewAdded, notifyReviewHelpful } from '../services/notifications.js';
 import { checkAndAwardAchievements } from '../services/achievements.js';
 
 export const reviewsRouter = Router();
@@ -14,6 +14,8 @@ export const reviewsRouter = Router();
 
 const CreateReviewSchema = z.object({
   rating: z.number().int().min(1).max(10),
+  headline: z.string().trim().min(1).max(120).optional(),
+  spoiler: z.boolean().optional(),
   body: z.string().min(10).max(5000).optional(),
   subScores: z
     .object({
@@ -27,6 +29,8 @@ const CreateReviewSchema = z.object({
 
 const UpdateReviewSchema = z.object({
   rating: z.number().int().min(1).max(10).optional(),
+  headline: z.string().trim().min(1).max(120).nullable().optional(),
+  spoiler: z.boolean().optional(),
   body: z.string().min(10).max(5000).optional(),
   subScores: z
     .object({
@@ -77,9 +81,12 @@ reviewsRouter.get('/mine', requireAuth, async (req, res, next) => {
       data: reviews.map((r) => ({
         id: r.id,
         rating: r.rating,
+        headline: r.headline,
+        spoiler: r.spoiler,
         body: r.body,
         subScores: r.subScores,
         helpfulCount: r.helpfulCount,
+        helpful: false,
         createdAt: r.createdAt.toISOString(),
         updatedAt: r.updatedAt.toISOString(),
         title: r.title,
@@ -128,10 +135,31 @@ reviewsRouter.get('/title/:slug', optionalAuth, validate({ query: PaginationSche
               avatarUrl: true,
             },
           },
+          _count: { select: { votes: true } },
         },
       }),
       prisma.review.count({ where: { titleId: title.id } }),
     ]);
+
+    // Per-user helpful-vote state
+    let votedReviewIds = new Set<string>();
+    if (req.user?.uid) {
+      try {
+        const me = await prisma.user.findUnique({
+          where: { firebaseUid: req.user.uid },
+          select: { id: true },
+        });
+        if (me) {
+          const votes = await prisma.reviewVote.findMany({
+            where: { userId: me.id, reviewId: { in: reviews.map((r) => r.id) } },
+            select: { reviewId: true },
+          });
+          votedReviewIds = new Set(votes.map((v) => v.reviewId));
+        }
+      } catch {
+        // anonymous
+      }
+    }
 
     // Compute average rating
     const avgRating =
@@ -148,9 +176,12 @@ reviewsRouter.get('/title/:slug', optionalAuth, validate({ query: PaginationSche
         items: reviews.map((r) => ({
           id: r.id,
           rating: r.rating,
+          headline: r.headline,
+          spoiler: r.spoiler,
           body: r.body,
           subScores: r.subScores,
-          helpfulCount: r.helpfulCount,
+          helpfulCount: r._count.votes,
+          helpful: votedReviewIds.has(r.id),
           createdAt: r.createdAt.toISOString(),
           updatedAt: r.updatedAt.toISOString(),
           user: r.user,
@@ -197,6 +228,8 @@ reviewsRouter.post('/title/:slug', requireAuth, validate({ body: CreateReviewSch
         where: { id: existing.id },
         data: {
           rating: body.rating,
+          headline: body.headline ?? existing.headline,
+          spoiler: body.spoiler ?? existing.spoiler,
           body: body.body,
           subScores: (body.subScores ?? existing.subScores) as any,
         },
@@ -215,9 +248,12 @@ reviewsRouter.post('/title/:slug', requireAuth, validate({ body: CreateReviewSch
         data: {
           id: updated.id,
           rating: updated.rating,
+          headline: updated.headline,
+          spoiler: updated.spoiler,
           body: updated.body,
           subScores: updated.subScores,
           helpfulCount: updated.helpfulCount,
+          helpful: false,
           createdAt: updated.createdAt.toISOString(),
           updatedAt: updated.updatedAt.toISOString(),
           user: updated.user,
@@ -232,6 +268,8 @@ reviewsRouter.post('/title/:slug', requireAuth, validate({ body: CreateReviewSch
         userId: user.id,
         titleId: title.id,
         rating: body.rating,
+        headline: body.headline ?? null,
+        spoiler: body.spoiler ?? false,
         body: body.body,
         subScores: body.subScores ?? undefined as any,
       },
@@ -259,9 +297,12 @@ reviewsRouter.post('/title/:slug', requireAuth, validate({ body: CreateReviewSch
       data: {
         id: review.id,
         rating: review.rating,
+        headline: review.headline,
+        spoiler: review.spoiler,
         body: review.body,
         subScores: review.subScores,
         helpfulCount: review.helpfulCount,
+        helpful: false,
         createdAt: review.createdAt.toISOString(),
         updatedAt: review.updatedAt.toISOString(),
         user: review.user,
@@ -295,6 +336,8 @@ reviewsRouter.put('/:id', requireAuth, validate({ body: UpdateReviewSchema }), a
       where: { id },
       data: {
         ...(body.rating !== undefined && { rating: body.rating }),
+        ...(body.headline !== undefined && { headline: body.headline }),
+        ...(body.spoiler !== undefined && { spoiler: body.spoiler }),
         ...(body.body !== undefined && { body: body.body }),
         ...(body.subScores !== undefined && { subScores: body.subScores as any }),
       },
@@ -315,14 +358,70 @@ reviewsRouter.put('/:id', requireAuth, validate({ body: UpdateReviewSchema }), a
       data: {
         id: updated.id,
         rating: updated.rating,
+        headline: updated.headline,
+        spoiler: updated.spoiler,
         body: updated.body,
         subScores: updated.subScores,
         helpfulCount: updated.helpfulCount,
+        helpful: false,
         createdAt: updated.createdAt.toISOString(),
         updatedAt: updated.updatedAt.toISOString(),
         user: updated.user,
       },
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── POST /api/reviews/:id/helpful ────────────────────
+// Toggle the viewer's helpful vote on a review. The vote row is the
+// source of truth; the denormalized helpfulCount stays in sync in the
+// same transaction so the "most helpful" sort stays fast.
+
+reviewsRouter.post('/:id/helpful', requireAuth, async (req, res, next) => {
+  try {
+    const id = req.params.id as string;
+    const me = await prisma.user.findUnique({
+      where: { firebaseUid: req.user!.uid },
+      select: { id: true, displayName: true },
+    });
+    if (!me) throw new NotFoundError('User');
+
+    const review = await prisma.review.findUnique({
+      where: { id },
+      select: { id: true, userId: true, title: { select: { slug: true } } },
+    });
+    if (!review) throw new NotFoundError('Review', id);
+
+    // Defense-in-depth: the UI hides this button on your own reviews,
+    // but the API rejects self-votes outright.
+    if (review.userId === me.id) throw new ForbiddenError('You cannot mark your own review as helpful');
+
+    const existing = await prisma.reviewVote.findUnique({
+      where: { reviewId_userId: { reviewId: id, userId: me.id } },
+    });
+
+    if (existing) {
+      await prisma.$transaction([
+        prisma.reviewVote.delete({ where: { id: existing.id } }),
+        prisma.review.update({ where: { id }, data: { helpfulCount: { decrement: 1 } } }),
+      ]);
+      res.json({ success: true, data: { helpful: false } });
+      return;
+    }
+
+    await prisma.$transaction([
+      prisma.reviewVote.create({ data: { reviewId: id, userId: me.id } }),
+      prisma.review.update({ where: { id }, data: { helpfulCount: { increment: 1 } } }),
+    ]);
+
+    // Notify the author (fire-and-forget, skip self-votes)
+    if (review.userId !== me.id) {
+      notifyReviewHelpful(review.userId, me.displayName || 'A reader', review.title.slug).catch(() => {});
+    }
+
+    res.json({ success: true, data: { helpful: true } });
   } catch (err) {
     next(err);
   }

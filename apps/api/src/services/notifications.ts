@@ -3,7 +3,7 @@ import { sendWebPushToUser } from './webpush.js';
 
 // ─── Types ────────────────────────────────────────────
 
-type NotificationType = 'new_chapter' | 'review_added' | 'review_reply' | 'achievement' | 'milestone' | 'system' | 'comment' | 'prediction';
+type NotificationType = 'new_chapter' | 'review_added' | 'review_reply' | 'achievement' | 'milestone' | 'system' | 'comment' | 'prediction' | 'new_follower' | 'review_helpful' | 'reply';
 
 interface CreateNotificationParams {
   userId: string;
@@ -48,10 +48,13 @@ const NOTIF_TYPE_TO_PREF_KEY: Record<string, string> = {
   new_chapter: 'new_chapter',
   review_added: 'reviews',
   review_reply: 'reviews',
+  review_helpful: 'reviews',
   achievement: 'achievements',
   milestone: 'milestones',
   system: 'system',
   comment: 'community',
+  reply: 'community',
+  new_follower: 'community',
   prediction: 'community',
 };
 
@@ -202,6 +205,73 @@ export async function notifyCommentAdded(
       userId: postAuthorId,
       type: 'comment',
       title: `💬 ${commenterDisplayName} commented on your post`,
+      body: `\"${postTitle}\"`,
+      link: `/community/${postId}`,
+    });
+  } catch {
+    // Silently fail — notifications are non-critical
+  }
+}
+
+// ─── New follower notification ───────────────────────
+
+/** Notify a user that someone followed them. */
+export async function notifyFollowed(
+  targetUserId: string,
+  followerName: string,
+  followerId: string,
+): Promise<void> {
+  try {
+    if (!(await userHasPrefEnabled(targetUserId, 'new_follower'))) return;
+    await createNotification({
+      userId: targetUserId,
+      type: 'new_follower',
+      title: `👤 ${followerName} followed you`,
+      body: 'They can now see your public activity — say hi!',
+      link: `/user/${followerId}`,
+    });
+  } catch {
+    // Silently fail — notifications are non-critical
+  }
+}
+
+// ─── Review helpful notification ─────────────────────
+
+/** Notify a review author that someone marked their review helpful. */
+export async function notifyReviewHelpful(
+  authorId: string,
+  helperName: string,
+  titleSlug: string,
+): Promise<void> {
+  try {
+    if (!(await userHasPrefEnabled(authorId, 'review_helpful'))) return;
+    await createNotification({
+      userId: authorId,
+      type: 'review_helpful',
+      title: `👍 ${helperName} found your review helpful`,
+      body: 'Your review is helping other readers decide.',
+      link: `/title/${titleSlug}`,
+    });
+  } catch {
+    // Silently fail — notifications are non-critical
+  }
+}
+
+// ─── Reply notification ──────────────────────────────
+
+/** Notify the parent-comment author when someone replies to their comment. */
+export async function notifyReplyAdded(
+  parentAuthorId: string,
+  replierName: string,
+  postTitle: string,
+  postId: string,
+): Promise<void> {
+  try {
+    if (!(await userHasPrefEnabled(parentAuthorId, 'reply'))) return;
+    await createNotification({
+      userId: parentAuthorId,
+      type: 'reply',
+      title: `💬 ${replierName} replied to your comment`,
       body: `\"${postTitle}\"`,
       link: `/community/${postId}`,
     });
