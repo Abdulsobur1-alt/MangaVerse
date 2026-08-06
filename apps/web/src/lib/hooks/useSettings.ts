@@ -8,6 +8,18 @@ import { api } from '../api';
 export interface UpdateProfileData {
   displayName?: string;
   avatarUrl?: string | null;
+  // ─── Identity + customization (Phase 9) ───
+  bio?: string | null;
+  location?: string | null;
+  website?: string | null;
+  socialLinks?: Partial<Record<'x' | 'instagram' | 'discord' | 'youtube' | 'twitch', string>>;
+  bannerUrl?: string | null;
+  accentColor?: string | null;
+  profileTheme?: 'aurora' | 'midnight' | 'sunset' | 'forest' | 'ocean';
+  layoutStyle?: 'editorial' | 'compact';
+  cardStyle?: 'rounded' | 'sharp';
+  pinnedItems?: { lists?: string[]; reviews?: string[]; collections?: string[] };
+  pinnedManga?: string[];
 }
 
 export interface ProfileResponse {
@@ -15,9 +27,22 @@ export interface ProfileResponse {
   email: string;
   displayName: string;
   avatarUrl: string | null;
+  bio: string | null;
+  location: string | null;
+  website: string | null;
+  socialLinks: Record<string, string> | null;
+  bannerUrl: string | null;
+  accentColor: string | null;
+  profileTheme: string;
+  layoutStyle: string;
+  cardStyle: string;
+  pinnedItems: Record<string, string[]> | null;
+  pinnedManga: string[];
   coinBalance: number;
   subscriptionTier: string;
   streakDays: number;
+  reputation: number;
+  totalReadingMinutes: number;
   createdAt: string;
 }
 

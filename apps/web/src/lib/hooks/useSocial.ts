@@ -27,7 +27,17 @@ export interface CurrentReadingItem {
 export interface PublicProfile {
   id: string;
   displayName: string;
+  username: string;
   avatarUrl: string | null;
+  bannerUrl: string | null;
+  bio: string | null;
+  location: string | null;
+  website: string | null;
+  socialLinks: Record<string, string>;
+  accentColor: string | null;
+  profileTheme: string;
+  layoutStyle: string;
+  cardStyle: string;
   role: string;
   createdAt: string;
   streakDays: number;
@@ -41,9 +51,13 @@ export interface PublicProfile {
   mutual: boolean;
   private: boolean;
   shareActivity?: boolean;
+  reputationTier?: { key: string; label: string; emoji: string; min: number; description: string };
+  mutualCount?: number;
+  sharedGenres?: string[];
   favoriteGenres?: { genre: string; count: number }[];
   currentReading?: CurrentReadingItem[];
   activity?: ActivityItem[];
+  sections?: Record<string, unknown>;
 }
 
 export interface FollowListUser {

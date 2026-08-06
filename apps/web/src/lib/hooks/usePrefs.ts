@@ -13,6 +13,19 @@ export interface UserPrefs {
   preferredGenres: string[]; // DB-form slugs (e.g. `sci_fi`)
   homepageRecs: boolean;
   cardDensity: CardDensity;
+  publicProfile: boolean;
+  shareActivity: boolean;
+  // ─── Privacy (Phase 9) — per-section visibility ───
+  shareStats: boolean;
+  shareReading: boolean;
+  shareCollections: boolean;
+  shareBookmarks: boolean;
+  shareAchievements: boolean;
+  shareGoals: boolean;
+  shareLists: boolean;
+  shareReviews: boolean;
+  shareFollowers: boolean;
+  shareFollowing: boolean;
 }
 
 export const DEFAULT_PREFS: UserPrefs = {
@@ -20,6 +33,18 @@ export const DEFAULT_PREFS: UserPrefs = {
   preferredGenres: [],
   homepageRecs: true,
   cardDensity: 'cozy',
+  publicProfile: true,
+  shareActivity: true,
+  shareStats: true,
+  shareReading: true,
+  shareCollections: true,
+  shareBookmarks: true,
+  shareAchievements: true,
+  shareGoals: true,
+  shareLists: true,
+  shareReviews: true,
+  shareFollowers: true,
+  shareFollowing: true,
 };
 
 // ─── Hooks ────────────────────────────────────────────

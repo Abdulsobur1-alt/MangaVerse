@@ -5,7 +5,8 @@ import { AppShell } from '@/components/AppShell';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useAuthStore } from '@/store/authStore';
 import { useUpdateProfile, useDeleteAccount, useNotificationPrefs, useUpdateNotificationPrefs } from '@/lib/hooks/useSettings';
-import { usePrefs, useUpdatePrefs, type LibraryView, type CardDensity } from '@/lib/hooks/usePrefs';
+import { useOwnIdentity } from '@/lib/hooks/useIdentity';
+import { usePrefs, useUpdatePrefs, type LibraryView, type CardDensity, type UserPrefs } from '@/lib/hooks/usePrefs';
 import { GENRES_META } from '@/components/home/types';
 import { toDbGenre } from '@/components/discover/utils';
 import { Icon } from '@/components/ui/Icon';
@@ -202,6 +203,12 @@ export default function SettingsPage() {
               )}
             </div>
           </section>
+
+          {/* ─── Identity & Customization (Phase 9) ── */}
+          <IdentitySection />
+
+          {/* ─── Privacy (Phase 9) ────────────────── */}
+          <PrivacySection />
 
           {/* ─── Personalization Section ──────────── */}
           <PersonalizationSection />
@@ -458,6 +465,267 @@ function PersonalizationSection() {
       {updatePrefs.isError && (
         <p className="mt-2 text-[10px] text-red-400">Failed to save preference. Please try again.</p>
       )}
+    </section>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   IdentitySection — the Phase 9 identity + customization editor.
+   Bio, location, website, social links, banner, accent color,
+   profile theme, layout style, and card style — all persisted
+   through the extended /users/profile endpoint.
+   ═══════════════════════════════════════════════════════════════ */
+
+const ACCENT_SWATCHES = ['#e94560', '#a78bfa', '#38bdf8', '#34d399', '#fbbf24', '#f97316', '#ec4899', '#f43f5e'];
+
+const THEME_OPTIONS: { key: string; label: string; swatch: string }[] = [
+  { key: 'aurora', label: 'Aurora', swatch: 'bg-gradient-to-br from-mv-purple via-mv-accent to-mv-orange' },
+  { key: 'midnight', label: 'Midnight', swatch: 'bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-950' },
+  { key: 'sunset', label: 'Sunset', swatch: 'bg-gradient-to-br from-orange-500 via-rose-500 to-purple-600' },
+  { key: 'forest', label: 'Forest', swatch: 'bg-gradient-to-br from-emerald-600 via-teal-500 to-lime-700' },
+  { key: 'ocean', label: 'Ocean', swatch: 'bg-gradient-to-br from-sky-600 via-blue-500 to-cyan-600' },
+];
+
+const SOCIAL_FIELDS: { key: 'x' | 'instagram' | 'discord' | 'youtube' | 'twitch'; label: string; placeholder: string }[] = [
+  { key: 'x', label: 'X (Twitter)', placeholder: '@handle' },
+  { key: 'instagram', label: 'Instagram', placeholder: 'handle' },
+  { key: 'discord', label: 'Discord', placeholder: 'username' },
+  { key: 'youtube', label: 'YouTube', placeholder: 'channel' },
+  { key: 'twitch', label: 'Twitch', placeholder: 'channel' },
+];
+
+function IdentitySection() {
+  const { token } = useAuthStore();
+  const { data: identity } = useOwnIdentity(!!token);
+  const updateProfile = useUpdateProfile();
+
+  const [bio, setBio] = useState('');
+  const [location, setLocation] = useState('');
+  const [website, setWebsite] = useState('');
+  const [social, setSocial] = useState<Record<string, string>>({});
+  const [bannerUrl, setBannerUrl] = useState('');
+  const [accentColor, setAccentColor] = useState<string | null>(null);
+  const [profileTheme, setProfileTheme] = useState('aurora');
+  const [layoutStyle, setLayoutStyle] = useState<'editorial' | 'compact'>('editorial');
+  const [cardStyle, setCardStyle] = useState<'rounded' | 'sharp'>('rounded');
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    if (!identity) return;
+    setBio(identity.user.bio ?? '');
+    setLocation(identity.user.location ?? '');
+    setWebsite(identity.user.website ?? '');
+    setSocial(identity.user.socialLinks ?? {});
+    setBannerUrl(identity.user.bannerUrl ?? '');
+    setAccentColor(identity.user.accentColor);
+    setProfileTheme(identity.user.profileTheme ?? 'aurora');
+    setLayoutStyle((identity.user.layoutStyle as 'editorial' | 'compact') ?? 'editorial');
+    setCardStyle((identity.user.cardStyle as 'rounded' | 'sharp') ?? 'rounded');
+  }, [identity]);
+
+  const save = async () => {
+    if (!token) return;
+    setSaved(false);
+    try {
+      await updateProfile.mutateAsync({
+        bio: bio.trim() || null,
+        location: location.trim() || null,
+        website: website.trim() || null,
+        socialLinks: Object.fromEntries(Object.entries(social).filter(([, v]) => v.trim().length > 0)),
+        bannerUrl: bannerUrl.trim() || null,
+        accentColor,
+        profileTheme: profileTheme as 'aurora' | 'midnight' | 'sunset' | 'forest' | 'ocean',
+        layoutStyle,
+        cardStyle,
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch {
+      // Error handled by mutation
+    }
+  };
+
+  return (
+    <section className="mb-8">
+      <h2 className="mb-1 text-sm font-medium text-white">Identity & Customization</h2>
+      <p className="mb-4 text-[10px] text-mv-text-muted">Make your profile unmistakably yours — it's the story visitors read first.</p>
+
+      <div className="rounded-xl border border-mv-border bg-mv-darker p-5">
+        <div className="space-y-4">
+          {/* Bio */}
+          <div>
+            <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-mv-text-muted">Bio</label>
+            <textarea
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              maxLength={500}
+              rows={3}
+              placeholder="Tell readers who you are — what you love, what you're chasing."
+              className="field resize-none"
+            />
+            <p className="mt-1 text-[9px] text-mv-text-dim">{bio.length}/500 characters</p>
+          </div>
+
+          {/* Location + Website */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-mv-text-muted">Location</label>
+              <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} maxLength={80} placeholder="Kyoto, Japan" className="field w-full" />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-mv-text-muted">Website</label>
+              <input type="url" value={website} onChange={(e) => setWebsite(e.target.value)} maxLength={300} placeholder="https://your.site" className="field w-full" />
+            </div>
+          </div>
+
+          {/* Social links */}
+          <div>
+            <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-mv-text-muted">Social links</label>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {SOCIAL_FIELDS.map((f) => (
+                <div key={f.key}>
+                  <span className="mb-1 block text-[9px] text-mv-text-dim">{f.label}</span>
+                  <input
+                    type="text"
+                    value={social[f.key] ?? ''}
+                    onChange={(e) => setSocial({ ...social, [f.key]: e.target.value })}
+                    maxLength={60}
+                    placeholder={f.placeholder}
+                    className="field w-full"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Banner */}
+          <div>
+            <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-mv-text-muted">Banner image URL</label>
+            <input type="url" value={bannerUrl} onChange={(e) => setBannerUrl(e.target.value)} maxLength={500} placeholder="https://example.com/banner.jpg — leave empty for a theme gradient" className="field w-full" />
+          </div>
+
+          {/* Accent color */}
+          <div>
+            <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-mv-text-muted">Accent color</label>
+            <div className="flex flex-wrap items-center gap-2">
+              {ACCENT_SWATCHES.map((c) => (
+                <button
+                  key={c}
+                  onClick={() => setAccentColor(accentColor === c ? null : c)}
+                  aria-label={`Accent ${c}`}
+                  aria-pressed={accentColor === c}
+                  className={cn('h-8 w-8 rounded-full transition-transform hover:scale-110', accentColor === c && 'ring-2 ring-white ring-offset-2 ring-offset-mv-darker')}
+                  style={{ backgroundColor: c }}
+                />
+              ))}
+              <button onClick={() => setAccentColor(null)} className={cn('rounded-full border border-mv-border-light px-3 py-1.5 text-[10px] font-medium transition-colors', accentColor === null ? 'text-mv-accent' : 'text-mv-text-dim hover:text-mv-text')}>Default</button>
+            </div>
+          </div>
+
+          {/* Theme */}
+          <div>
+            <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-mv-text-muted">Profile theme</label>
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+              {THEME_OPTIONS.map((t) => (
+                <button
+                  key={t.key}
+                  onClick={() => setProfileTheme(t.key)}
+                  aria-pressed={profileTheme === t.key}
+                  className={cn('group overflow-hidden rounded-xl border-2 text-left transition-all', profileTheme === t.key ? 'border-mv-accent' : 'border-transparent hover:border-mv-border-light')}
+                >
+                  <span className={cn('block h-10 w-full', t.swatch)} />
+                  <span className={cn('block px-1.5 py-1 text-[9px] font-medium', profileTheme === t.key ? 'text-mv-accent' : 'text-mv-text-dim')}>{t.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Layout + card style */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-mv-text-muted">Layout style</label>
+              <div className="flex gap-1 rounded-xl border border-mv-border-light bg-mv-surface/60 p-1">
+                <Segment active={layoutStyle === 'editorial'} onClick={() => setLayoutStyle('editorial')}>Editorial</Segment>
+                <Segment active={layoutStyle === 'compact'} onClick={() => setLayoutStyle('compact')}>Compact</Segment>
+              </div>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-mv-text-muted">Card style</label>
+              <div className="flex gap-1 rounded-xl border border-mv-border-light bg-mv-surface/60 p-1">
+                <Segment active={cardStyle === 'rounded'} onClick={() => setCardStyle('rounded')}>Rounded</Segment>
+                <Segment active={cardStyle === 'sharp'} onClick={() => setCardStyle('sharp')}>Sharp</Segment>
+              </div>
+            </div>
+          </div>
+
+          {/* Save */}
+          <div className="flex items-center gap-3 pt-1">
+            <button onClick={save} disabled={updateProfile.isPending} className="btn-primary px-5 py-2.5 text-xs disabled:opacity-50">
+              {updateProfile.isPending ? 'Saving...' : 'Save identity'}
+            </button>
+            {saved && <span className="text-[10px] text-green-400 animate-fade-in">✓ Saved</span>}
+          </div>
+          {updateProfile.isError && <p className="text-[10px] text-red-400">Failed to save. Please try again.</p>}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PrivacySection — Phase 9 per-section visibility controls.
+   Privacy-first by design: each showcase section on the profile can
+   be toggled independently, persisted via /users/prefs.
+   ═══════════════════════════════════════════════════════════════ */
+
+const PRIVACY_ITEMS: { key: keyof UserPrefs; label: string; desc: string }[] = [
+  { key: 'publicProfile', label: 'Public profile', desc: 'Anyone can view your profile page.' },
+  { key: 'shareStats', label: 'Statistics', desc: 'Pages, hours, completion rate, and analytics.' },
+  { key: 'shareReading', label: 'Current reading', desc: 'What you are reading right now.' },
+  { key: 'shareActivity', label: 'Recent activity', desc: 'Your activity timeline.' },
+  { key: 'shareAchievements', label: 'Achievements', desc: 'Your earned badges.' },
+  { key: 'shareCollections', label: 'Collections', desc: 'Public collections on your profile.' },
+  { key: 'shareBookmarks', label: 'Reading shelf', desc: 'Series in your library.' },
+  { key: 'shareReviews', label: 'Reviews', desc: 'Reviews you have written.' },
+  { key: 'shareGoals', label: 'Goals', desc: 'Active reading goals.' },
+  { key: 'shareLists', label: 'Lists', desc: 'Your public lists.' },
+  { key: 'shareFollowers', label: 'Followers & following', desc: 'Who follows you and who you follow.' },
+];
+
+function PrivacySection() {
+  const { token } = useAuthStore();
+  const { data: prefs } = usePrefs(!!token);
+  const updatePrefs = useUpdatePrefs();
+
+  const toggle = (key: keyof UserPrefs, current: boolean) => {
+    if (!token) return;
+    updatePrefs.mutate({ [key]: !current } as Partial<UserPrefs>);
+  };
+
+  return (
+    <section className="mb-8">
+      <h2 className="mb-1 text-sm font-medium text-white">Privacy</h2>
+      <p className="mb-4 text-[10px] text-mv-text-muted">Choose what visitors see on your profile. Everything is off by default when your profile is private.</p>
+
+      <div className="rounded-xl border border-mv-border bg-mv-darker divide-y divide-mv-border">
+        {PRIVACY_ITEMS.map((item) => {
+          const value = prefs?.[item.key] as boolean | undefined;
+          const checked = value === undefined ? true : value;
+          return (
+            <div key={item.key} className="flex items-center justify-between px-5 py-3.5">
+              <div>
+                <p className="text-xs font-medium text-mv-text">{item.label}</p>
+                <p className="mt-0.5 text-[10px] text-mv-text-muted">{item.desc}</p>
+              </div>
+              <label className="relative inline-flex cursor-pointer items-center">
+                <input type="checkbox" checked={checked} onChange={(e) => toggle(item.key, checked)} className="peer sr-only" />
+                <div className="h-5 w-9 rounded-full bg-mv-border-light after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:bg-mv-text-muted after:transition-all peer-checked:bg-mv-accent/60 peer-checked:after:translate-x-full peer-checked:after:bg-mv-accent" />
+              </label>
+            </div>
+          );
+        })}
+      </div>
+      <p className="mt-2 text-[9px] text-mv-text-dim">Privacy choices sync across devices and apply instantly.</p>
     </section>
   );
 }

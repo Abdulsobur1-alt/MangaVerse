@@ -10,7 +10,7 @@ export interface AchievementItem {
   name: string;
   emoji: string;
   description: string;
-  category: 'reading' | 'streak' | 'exploration' | 'social' | 'library' | 'coins';
+  category: 'reading' | 'streak' | 'exploration' | 'social' | 'library' | 'coins' | 'community';
   metric: string;
   threshold: number;
   current: number;
