@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { AppShell } from '@/components/AppShell';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
-import { useNotifications, useMarkRead, useMarkAllRead, useDeleteNotification, getNotificationIcon, getNotificationTypeColor } from '@/lib/hooks/useNotifications';
+import { useNotifications, useMarkRead, useMarkAllRead, useDeleteNotification, getNotificationIcon, getNotificationTypeColor, NOTIFICATION_FILTERS } from '@/lib/hooks/useNotifications';
+import { cn } from '@/lib/cn';
 
 function formatNotifDate(dateStr: string): string {
   const d = new Date(dateStr);
@@ -22,7 +23,8 @@ function formatNotifDate(dateStr: string): string {
 
 export default function NotificationsPage() {
   const [page, setPage] = useState(1);
-  const { data, isLoading } = useNotifications(page, 20);
+  const [type, setType] = useState('');
+  const { data, isLoading } = useNotifications(page, 20, type);
   const markRead = useMarkRead();
   const markAllRead = useMarkAllRead();
   const deleteNotif = useDeleteNotification();
@@ -34,7 +36,7 @@ export default function NotificationsPage() {
     <ProtectedRoute>
       <AppShell>
         <div className="mx-auto max-w-3xl px-5 py-8 sm:px-6 md:px-8">
-          <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
+          <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
             <div>
               <p className="eyebrow mb-2">Activity</p>
               <h1 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
@@ -53,6 +55,32 @@ export default function NotificationsPage() {
                 {markAllRead.isPending ? '...' : 'Mark All Read'}
               </button>
             )}
+          </div>
+
+          {/* Filter chips (Phase 8) */}
+          <div className="scrollbar-none -mx-5 mb-6 flex gap-1.5 overflow-x-auto px-5 sm:mx-0 sm:px-0" role="group" aria-label="Filter notifications">
+            {NOTIFICATION_FILTERS.map((f) => {
+              const active = (type === '' && f.key === '') || type === f.key;
+              return (
+                <button
+                  key={f.key || 'all'}
+                  onClick={() => {
+                    setType(f.key);
+                    setPage(1);
+                  }}
+                  aria-pressed={active}
+                  className={cn(
+                    'flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[11px] font-medium transition-all duration-200',
+                    active
+                      ? 'bg-gradient-to-r from-mv-purple to-mv-accent text-white shadow-glow-sm'
+                      : 'border border-mv-border-light bg-mv-surface/60 text-mv-text-secondary hover:border-mv-violet/40 hover:text-mv-text',
+                  )}
+                >
+                  <span aria-hidden="true">{f.key ? getNotificationIcon(f.key) : '🔔'}</span>
+                  {f.label}
+                </button>
+              );
+            })}
           </div>
 
           {isLoading ? (
@@ -74,14 +102,18 @@ export default function NotificationsPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                 </svg>
               </div>
-              <h3 className="text-sm font-medium text-mv-text mb-1">All caught up!</h3>
-              <p className="text-xs text-mv-text-muted mb-4">You have no notifications right now.</p>
-              <Link
-                href="/browse"
-                className="btn-primary px-5 py-2.5 text-xs"
-              >
-                Browse Titles
-              </Link>
+              <h3 className="text-sm font-medium text-mv-text mb-1">
+                {type ? `No ${NOTIFICATION_FILTERS.find((f) => f.key === type)?.label.toLowerCase() ?? 'matching'} notifications` : 'All caught up!'}
+              </h3>
+              <p className="text-xs text-mv-text-muted mb-4">
+                {type ? 'Try a different filter, or check back later.' : 'You have no notifications right now.'}
+              </p>
+              <div className="flex items-center justify-center gap-2">
+                {type && (
+                  <button onClick={() => setType('')} className="btn-ghost px-4 py-2 text-[10px]">Show all</button>
+                )}
+                <Link href="/browse" className="btn-primary px-5 py-2.5 text-xs">Browse Titles</Link>
+              </div>
             </div>
           ) : (
             <>

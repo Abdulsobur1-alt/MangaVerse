@@ -7,7 +7,7 @@ import { api } from '../api';
 
 export interface NotificationItem {
   id: string;
-  type: 'new_chapter' | 'review_added' | 'review_reply' | 'achievement' | 'milestone' | 'system' | 'comment';
+  type: string;
   title: string;
   body: string | null;
   link: string | null;
@@ -28,11 +28,27 @@ const NOTIFICATION_ICONS: Record<string, string> = {
   new_chapter: '📖',
   review_added: '⭐',
   review_reply: '💬',
+  review_helpful: '👍',
   achievement: '🏆',
   milestone: '🎉',
   system: '🔔',
   comment: '💬',
+  reply: '💬',
+  new_follower: '👤',
 };
+
+/** Filter chips for the notification center (Phase 8). */
+export const NOTIFICATION_FILTERS: { key: string; label: string }[] = [
+  { key: '', label: 'All' },
+  { key: 'new_follower', label: 'Followers' },
+  { key: 'reply', label: 'Replies' },
+  { key: 'comment', label: 'Comments' },
+  { key: 'review_helpful', label: 'Helpful votes' },
+  { key: 'review_added', label: 'Reviews' },
+  { key: 'new_chapter', label: 'New chapters' },
+  { key: 'achievement', label: 'Achievements' },
+  { key: 'system', label: 'System' },
+];
 
 export function getNotificationIcon(type: string): string {
   return NOTIFICATION_ICONS[type] || '🔔';
@@ -43,9 +59,12 @@ export function getNotificationTypeColor(type: string): string {
     case 'new_chapter': return '#4a9eff';
     case 'review_added': return '#f0c040';
     case 'review_reply': return '#7b2fbe';
+    case 'review_helpful': return '#4a9eff';
     case 'achievement': return '#4ade80';
     case 'milestone': return '#e94560';
     case 'comment': return '#a05bdf';
+    case 'reply': return '#7b2fbe';
+    case 'new_follower': return '#4ade80';
     case 'system': return '#888';
     default: return '#888';
   }
@@ -53,12 +72,12 @@ export function getNotificationTypeColor(type: string): string {
 
 // ─── Hooks ────────────────────────────────────────────
 
-export function useNotifications(page = 1, limit = 20) {
+export function useNotifications(page = 1, limit = 20, type = '') {
   const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
 
   return useQuery<NotificationsResponse>({
-    queryKey: ['notifications', page, limit],
-    queryFn: () => api.get<NotificationsResponse>(`/notifications?page=${page}&limit=${limit}`),
+    queryKey: ['notifications', page, limit, type],
+    queryFn: () => api.get<NotificationsResponse>(`/notifications?page=${page}&limit=${limit}${type ? `&type=${encodeURIComponent(type)}` : ''}`),
     enabled: !!token,
   });
 }

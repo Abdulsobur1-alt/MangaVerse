@@ -14,6 +14,8 @@ export interface ReviewUser {
 export interface ReviewItem {
   id: string;
   rating: number;
+  headline: string | null;
+  spoiler: boolean;
   body: string | null;
   subScores: {
     story?: number;
@@ -22,6 +24,7 @@ export interface ReviewItem {
     enjoyment?: number;
   } | null;
   helpfulCount: number;
+  helpful: boolean;
   createdAt: string;
   updatedAt: string;
   user: ReviewUser;
@@ -80,7 +83,7 @@ export function useCreateReview(slug: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: { rating: number; body?: string; subScores?: Record<string, number> }) =>
+    mutationFn: (data: { rating: number; headline?: string; spoiler?: boolean; body?: string; subScores?: Record<string, number> }) =>
       api.post(`/reviews/title/${slug}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reviews', slug] });
@@ -95,7 +98,7 @@ export function useUpdateReview() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: { id: string; rating?: number; body?: string; subScores?: Record<string, number> }) =>
+    mutationFn: (data: { id: string; rating?: number; headline?: string; spoiler?: boolean; body?: string; subScores?: Record<string, number> }) =>
       api.put(`/reviews/${data.id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reviews'] });
@@ -114,6 +117,20 @@ export function useDeleteReview() {
       queryClient.invalidateQueries({ queryKey: ['reviews'] });
       queryClient.invalidateQueries({ queryKey: ['title'] });
       queryClient.invalidateQueries({ queryKey: ['user', 'stats'] });
+    },
+  });
+}
+
+// ─── Phase 8: helpful-vote toggle ─────────────────────
+
+export function useToggleHelpful() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (reviewId: string) => api.post<{ helpful: boolean }>(`/reviews/${reviewId}/helpful`),
+    onSuccess: () => {
+      // Refetch review lists so counts + per-user state stay in sync
+      queryClient.invalidateQueries({ queryKey: ['reviews'] });
     },
   });
 }

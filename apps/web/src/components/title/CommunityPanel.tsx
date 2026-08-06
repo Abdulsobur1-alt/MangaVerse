@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import ReportButton from '@/components/ReportButton';
-import { useTitleReviews, useCreateReview, useDeleteReview } from '@/lib/hooks/useReviews';
+import { useTitleReviews, useCreateReview, useDeleteReview, useToggleHelpful } from '@/lib/hooks/useReviews';
+import { UserHoverCard } from '@/components/social/UserHoverCard';
 import { useWiki, useUpsertWiki, useRevertWiki } from '@/lib/hooks/useCommunity';
 import { useAuthStore } from '@/store/authStore';
 import { cn } from '@/lib/cn';
@@ -41,6 +42,8 @@ export function CommunityPanel({ slug }: { slug: string }) {
   const [sort, setSort] = useState('newest');
   const [showForm, setShowForm] = useState(false);
   const [rating, setRating] = useState(8);
+  const [headline, setHeadline] = useState('');
+  const [spoiler, setSpoiler] = useState(false);
   const [body, setBody] = useState('');
   const [hover, setHover] = useState(0);
   const [subScores, setSubScores] = useState<Record<string, number>>({ story: 8, art: 8, characters: 8, enjoyment: 8 });
@@ -56,6 +59,7 @@ export function CommunityPanel({ slug }: { slug: string }) {
   const { data: reviewsData } = useTitleReviews(slug, { page, limit: 5, sort });
   const createReview = useCreateReview(slug);
   const deleteReview = useDeleteReview();
+  const toggleHelpful = useToggleHelpful();
   const { data: wikiData } = useWiki(slug);
   const upsertWiki = useUpsertWiki();
   const revertWiki = useRevertWiki();
@@ -63,9 +67,11 @@ export function CommunityPanel({ slug }: { slug: string }) {
   const submitReview = async () => {
     if (!token || body.length < 10) return;
     try {
-      await createReview.mutateAsync({ rating, body, subScores });
+      await createReview.mutateAsync({ rating, headline: headline.trim() || undefined, spoiler, body, subScores });
       setShowForm(false);
       setBody('');
+      setHeadline('');
+      setSpoiler(false);
       setRating(8);
       setSubScores({ story: 8, art: 8, characters: 8, enjoyment: 8 });
     } catch { /* surfaced by hooks */ }
@@ -121,6 +127,13 @@ export function CommunityPanel({ slug }: { slug: string }) {
         {/* Composer */}
         {showForm && (
           <div className="card mb-6 rounded-xl p-6 animate-fade-in">
+            <input
+              value={headline}
+              onChange={(e) => setHeadline(e.target.value)}
+              placeholder="Headline — e.g. “The art alone is worth the read”"
+              maxLength={120}
+              className="field mb-4 w-full"
+            />
             <p className="mb-4 text-xs font-medium text-white">Your rating</p>
             <div className="mb-4 flex flex-wrap gap-1.5">
               {Array.from({ length: 10 }, (_, i) => i + 1).map((r) => (
@@ -155,10 +168,19 @@ export function CommunityPanel({ slug }: { slug: string }) {
             <textarea
               value={body}
               onChange={(e) => setBody(e.target.value)}
-              placeholder="What did you think? Spoilers are fine — reviewers can collapse them."
+              placeholder="What did you think? Spoilers are fine — flag the review if they'd ruin the story."
               rows={4}
               className="field resize-none"
             />
+            <label className="mt-3 flex w-fit cursor-pointer items-center gap-2 text-[10px] text-mv-text-muted select-none">
+              <input
+                type="checkbox"
+                checked={spoiler}
+                onChange={(e) => setSpoiler(e.target.checked)}
+                className="h-3.5 w-3.5 rounded border-mv-border-light accent-violet-500"
+              />
+              Contains spoilers — blur the body until readers reveal it
+            </label>
             <div className="mt-3 flex items-center justify-between">
               <span className="text-[9px] text-mv-text-dim">{body.length < 10 ? `${10 - body.length} more chars needed` : 'Ready to submit!'}</span>
               <button onClick={submitReview} disabled={body.length < 10 || createReview.isPending} className="btn-primary px-4 py-2 text-[10px]">
@@ -180,18 +202,23 @@ export function CommunityPanel({ slug }: { slug: string }) {
         ) : (
           <div className="space-y-4">
             {reviewsData.items.map((review) => {
-              const own = user?.email && review.user?.id === user.id;
+              const own = user?.id === review.user.id;
               const isSpoiler = spoilerOpen === review.id;
+              const blurred = review.spoiler && !isSpoiler;
               return (
                 <article key={review.id} className="card rounded-xl p-5 transition-all hover:border-mv-border-light">
                   <header className="mb-3 flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-mv-purple to-mv-accent text-xs font-semibold text-white">
-                        {review.user.displayName.charAt(0).toUpperCase()}
-                      </div>
+                      <UserHoverCard userId={review.user.id} side="right">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-mv-purple to-mv-accent text-xs font-semibold text-white">
+                          {review.user.displayName.charAt(0).toUpperCase()}
+                        </div>
+                      </UserHoverCard>
                       <div>
                         <p className="flex items-center gap-1.5 text-xs font-medium text-mv-text">
-                          {review.user.displayName}
+                          <UserHoverCard userId={review.user.id} side="right">
+                            <span className="cursor-pointer hover:text-mv-violet transition-colors">{review.user.displayName}</span>
+                          </UserHoverCard>
                           <span className="flex items-center gap-0.5 rounded-full border border-mv-violet/30 bg-mv-violet/10 px-1.5 py-0.5 text-[8px] font-semibold text-mv-violet">
                             <Icon name="check" size={8} strokeWidth={3} /> Reader
                           </span>
@@ -209,18 +236,23 @@ export function CommunityPanel({ slug }: { slug: string }) {
                     </div>
                   </header>
 
-                  {/* Body with spoiler collapse */}
+                  {/* Headline — reviews read like blog posts */}
+                  {review.headline && (
+                    <h3 className="mb-1.5 text-sm font-semibold leading-snug text-white">{review.headline}</h3>
+                  )}
+
+                  {/* Body with spoiler blur */}
                   {review.body && (
                     <div className="relative">
-                      {!isSpoiler && review.body.length > 140 && (
+                      {review.spoiler && !isSpoiler && (
                         <button
                           onClick={() => setSpoilerOpen(review.id)}
-                          className="absolute -top-0.5 right-0 flex items-center gap-1 rounded-full border border-mv-warning/30 bg-mv-warning/10 px-2 py-0.5 text-[8px] font-medium text-mv-warning"
+                          className="absolute top-1/2 left-1/2 z-10 flex -translate-x-1/2 -translate-y-1/2 items-center gap-1.5 rounded-full border border-mv-warning/30 bg-mv-warning/10 px-3 py-1.5 text-[9px] font-medium text-mv-warning backdrop-blur-sm transition-colors hover:bg-mv-warning/20"
                         >
-                          <Icon name="alert" size={9} /> May contain spoilers
+                          <Icon name="alert" size={10} /> Reveal spoilers
                         </button>
                       )}
-                      <p className={cn('text-xs leading-relaxed text-mv-text-secondary transition-all', isSpoiler ? '' : review.body.length > 200 && 'line-clamp-3')}>
+                      <p className={cn('text-xs leading-relaxed text-mv-text-secondary transition-all', blurred && 'select-none blur-sm', isSpoiler ? '' : review.body.length > 200 && 'line-clamp-3')}>
                         {review.body}
                       </p>
                       {isSpoiler && (
@@ -243,10 +275,21 @@ export function CommunityPanel({ slug }: { slug: string }) {
                   )}
 
                   <footer className="mt-3 flex items-center gap-3 text-[9px] text-mv-text-dim">
-                    <span className="flex items-center gap-1">
-                      <Icon name="arrowPath" size={11} />
-                      {review.helpfulCount} helpful
-                    </span>
+                    <button
+                      onClick={() => !own && token && toggleHelpful.mutate(review.id)}
+                      disabled={own || !token || toggleHelpful.isPending}
+                      aria-pressed={review.helpful}
+                      aria-label={`Mark review helpful (${review.helpfulCount} helpful)`}
+                      className={cn(
+                        'flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[9px] font-medium transition-all disabled:opacity-40',
+                        review.helpful
+                          ? 'border-mv-violet/40 bg-mv-violet/15 text-mv-violet'
+                          : 'border-mv-border-light bg-mv-surface text-mv-text-dim hover:border-mv-violet/40 hover:text-mv-violet',
+                      )}
+                    >
+                      <Icon name="thumbsUp" size={11} strokeWidth={review.helpful ? 2.2 : 1.8} />
+                      Helpful · {review.helpfulCount}
+                    </button>
                     {own && (
                       <button onClick={() => deleteReview.mutate(review.id)} disabled={deleteReview.isPending} className="text-mv-danger/60 transition-colors hover:text-mv-danger disabled:opacity-30">
                         {deleteReview.isPending ? '…' : 'Delete'}

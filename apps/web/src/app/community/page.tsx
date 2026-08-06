@@ -15,7 +15,10 @@ import {
   useVotePrediction,
 } from '@/lib/hooks/useCommunity';
 import { useCoinBalance } from '@/lib/hooks/useCoins';
+import { UserHoverCard } from '@/components/social/UserHoverCard';
+import { REACTIONS } from '@/lib/hooks/useCommunity';
 import { timeAgo } from '@mangaverse/shared';
+import { cn } from '@/lib/cn';
 
 const TAGS = ['All', 'theory', 'prediction', 'discussion', 'review'];
 
@@ -193,53 +196,89 @@ export default function CommunityPage() {
                 </p>
               </div>
             ) : (
-              posts.map((post) => (
-                <Link
-                  key={post.id}
-                  href={`/community/${post.id}`}
-                  className="block rounded-xl bg-mv-darker border border-mv-border p-4 cursor-pointer transition-all hover:border-mv-border-light hover:bg-mv-surface group"
-                >
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-mv-accent/20 text-[10px] font-semibold text-mv-accent flex-shrink-0">
-                      {post.author.displayName.charAt(0).toUpperCase()}
+              posts.map((post) => {
+                const reactions = post.reactions ?? {};
+                const topReactions = [...REACTIONS]
+                  .sort((a, b) => (reactions[b.key] ?? 0) - (reactions[a.key] ?? 0))
+                  .filter((r) => (reactions[r.key] ?? 0) > 0)
+                  .slice(0, 3);
+                return (
+                  <div
+                    key={post.id}
+                    className="rounded-xl bg-mv-darker border border-mv-border p-4 transition-all hover:border-mv-border-light hover:bg-mv-surface group"
+                  >
+                    {/* Author row — own element so hover cards don't nest inside the post link */}
+                    <div className="mb-3 flex items-center gap-3">
+                      <UserHoverCard userId={post.author.id}>
+                        <Link href={`/user/${post.author.id}`} className="flex h-7 w-7 items-center justify-center rounded-full bg-mv-accent/20 text-[10px] font-semibold text-mv-accent flex-shrink-0">
+                          {post.author.displayName.charAt(0).toUpperCase()}
+                        </Link>
+                      </UserHoverCard>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <UserHoverCard userId={post.author.id}>
+                            <Link href={`/user/${post.author.id}`} className="text-xs font-medium text-mv-text transition-colors hover:text-mv-violet">
+                              {post.author.displayName}
+                            </Link>
+                          </UserHoverCard>
+                          <span className={`rounded px-1.5 py-0.5 text-[8px] font-medium ${post.tagColor}`}>
+                            {post.tag.charAt(0).toUpperCase() + post.tag.slice(1)}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-mv-text-muted">
+                          {timeAgo(post.createdAt)}
+                          {post.series && <span className="text-mv-accent"> · {post.series.title}</span>}
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium text-mv-text">{post.author.displayName}</span>
-                        <span className={`rounded px-1.5 py-0.5 text-[8px] font-medium ${post.tagColor}`}>
-                          {post.tag.charAt(0).toUpperCase() + post.tag.slice(1)}
+
+                    <Link href={`/community/${post.id}`} className="block">
+                      <h3 className="text-sm font-medium text-white mb-1.5 group-hover:text-mv-accent transition-colors">
+                        {post.title}
+                      </h3>
+                      <p className="text-xs text-mv-text-muted leading-relaxed line-clamp-2">{post.body}</p>
+                    </Link>
+
+                    <div className="mt-3 flex items-center gap-4">
+                      <span className="flex items-center gap-1 text-[10px] text-mv-text-dim">
+                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+                        {post.comments} replies
+                      </span>
+                      <span className="flex items-center gap-1 text-[10px] text-mv-text-dim">
+                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                        {post.views} views
+                      </span>
+                      {/* Reaction preview */}
+                      <div className="ml-auto flex items-center gap-2">
+                        {topReactions.length > 0 && (
+                          <span className="flex items-center -space-x-1" aria-label={`${post.totalReactions ?? 0} reactions`}>
+                            {topReactions.map((r) => (
+                              <span key={r.key} className="flex h-6 w-6 items-center justify-center rounded-full border border-mv-darker bg-mv-surface text-[10px]" aria-hidden="true">
+                                {r.emoji}
+                              </span>
+                            ))}
+                          </span>
+                        )}
+                        <span
+                          className={cn(
+                            'flex items-center gap-1.5 rounded-md px-2 py-1',
+                            post.myReaction ? 'bg-mv-accent/20' : 'bg-mv-surface',
+                          )}
+                        >
+                          {post.myReaction ? (
+                            <span aria-hidden="true">{REACTIONS.find((r) => r.key === post.myReaction)?.emoji}</span>
+                          ) : (
+                            <svg className="h-3 w-3 text-mv-text-dim" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" /></svg>
+                          )}
+                          <span className={`text-[10px] font-medium ${post.myReaction ? 'text-mv-accent' : 'text-mv-text-dim'}`}>
+                            {post.totalReactions ?? 0}
+                          </span>
                         </span>
                       </div>
-                      <p className="text-[10px] text-mv-text-muted">
-                        {timeAgo(post.createdAt)}
-                        {post.series && <span className="text-mv-accent"> · {post.series.title}</span>}
-                      </p>
                     </div>
                   </div>
-
-                  <h3 className="text-sm font-medium text-white mb-1.5 group-hover:text-mv-accent transition-colors">
-                    {post.title}
-                  </h3>
-                  <p className="text-xs text-mv-text-muted leading-relaxed line-clamp-2">{post.body}</p>
-
-                  <div className="mt-3 flex items-center gap-4">
-                    <span className="flex items-center gap-1 text-[10px] text-mv-text-dim">
-                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
-                      {post.comments} replies
-                    </span>
-                    <span className="flex items-center gap-1 text-[10px] text-mv-text-dim">
-                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                      {post.views} views
-                    </span>
-                    <div className={`ml-auto flex items-center gap-1.5 rounded-md px-2 py-1 ${
-                      post.voted ? 'bg-mv-accent/20' : 'bg-mv-surface'
-                    }`}>
-                      <svg className={`h-3 w-3 ${post.voted ? 'text-mv-accent' : 'text-mv-text-dim'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
-                      <span className={`text-[10px] font-medium ${post.voted ? 'text-mv-accent' : 'text-mv-text-dim'}`}>{post.upvotes}</span>
-                    </div>
-                  </div>
-                </Link>
-              ))
+                );
+              })
             )}
           </div>
 

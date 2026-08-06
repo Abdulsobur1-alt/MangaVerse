@@ -125,8 +125,21 @@ export default function MyReviewsPage() {
                     </div>
                   </div>
 
+                  {review.headline && (
+                    <h3 className="mb-1 text-sm font-semibold text-white">{review.headline}</h3>
+                  )}
+
                   {review.body && (
                     <p className="text-xs text-mv-text-secondary leading-relaxed mb-3 line-clamp-3">{review.body}</p>
+                  )}
+
+                  {review.spoiler && (
+                    <span className="mb-2 inline-flex items-center gap-1 rounded-full border border-mv-warning/30 bg-mv-warning/10 px-2 py-0.5 text-[8px] font-medium text-mv-warning">
+                      <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                      Contains spoilers
+                    </span>
                   )}
 
                   <div className="flex items-center justify-between">

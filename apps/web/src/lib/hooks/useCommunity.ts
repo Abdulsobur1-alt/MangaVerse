@@ -31,14 +31,31 @@ export interface CommunityPost {
   upvotes: number;
   comments: number;
   voted: boolean;
+  /** Phase 8: reaction tallies + the viewer's own reaction. */
+  reactions: Record<string, number>;
+  totalReactions: number;
+  myReaction: string | null;
 }
 
 export interface PostComment {
   id: string;
   body: string;
+  parentId: string | null;
   createdAt: string;
   author: CommunityUser;
 }
+
+/** The six meaningful reactions (Phase 8). */
+export const REACTIONS = [
+  { key: 'upvote', emoji: '👍', label: 'Upvote' },
+  { key: 'helpful', emoji: '🤝', label: 'Helpful' },
+  { key: 'insightful', emoji: '💡', label: 'Insightful' },
+  { key: 'funny', emoji: '😂', label: 'Funny' },
+  { key: 'agree', emoji: '✅', label: 'Agree' },
+  { key: 'love', emoji: '❤️', label: 'Love' },
+] as const;
+
+export type ReactionKey = (typeof REACTIONS)[number]['key'];
 
 export interface PostDetail extends Omit<CommunityPost, 'comments'> {
   comments: PostComment[];
@@ -147,8 +164,22 @@ export function useAddComment() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: { postId: string; body: string }) =>
-      api.post(`/community/posts/${data.postId}/comments`, { body: data.body }),
+    mutationFn: (data: { postId: string; body: string; parentId?: string }) =>
+      api.post(`/community/posts/${data.postId}/comments`, { body: data.body, parentId: data.parentId }),
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['community', 'post', vars.postId] });
+      queryClient.invalidateQueries({ queryKey: ['community', 'posts'] });
+    },
+  });
+}
+
+/** Set / switch / clear the viewer's reaction on a post (Phase 8). */
+export function useReactToPost() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ postId, reaction }: { postId: string; reaction: ReactionKey }) =>
+      api.post(`/community/posts/${postId}/reaction`, { reaction }),
     onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({ queryKey: ['community', 'post', vars.postId] });
       queryClient.invalidateQueries({ queryKey: ['community', 'posts'] });
