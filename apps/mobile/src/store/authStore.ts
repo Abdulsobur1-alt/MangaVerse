@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { api } from '../lib/api';
-import { firebaseSignIn, firebaseSignUp, firebaseAuthConfigured } from '../lib/firebaseClient';
+import { supabaseSignIn, supabaseSignUp, supabaseAuthConfigured } from '../lib/supabaseClient';
 
 export interface AuthUser {
   id: string;
@@ -74,13 +74,13 @@ export const useAuthStore = create<AuthState>((set) => ({
   login: async (email: string, password: string) => {
     set({ isLoading: true });
     try {
-      // Production: sign in with Firebase, send the ID token to our API.
-      // Dev fallback (Firebase not configured): email acts as the identifier.
-      const firebaseToken = firebaseAuthConfigured()
-        ? await firebaseSignIn(email, password)
+      // Production: sign in with Supabase, send the access token to our API.
+      // Dev fallback (Supabase not configured): email acts as the identifier.
+      const authToken = supabaseAuthConfigured()
+        ? await supabaseSignIn(email, password)
         : email;
 
-      const data = await api.post<LoginResponse>('/auth/login', { firebaseToken });
+      const data = await api.post<LoginResponse>('/auth/login', { authToken });
       persistAuth(data);
     } catch (err) {
       set({ isLoading: false });
@@ -91,16 +91,19 @@ export const useAuthStore = create<AuthState>((set) => ({
   register: async (email: string, password: string, displayName: string) => {
     set({ isLoading: true });
     try {
-      if (firebaseAuthConfigured()) {
-        const firebaseToken = await firebaseSignUp(email, password, displayName);
-        const data = await api.post<LoginResponse>('/auth/login', { firebaseToken });
+      if (supabaseAuthConfigured()) {
+        let authToken = await supabaseSignUp(email, password, displayName);
+        if (!authToken) {
+          authToken = await supabaseSignIn(email, password);
+        }
+        const data = await api.post<LoginResponse>('/auth/login', { authToken });
         persistAuth(data);
         return;
       }
 
       // Dev fallback: legacy register + auto-login
       await api.post('/auth/register', { email, password, displayName });
-      const data = await api.post<LoginResponse>('/auth/login', { firebaseToken: email });
+      const data = await api.post<LoginResponse>('/auth/login', { authToken: email });
       persistAuth(data);
     } catch (err) {
       set({ isLoading: false });

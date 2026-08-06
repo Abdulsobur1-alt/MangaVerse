@@ -49,12 +49,13 @@ cd mangaverse
 Create the root `.env` (the compose file reads it). There is no committed root `.env.example` — the per-app templates live in `apps/*/.env.example` (they're for local dev). For Docker, create `.env` in the repo root with the contents below:
 
 ```dotenv
-# ── Firebase (production auth) ──────────────────────────
-# Create a project at https://console.firebase.google.com →
-# Authentication → enable Email/Password. Then generate a
-# service-account key (Project settings → Service accounts →
-# Generate new private key) and paste its JSON here:
-FIREBASE_SERVICE_ACCOUNT={"type":"service_account","project_id":"mangaverse-xxxx","private_key":"-----BEGIN PRIVATE KEY-----...","client_email":"firebase-adminsdk-xxxx@mangaverse-xxxx.iam.gserviceaccount.com",...}
+# ── Supabase Auth (production auth) ────────────────────
+# Same project as the database — Supabase dashboard → Project
+# settings → API keys → copy the Project URL + anon public key.
+# Authentication → Sign in method → Email → enable; turn OFF
+# "Confirm email" for instant sign-ups.
+SUPABASE_URL=https://<project-ref>.supabase.co
+SUPABASE_ANON_KEY=eyJhbGciOi...
 
 # ── Web push (VAPID) ────────────────────────────────────
 # Generate locally with:  pnpm --filter @mangaverse/api webpush:generate-keys
@@ -64,7 +65,8 @@ VAPID_PRIVATE_KEY=
 
 # ── Web (inlined at build time) ─────────────────────────
 NEXT_PUBLIC_API_URL=https://api.YOUR-DOMAIN.com/api
-NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSy...   # from Firebase → Project settings → Web API key
+NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOi...
 
 # ── Domain (used by Caddy for auto-HTTPS) ───────────────
 # DOMAIN=YOUR-DOMAIN.com
@@ -108,7 +110,7 @@ curl https://api.YOUR-DOMAIN.com/api/health
 
 ### 6. Make yourself an admin
 
-The API syncs the schema to the current `schema.prisma` on startup (`prisma db push`) and seeds content automatically. To grant your Firebase account the admin role:
+The API syncs the schema to the current `schema.prisma` on startup (`prisma db push`) and seeds content automatically. To grant your Supabase account the admin role:
 
 ```bash
 # Find your DB user id by email:
@@ -157,7 +159,7 @@ This path costs **nothing and requires no credit card** — ideal if you can't p
 1. Copy the **REST/TLS** URL (`rediss://default:<password>@<host>.upstash.io:6379`).
 2. Save it as `REDIS_URL`. (The API already speaks TLS via ioredis.)
 
-**Firebase (optional)** — only if you want real auth: Web API key → `NEXT_PUBLIC_FIREBASE_API_KEY`, service-account JSON → `FIREBASE_SERVICE_ACCOUNT`. Without it the app runs in dev mode (`dev_` tokens).
+**Supabase Auth (optional)** — only if you want real auth: `SUPABASE_URL` + `SUPABASE_ANON_KEY` (API) and `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` (web), all from the same Supabase project as the database. Without it the app runs in dev mode (`dev_` tokens).
 
 ### 2. Deploy on Render
 
@@ -165,8 +167,8 @@ This path costs **nothing and requires no credit card** — ideal if you can't p
 2. [render.com](https://render.com) → sign up with GitHub (no card) → **New → Blueprint**.
 3. Pick the MangaVerse repo → Render reads `render.yaml` and creates **mangaverse-api** + **mangaverse-web**.
 4. In the **Environment** tab of each service, fill the `sync: false` secrets **before the first deploy** (a blank `DATABASE_URL` skips the boot-time schema sync — the API still boots, but data routes fail):
-   - `mangaverse-api`: `DATABASE_URL`, `REDIS_URL`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `FIREBASE_SERVICE_ACCOUNT`
-   - `mangaverse-web`: `NEXT_PUBLIC_FIREBASE_API_KEY`
+   - `mangaverse-api`: `DATABASE_URL`, `REDIS_URL`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`
+   - `mangaverse-web`: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 5. **Deploy**. On boot the API syncs the schema to `schema.prisma` (`prisma db push` — it strips `?pgbouncer=true` from `DATABASE_URL` so the schema is created through Supabase's session pooler; a sync failure is logged but doesn't fail the deploy), then the scraper worker seeds ~100 titles from MangaDex 30 s later. Watch `mangaverse-api` logs for `🌱 Seeding database`.
 
 > ⚠️ **Service names must be unique on Render.** The URLs above assume the services are literally named `mangaverse-api` / `mangaverse-web`. If Render assigns a suffix because a name is taken, update both `NEXT_PUBLIC_API_URL` and `CORS_ORIGIN` in `render.yaml` to match.
@@ -196,14 +198,15 @@ The web app is at `https://mangaverse-web.onrender.com` and calls `https://manga
 
 ---
 
-## Firebase setup (production auth)
+## Supabase Auth setup (production auth)
 
-1. Create a project at [console.firebase.google.com](https://console.firebase.google.com).
-2. **Authentication → Sign-in method → Email/Password → Enable**.
-3. **Project settings → Your apps → Web app** → copy the **Web API key** → `NEXT_PUBLIC_FIREBASE_API_KEY` / `EXPO_PUBLIC_FIREBASE_API_KEY`.
-4. **Project settings → Service accounts → Generate new private key** → paste the JSON into `FIREBASE_SERVICE_ACCOUNT` (API container only; it's never exposed client-side).
+You already have a Supabase project (the database) — the auth provider lives in the same project:
 
-Without Firebase configured, the app runs in dev mode (`dev_` tokens) — useful for local work but **not** for production.
+1. [supabase.com/dashboard](https://supabase.com/dashboard) → your project → **Authentication → Sign in method → Email** → enable it. For instant sign-ups (no confirmation step), turn **Confirm email OFF**; leave it ON if you want email verification before first login.
+2. **Project settings → API keys** → copy the **Project URL** (`https://<project-ref>.supabase.co`) and the **anon public** key.
+3. Wire them up: API service → `SUPABASE_URL` + `SUPABASE_ANON_KEY`. Web service → `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` (inlined at **build** time — redeploy after changing). Mobile → `EXPO_PUBLIC_SUPABASE_URL` + `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
+
+The app's `users` table stays separate from Supabase's `auth.users`; accounts link by the auth UID on first sign-in (existing rows with a matching email are adopted). Without Supabase configured, the app runs in dev mode (`dev_` tokens) — useful for local work but **not** for production.
 
 ## Web push (VAPID)
 

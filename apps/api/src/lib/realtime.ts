@@ -1,7 +1,7 @@
 import type { Server } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { prisma } from './prisma.js';
-import { verifyFirebaseToken, firebaseConfigured } from './firebase.js';
+import { verifySupabaseToken, supabaseConfigured } from './supabase.js';
 import { config } from '../config/index.js';
 
 /* ═══════════════════════════════════════════════════════════════
@@ -81,10 +81,10 @@ async function authenticate(token: string): Promise<string | null> {
   if (!token) return null;
   try {
     let uid: string;
-    if (config.devAuth && !firebaseConfigured() && token.startsWith('dev_')) {
+    if (config.devAuth && !supabaseConfigured() && token.startsWith('dev_')) {
       uid = token.replace('dev_', '');
     } else {
-      const decoded = await verifyFirebaseToken(token);
+      const decoded = await verifySupabaseToken(token);
       if (!decoded) return null;
       uid = decoded.uid;
     }

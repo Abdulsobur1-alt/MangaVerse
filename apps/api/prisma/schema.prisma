@@ -14,6 +14,9 @@ model User {
   email            String   @unique
   displayName      String   @map("display_name")
   avatarUrl        String?  @map("avatar_url")
+  // Auth-provider UID: the Supabase Auth user id in production, or the
+  // user's own db id under dev auth. (Column name predates Supabase; the
+  // physical column is unchanged so db-push convergence is a no-op.)
   firebaseUid      String?  @unique @map("firebase_uid")
   coinBalance      Int      @default(0) @map("coin_balance")
   role             String   @default("user") // user | moderator | admin

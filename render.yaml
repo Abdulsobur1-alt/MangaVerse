@@ -3,7 +3,7 @@
 # Requires (all free, no card):
 #   • Supabase Postgres  → DATABASE_URL   (Session pooler string, port 5432)
 #   • Upstash Redis      → REDIS_URL      (rediss://…, enables the scraper seed)
-#   • Firebase           → NEXT_PUBLIC_FIREBASE_API_KEY + FIREBASE_SERVICE_ACCOUNT (optional)
+#   • Supabase Auth      → SUPABASE_URL + SUPABASE_ANON_KEY (API) + NEXT_PUBLIC_SUPABASE_* (web) (optional)
 #
 # Free-tier realities (see DEPLOYMENT.md → Option C):
 #   • Services spin down after 15 min idle (~1 min cold start on next visit).
@@ -50,7 +50,10 @@ services:
         sync: false
       - key: VAPID_SUBJECT
         value: mailto:admin@mangaverse.app
-      - key: FIREBASE_SERVICE_ACCOUNT
+      # ── Supabase Auth (same project as the DB — Settings → API) ──
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
         sync: false
 
   # ─── Web (Next.js standalone) ─────────────────────────────────────
@@ -67,5 +70,7 @@ services:
       # Inlined at build time — keep in sync with the api service name above.
       - key: NEXT_PUBLIC_API_URL
         value: https://mangaverse-api.onrender.com/api
-      - key: NEXT_PUBLIC_FIREBASE_API_KEY
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
         sync: false

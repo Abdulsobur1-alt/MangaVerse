@@ -5,7 +5,7 @@ import { validate } from '../middleware/validate.js';
 import { requireAuth } from '../middleware/auth.js';
 import { AppError, ConflictError, ForbiddenError, UnauthorizedError } from '../lib/errors.js';
 import { seedDemoNotifications } from '../services/notifications.js';
-import { verifyFirebaseToken, firebaseConfigured } from '../lib/firebase.js';
+import { verifySupabaseToken, supabaseConfigured } from '../lib/supabase.js';
 import { config } from '../config/index.js';
 import { checkAndRecordMilestones } from '../services/journey.js';
 
@@ -21,14 +21,14 @@ const RegisterSchema = z.object({
 });
 
 const LoginSchema = z.object({
-  firebaseToken: z.string().min(1),
+  authToken: z.string().min(1),
 });
 
 // ─── POST /api/auth/register ─────────────────────────
-// Local-dev only: creates a DB user without a Firebase account. The client
-// does not call this endpoint when Firebase auth is configured. Exposing it
-// in production would let anyone mint user rows with an arbitrary firebaseUid,
-// so it's hard-gated behind config.devAuth.
+// Local-dev only: creates a DB user without an auth-provider account. The
+// client does not call this endpoint when Supabase auth is configured.
+// Exposing it in production would let anyone mint user rows with an
+// arbitrary auth uid, so it's hard-gated behind config.devAuth.
 
 authRouter.post('/register', validate({ body: RegisterSchema }), async (req, res, next) => {
   try {
@@ -37,7 +37,7 @@ authRouter.post('/register', validate({ body: RegisterSchema }), async (req, res
     // devAuth gate therefore lives inside the try so it flows to next(err).
     if (!config.devAuth) {
       throw new ForbiddenError(
-        'Sign-ups are currently disabled. Configure Firebase on the server (FIREBASE_SERVICE_ACCOUNT), or run with DEV_AUTH=1 in development.',
+        'Sign-ups are currently disabled. Configure Supabase auth on the server (SUPABASE_URL), or run with DEV_AUTH=1 in development.',
       );
     }
 
@@ -68,7 +68,7 @@ authRouter.post('/register', validate({ body: RegisterSchema }), async (req, res
     // every authed route + the realtime hub resolve tokens through
     // findUnique({ firebaseUid }). Without this the local stack 404s on
     // every authenticated call.
-    if (config.devAuth && !firebaseConfigured()) {
+    if (config.devAuth && !supabaseConfigured()) {
       await prisma.user.update({ where: { id: user.id }, data: { firebaseUid: user.id } });
     }
 
@@ -99,16 +99,16 @@ authRouter.post('/register', validate({ body: RegisterSchema }), async (req, res
 });
 
 // ─── POST /api/auth/login ────────────────────────────
-// Verifies a Firebase ID token and returns the matching DB user.
-// If the Firebase account has no DB row yet, one is created (upsert by uid).
+// Verifies a Supabase access token and returns the matching DB user.
+// If the Supabase account has no DB row yet, one is created (upsert by uid).
 
 authRouter.post('/login', validate({ body: LoginSchema }), async (req, res, next) => {
   try {
-    const { firebaseToken } = req.body;
+    const { authToken } = req.body;
 
     // Dev fallback (config.devAuth — never in production): accept a dev token
     // formatted as dev_<dbUserId> so the full stack stays testable locally.
-    if (config.devAuth && !firebaseConfigured()) {
+    if (config.devAuth && !supabaseConfigured()) {
       // Deterministic + admin-preferring: sign in lands on the oldest admin
       // (stable across runs — findFirst() without ORDER BY is arbitrary in
       // Postgres), falling back to the oldest user when no admin exists yet.
@@ -154,24 +154,24 @@ authRouter.post('/login', validate({ body: LoginSchema }), async (req, res, next
       return;
     }
 
-    // Production: verify the Firebase ID token. If the service account is
+    // Production: verify the Supabase access token. If the project URL is
     // missing, no token can ever verify — fail with an actionable config
     // error instead of the misleading 'Invalid or expired token'.
-    if (!firebaseConfigured()) {
+    if (!supabaseConfigured()) {
       throw new AppError(
         503,
         'AUTH_NOT_CONFIGURED',
-        'Firebase auth is not configured on the server (FIREBASE_SERVICE_ACCOUNT is missing). ' +
+        'Supabase auth is not configured on the server (SUPABASE_URL is missing). ' +
           'Set it in the API service environment to enable sign-in, or run locally with DEV_AUTH=1.',
       );
     }
-    const decoded = await verifyFirebaseToken(firebaseToken);
+    const decoded = await verifySupabaseToken(authToken);
     if (!decoded) {
       throw new UnauthorizedError('Invalid or expired token');
     }
 
     const email = decoded.email || `user-${decoded.uid.slice(0, 8)}@mangaverse.app`;
-    const displayName = decoded.name || 'Reader';
+    const displayName = decoded.displayName || 'Reader';
 
     // Activity touch + journey seeding on every sign-in.
     void (async () => {
@@ -192,7 +192,7 @@ authRouter.post('/login', validate({ body: LoginSchema }), async (req, res, next
         where: { firebaseUid: decoded.uid },
         update: {
           email,
-          ...(decoded.name ? { displayName: decoded.name } : {}),
+          ...(decoded.displayName ? { displayName: decoded.displayName } : {}),
         },
         create: {
           firebaseUid: decoded.uid,
@@ -201,11 +201,12 @@ authRouter.post('/login', validate({ body: LoginSchema }), async (req, res, next
         },
       });
 
-      return sendUser(res, user, firebaseToken);
+      return sendUser(res, user, authToken);
     } catch (err) {
       // P2002 on email: a legacy dev-mode row already exists with this email
-      // but no firebaseUid. Attach the Firebase uid to that row instead of
-      // failing — the migration path for pre-Firebase accounts.
+      // but no auth uid. Attach the provider uid to that row instead of
+      // failing — the migration path for accounts created before a provider
+      // was configured.
       if ((err as { code?: string })?.code === 'P2002') {
         const existing = await prisma.user.findUnique({
           where: { email },
@@ -214,10 +215,10 @@ authRouter.post('/login', validate({ body: LoginSchema }), async (req, res, next
         if (existing) {
           const user = await prisma.user.update({
             where: { id: existing.id },
-            data: { firebaseUid: decoded.uid, ...(decoded.name ? { displayName: decoded.name } : {}) },
+            data: { firebaseUid: decoded.uid, ...(decoded.displayName ? { displayName: decoded.displayName } : {}) },
             select: { id: true, email: true, displayName: true, avatarUrl: true, coinBalance: true, role: true, subscriptionTier: true, streakDays: true, createdAt: true },
           });
-          return sendUser(res, user, firebaseToken);
+          return sendUser(res, user, authToken);
         }
       }
       throw err;
@@ -227,7 +228,7 @@ authRouter.post('/login', validate({ body: LoginSchema }), async (req, res, next
   }
 });
 
-/** Serialize a DB user + Firebase token into the login response. */
+/** Serialize a DB user + auth token into the login response. */
 function sendUser(
   res: Response,
   user: {
@@ -241,7 +242,7 @@ function sendUser(
     streakDays: number;
     createdAt: Date;
   },
-  firebaseToken: string,
+  authToken: string,
 ) {
   res.json({
     success: true,
@@ -255,7 +256,7 @@ function sendUser(
       subscriptionTier: user.subscriptionTier,
       streakDays: user.streakDays,
       createdAt: user.createdAt.toISOString(),
-      token: firebaseToken,
+      token: authToken,
     },
   });
 }

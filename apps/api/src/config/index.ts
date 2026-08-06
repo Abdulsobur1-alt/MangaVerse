@@ -1,6 +1,6 @@
 export const config = {
   // Explicit opt-in for development auth flows (dev_ tokens, /auth/register).
-  // Must NEVER be enabled in production — it bypasses Firebase verification.
+  // Must NEVER be enabled in production — it bypasses auth verification.
   devAuth: process.env.DEV_AUTH === '1' || process.env.NODE_ENV === 'development',
 
   // MangaDex API
@@ -27,6 +27,14 @@ export const config = {
   // Image proxy
   imageProxy: {
     baseUrl: process.env.IMAGE_PROXY_URL || '/api/proxy/image',
+  },
+
+  // Supabase Auth — production sign-in (GoTrue). The API only verifies
+  // access-token JWTs against the project's JWKS, so the URL is what
+  // matters here; the anon key powers the web/mobile client signups.
+  supabase: {
+    url: process.env.SUPABASE_URL || '',
+    anonKey: process.env.SUPABASE_ANON_KEY || '',
   },
 
   // BullMQ

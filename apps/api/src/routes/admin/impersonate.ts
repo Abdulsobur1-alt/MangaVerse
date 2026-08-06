@@ -6,7 +6,7 @@ import { NotFoundError, ForbiddenError } from '../../lib/errors.js';
 import { requirePermission } from '../../services/rbac.js';
 import { logAudit } from '../../services/audit.js';
 import { config } from '../../config/index.js';
-import { firebaseConfigured } from '../../lib/firebase.js';
+import { supabaseConfigured } from '../../lib/supabase.js';
 
 /* ═══════════════════════════════════════════════════════════════
    Admin Impersonation — support agents can temporarily act as a user.
@@ -42,7 +42,7 @@ adminImpersonateRouter.post('/impersonate/:id', requirePermission('impersonate:a
       ip: req.ip,
     });
 
-    if (config.devAuth && !firebaseConfigured()) {
+    if (config.devAuth && !supabaseConfigured()) {
       // dev_<dbUserId> is exactly how dev-mode auth resolves tokens
       // (see middleware/auth.ts) — the actor's client can store it to
       // act as the target locally.

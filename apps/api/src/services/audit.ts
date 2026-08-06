@@ -35,7 +35,7 @@ export async function logAudit(input: AuditInput): Promise<void> {
   }
 }
 
-/** Resolve the acting user's db id from a firebase uid (null if unknown). */
+/** Resolve the acting user's db id from an auth uid (null if unknown). */
 export async function resolveActorId(firebaseUid?: string): Promise<string | null> {
   if (!firebaseUid) return null;
   try {

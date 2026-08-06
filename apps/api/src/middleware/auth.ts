@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { UnauthorizedError, ForbiddenError } from '../lib/errors.js';
 import { prisma } from '../lib/prisma.js';
-import { verifyFirebaseToken, firebaseConfigured } from '../lib/firebase.js';
+import { verifySupabaseToken, supabaseConfigured } from '../lib/supabase.js';
 import { config } from '../config/index.js';
 
 // Extend Express Request to include user info
@@ -21,13 +21,14 @@ declare global {
 export type UserRole = 'user' | 'moderator' | 'admin';
 
 /**
- * Middleware that requires a valid Firebase auth token.
+ * Middleware that requires a valid auth token (Supabase access token in
+ * production, `dev_` token in dev mode).
  * The token must be sent as `Authorization: Bearer <token>`.
  *
- * In production the token is a Firebase ID token verified via firebase-admin.
- * In development a `dev_<uid>` token is accepted so the full stack remains
- * testable locally — but ONLY when dev auth is explicitly enabled
- * (config.devAuth). It is never enabled in production.
+ * In production the token is a Supabase access token verified against the
+ * project's JWKS. In development a `dev_<uid>` token is accepted so the
+ * full stack remains testable locally — but ONLY when dev auth is
+ * explicitly enabled (config.devAuth). It is never enabled in production.
  */
 export async function requireAuth(req: Request, _res: Response, next: NextFunction) {
   const token = extractToken(req);
@@ -41,19 +42,19 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
     let displayName: string | undefined;
 
     // Dev token flow (config.devAuth is only true locally)
-    if (config.devAuth && !firebaseConfigured() && token.startsWith('dev_')) {
+    if (config.devAuth && !supabaseConfigured() && token.startsWith('dev_')) {
       uid = token.replace('dev_', '');
       email = 'dev@mangaverse.app';
       displayName = 'Developer';
     } else {
-      // Production: verify the Firebase ID token
-      const decoded = await verifyFirebaseToken(token);
+      // Production: verify the Supabase access token
+      const decoded = await verifySupabaseToken(token);
       if (!decoded) {
         return next(new UnauthorizedError('Invalid or expired token'));
       }
       uid = decoded.uid;
       email = decoded.email || '';
-      displayName = decoded.name || undefined;
+      displayName = decoded.displayName || undefined;
     }
 
     // Phase 11 moderation gate: banned accounts and active suspensions are
@@ -95,16 +96,16 @@ export async function optionalAuth(req: Request, _res: Response, next: NextFunct
     let email = '';
     let displayName: string | undefined;
 
-    if (config.devAuth && !firebaseConfigured() && token.startsWith('dev_')) {
+    if (config.devAuth && !supabaseConfigured() && token.startsWith('dev_')) {
       uid = token.replace('dev_', '');
       email = 'dev@mangaverse.app';
       displayName = 'Developer';
     } else {
-      const decoded = await verifyFirebaseToken(token);
+      const decoded = await verifySupabaseToken(token);
       if (decoded) {
         uid = decoded.uid;
         email = decoded.email || '';
-        displayName = decoded.name || undefined;
+        displayName = decoded.displayName || undefined;
       }
     }
 

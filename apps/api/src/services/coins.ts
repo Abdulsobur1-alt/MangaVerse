@@ -13,7 +13,7 @@ export type CoinTxnType = 'earn' | 'spend' | 'purchase' | 'reward' | 'refund';
 
 // ─── Helpers ──────────────────────────────────────────
 
-/** Resolve a Firebase UID (from auth middleware) to a DB user id. */
+/** Resolve an auth UID (from auth middleware) to a DB user id. */
 export async function resolveUserId(firebaseUid: string): Promise<string> {
   const user = await prisma.user.findUnique({
     where: { firebaseUid },

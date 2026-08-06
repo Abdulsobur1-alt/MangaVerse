@@ -28,9 +28,9 @@ export function useAuth() {
   });
 
   const loginMutation = useMutation({
-    mutationFn: (firebaseToken: string) =>
+    mutationFn: (authToken: string) =>
       api.post<{ id: string; email: string; displayName: string; token: string }>('/auth/login', {
-        firebaseToken,
+        authToken,
       }),
     onSuccess: (data) => {
       localStorage.setItem('auth_token', data.token);

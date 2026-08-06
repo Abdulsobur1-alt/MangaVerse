@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { firebaseConfigured } from '../lib/firebase.js';
+import { supabaseConfigured } from '../lib/supabase.js';
 import { config } from '../config/index.js';
 
 export const healthRouter = Router();
@@ -13,12 +13,12 @@ healthRouter.get('/', (_req, res) => {
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       environment: process.env.NODE_ENV || 'development',
-      // Auth visibility — lets a deployer confirm whether real Firebase
+      // Auth visibility — lets a deployer confirm whether real Supabase
       // auth is live from a single curl (no logs digging). provider is
-      // 'firebase' | 'dev' | 'none'.
+      // 'supabase' | 'dev' | 'none'.
       auth: {
-        provider: firebaseConfigured() ? 'firebase' : config.devAuth ? 'dev' : 'none',
-        firebaseConfigured: firebaseConfigured(),
+        provider: supabaseConfigured() ? 'supabase' : config.devAuth ? 'dev' : 'none',
+        supabaseConfigured: supabaseConfigured(),
       },
     },
   });

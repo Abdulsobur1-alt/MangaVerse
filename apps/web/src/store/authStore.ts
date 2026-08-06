@@ -2,7 +2,7 @@
 
 import { create } from 'zustand';
 import { api } from '@/lib/api';
-import { firebaseSignIn, firebaseSignUp, firebaseAuthConfigured } from '@/lib/firebaseClient';
+import { supabaseSignIn, supabaseSignUp, supabaseAuthConfigured } from '@/lib/supabaseClient';
 
 // ─── Types ────────────────────────────────────────────
 
@@ -30,7 +30,7 @@ interface AuthState {
   initialize: () => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, displayName: string) => Promise<void>;
-  loginWithToken: (firebaseToken: string) => Promise<void>;
+  loginWithToken: (authToken: string) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
   setUser: (user: AuthUser | null) => void;
@@ -67,10 +67,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true });
 
     try {
-      // Production: sign in with Firebase, send the ID token to our API.
-      // Dev fallback (Firebase not configured): email acts as the identifier.
-      const firebaseToken = firebaseAuthConfigured()
-        ? await firebaseSignIn(email, password)
+      // Production: sign in with Supabase, send the access token to our API.
+      // Dev fallback (Supabase not configured): email acts as the identifier.
+      const authToken = supabaseAuthConfigured()
+        ? await supabaseSignIn(email, password)
         : email;
 
       const data = await api.post<{
@@ -78,7 +78,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         email: string;
         displayName: string;
         token: string;
-      }>('/auth/login', { firebaseToken });
+      }>('/auth/login', { authToken });
 
       localStorage.setItem('auth_token', data.token);
       set({
@@ -107,10 +107,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       set({ isLoading: true });
 
-      if (firebaseAuthConfigured()) {
-        // Production: create the Firebase account, then log in with its token
-        const firebaseToken = await firebaseSignUp(email, password, displayName);
-        await get().loginWithToken(firebaseToken);
+      if (supabaseAuthConfigured()) {
+        // Production: create the Supabase account, then log in with its token.
+        // With email confirmation enabled, signup returns no session — a
+        // follow-up sign-in is then the confirmation gate.
+        let authToken = await supabaseSignUp(email, password, displayName);
+        if (!authToken) {
+          authToken = await supabaseSignIn(email, password);
+        }
+        await get().loginWithToken(authToken);
         return;
       }
 
@@ -127,7 +132,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  loginWithToken: async (firebaseToken: string) => {
+  loginWithToken: async (authToken: string) => {
     set({ isLoading: true });
 
     try {
@@ -139,7 +144,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         avatarUrl: string | null;
         coinBalance: number;
         subscriptionTier: string;
-      }>('/auth/login', { firebaseToken });
+      }>('/auth/login', { authToken });
 
       localStorage.setItem('auth_token', data.token);
       set({

@@ -101,8 +101,8 @@ export default function LoginPage() {
         </div>
 
         <p className="mt-4 text-center text-[10px] text-mv-text-dim">
-          {process.env.NEXT_PUBLIC_FIREBASE_API_KEY
-            ? 'Secure sign-in powered by Firebase'
+          {process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+            ? 'Secure sign-in powered by Supabase'
             : 'Dev mode: enter any email to sign in (first registered user)'}
         </p>
       </div>
