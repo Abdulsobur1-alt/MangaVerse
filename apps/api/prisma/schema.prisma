@@ -69,6 +69,8 @@ model User {
   readingClubs     ReadingClubMember[]
   achievements     Achievement[]
   notifications    Notification[]
+  announcements    Announcement[]
+  announcementDismissals AnnouncementDismissal[]
   creatorProfile   Creator?
   communityPosts   CommunityPost[]
   postVotes        PostVote[]
@@ -685,22 +687,97 @@ model PushSubscription {
 
 // ─── Notifications ─────────────────────────────────────
 
+// ─── Notifications (Phase 10) ───────────────────────────
+// The full engagement model: every notification carries a category
+// (chapters / social / community / achievements / system / reminders),
+// a priority (critical > high > normal > silent > background) that
+// drives push/email behavior, a structured data payload, and a dedupe
+// key so burst events coalesce instead of spamming.
+
 model Notification {
-  id        String   @id @default(uuid()) @db.Uuid
-  userId    String   @map("user_id") @db.Uuid
-  type      String   // "new_chapter", "review_added", "review_reply", "achievement", "milestone", "system"
-  title     String
-  body      String?
-  link      String?  // Relative URL to navigate to (e.g., /title/solo-leveling/reader/abc)
-  imageUrl  String?  @map("image_url")
-  read      Boolean  @default(false)
-  createdAt DateTime @default(now()) @map("created_at")
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  type       String    // "new_chapter", "review_added", "reply", "achievement", "reminder"...
+  category   String    @default("system") // chapters | social | community | achievements | system | reminders
+  priority   String    @default("normal") // critical | high | normal | silent | background
+  title      String
+  body       String?
+  link       String?   // Relative URL to navigate to (e.g., /title/solo-leveling/reader/abc)
+  imageUrl   String?   @map("image_url")
+  data       Json?     // Structured payload (actor name, chapter number, badge id...)
+  dedupeKey  String?   @map("dedupe_key") // Coalesces burst events (e.g. "new_chapter:title-123")
+  read       Boolean   @default(false)
+  pinnedAt   DateTime? @map("pinned_at")
+  archivedAt DateTime? @map("archived_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, read])
   @@index([userId, createdAt])
+  @@index([userId, category])
+  @@index([dedupeKey])
   @@map("notifications")
+}
+
+// ─── Announcements (Phase 10) ───────────────────────────
+// Dismissible in-app banners: product updates, maintenance, events,
+// seasonal themes, reading challenges. Targeted by audience; dismissed
+// per-user so analytics keep working.
+
+model Announcement {
+  id          String   @id @default(uuid()) @db.Uuid
+  title       String
+  body        String?  @db.Text
+  variant     String   @default("info") // info | success | warning | seasonal | maintenance
+  audience    String   @default("all")  // all | logged_in | moderators
+  link        String?
+  startsAt    DateTime? @map("starts_at")
+  endsAt      DateTime? @map("ends_at")
+  dismissible Boolean  @default(true)
+  active      Boolean  @default(true)
+  createdById String?  @map("created_by_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  createdBy  User?                   @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  dismissals AnnouncementDismissal[]
+
+  @@index([active, endsAt])
+  @@map("announcements")
+}
+
+model AnnouncementDismissal {
+  id             String   @id @default(uuid()) @db.Uuid
+  announcementId String   @map("announcement_id") @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  dismissedAt    DateTime @default(now()) @map("dismissed_at")
+
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([announcementId, userId])
+  @@map("announcement_dismissals")
+}
+
+// ─── Notification Templates (Phase 10) ──────────────────
+// Admin-editable copy for every notification type. Tokens like
+// {title} / {chapter} are substituted at send time.
+
+model NotificationTemplate {
+  id        String   @id @default(uuid()) @db.Uuid
+  key       String   @unique
+  name      String
+  type      String
+  category  String   @default("system")
+  priority  String   @default("normal")
+  title     String   // Template with {tokens}
+  body      String?  @db.Text
+  link      String?
+  active    Boolean  @default(true)
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("notification_templates")
 }
 
 // ─── Creators ──────────────────────────────────────────

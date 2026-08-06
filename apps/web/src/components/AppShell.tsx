@@ -6,6 +6,7 @@ import { TopBar } from '@/components/TopBar';
 import { Sidebar } from '@/components/shell/Sidebar';
 import { BottomNav } from '@/components/shell/BottomNav';
 import { CommandPalette } from '@/components/shell/CommandPalette';
+import { AnnouncementBanner } from '@/components/AnnouncementBanner';
 import { cn } from '@/lib/cn';
 
 /* ═══════════════════════════════════════════════════════════════
@@ -54,6 +55,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Content column */}
       <div className="md:pl-14">
         <TopBar onOpenSearch={() => setPaletteOpen(true)} />
+        <AnnouncementBanner />
         <main
           key={pathname}
           tabIndex={-1}

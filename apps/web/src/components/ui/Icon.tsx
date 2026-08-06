@@ -87,6 +87,11 @@ const PATHS: Record<string, string> = {
    crown: 'M5 8l3.5 3.5L12 7l3.5 4.5L19 8l-1.5 9h-11L5 8z',
    image: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z',
    target: 'M12 15a3 3 0 100-6 3 3 0 000 6zm8-3a8 8 0 11-16 0 8 8 0 0116 0z',
+   // Phase 10 — engagement & realtime
+   pin: 'M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2m8-10a4 4 0 100-8 4 4 0 000 8zm5.5-2.5a3 3 0 11-6 0 3 3 0 016 0zM19 13l-7 4-7-4',
+   archive: 'M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4',
+   activity: 'M22 12h-4l-3 9L9 3l-3 9H2',
+   megaphone: 'M11 5L6 9H2v6h4l5 4V5zm6.5 4.5a5 5 0 010 7m2.5-10a8 8 0 010 13',
  };
 
 export type IconName = keyof typeof PATHS;

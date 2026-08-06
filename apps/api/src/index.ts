@@ -21,6 +21,8 @@ import { readingRouter } from './routes/reading.js';
 import { searchRouter } from './routes/search.js';
 import { reviewsRouter } from './routes/reviews.js';
 import { notificationsRouter } from './routes/notifications.js';
+import { announcementsRouter } from './routes/announcements.js';
+import { activityRouter } from './routes/activity.js';
 import { coinsRouter } from './routes/coins.js';
 import { achievementsRouter } from './routes/achievements.js';
 import { communityRouter } from './routes/community.js';
@@ -31,6 +33,8 @@ import { healthRouter } from './routes/health.js';
 import { createImageProxyHandler } from './services/image-proxy.js';
 import { getScraperQueue, startScraperWorker } from './queues/scraper.js';
 import { startPredictionsWorker } from './queues/predictions.js';
+import { startEngagementWorker } from './queues/engagement.js';
+import { startRealtimeServer } from './lib/realtime.js';
 import { meilisearch } from './services/meilisearch.js';
 import { prisma } from './lib/prisma.js';
 
@@ -79,6 +83,8 @@ app.use('/api/reading', readingRouter);
 app.use('/api/search', searchRouter);
 app.use('/api/reviews', reviewsRouter);
 app.use('/api/notifications', notificationsRouter);
+app.use('/api/announcements', announcementsRouter);
+app.use('/api/activity', activityRouter);
 app.use('/api/coins', coinsRouter);
 app.use('/api/achievements', achievementsRouter);
 app.use('/api/community', communityRouter);
@@ -161,10 +167,23 @@ async function start() {
     // Redis unavailable — GET /predictions still lazily resolves due markets
   }
 
-  app.listen(PORT, () => {
+  // Start the engagement worker (reading reminders + digests)
+  try {
+    const eWorker = await startEngagementWorker();
+    if (eWorker) {
+      console.log('🔔 Engagement worker started (reminders + digests)');
+    }
+  } catch {
+    // Redis unavailable — reminders degrade to no-ops
+  }
+
+  const server = app.listen(PORT, () => {
     console.log(`⚡ MangaVerse API running on http://localhost:${PORT}`);
     console.log(`   Health check: http://localhost:${PORT}/api/health`);
   });
+
+  // Mount the WebSocket realtime hub on the same HTTP server
+  startRealtimeServer(server);
 }
 
 start().catch(console.error);

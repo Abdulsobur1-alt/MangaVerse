@@ -6,6 +6,11 @@ import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useAuthStore } from '@/store/authStore';
 import { useUpdateProfile, useDeleteAccount, useNotificationPrefs, useUpdateNotificationPrefs } from '@/lib/hooks/useSettings';
 import { useOwnIdentity } from '@/lib/hooks/useIdentity';
+import {
+  useNotificationPrefs as useEngagementPrefs,
+  useUpdateNotificationPrefs as useUpdateEngagementPrefs,
+  type NotificationPrefs as EngagementPrefs,
+} from '@/lib/hooks/useNotifications';
 import { usePrefs, useUpdatePrefs, type LibraryView, type CardDensity, type UserPrefs } from '@/lib/hooks/usePrefs';
 import { GENRES_META } from '@/components/home/types';
 import { toDbGenre } from '@/components/discover/utils';
@@ -213,6 +218,9 @@ export default function SettingsPage() {
           {/* ─── Personalization Section ──────────── */}
           <PersonalizationSection />
 
+          {/* ─── Engagement (Phase 10) ────────────── */}
+          <EngagementSection />
+
           {/* ─── Preferences Section ──────────────── */}
           <section className="mb-8">
             <h2 className="mb-4 text-sm font-medium text-white">Notification Preferences</h2>
@@ -324,6 +332,182 @@ export default function SettingsPage() {
         </div>
       </AppShell>
     </ProtectedRoute>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   EngagementSection — Phase 10 notification control center.
+   Channel modes (push/email), digest frequency, quiet hours,
+   Do-Not-Disturb, announcement visibility, and the reminder
+   toggles — all persisted through /notifications/prefs.
+   ═══════════════════════════════════════════════════════════════ */
+
+const CHANNEL_OPTIONS: { key: 'all' | 'important' | 'off'; label: string; desc: string }[] = [
+  { key: 'all', label: 'Everything', desc: 'All priorities' },
+  { key: 'important', label: 'Important only', desc: 'High & critical' },
+  { key: 'off', label: 'Off', desc: 'Never' },
+];
+
+const DIGEST_OPTIONS: { key: 'off' | 'daily' | 'weekly' | 'monthly'; label: string }[] = [
+  { key: 'off', label: 'Off' },
+  { key: 'daily', label: 'Daily' },
+  { key: 'weekly', label: 'Weekly' },
+  { key: 'monthly', label: 'Monthly' },
+];
+
+function EngagementSection() {
+  const { token } = useAuthStore();
+  const { data: prefs } = useEngagementPrefs();
+  const update = useUpdateEngagementPrefs();
+  const [dndStatus, setDndStatus] = useState<string | null>(null);
+
+  const set = (patch: Partial<EngagementPrefs>) => {
+    if (!token) return;
+    update.mutate(patch);
+  };
+
+  const p = prefs ?? {
+    push: 'all' as const,
+    email: 'off' as const,
+    digest: 'weekly' as const,
+    quietHours: { enabled: false, start: '22:00', end: '08:00' },
+    dndUntil: 0,
+    announcementVisibility: 'all' as const,
+    reminders: true,
+    recommendations: true,
+  };
+
+  const dndActive = p.dndUntil > Date.now();
+  const dndMinutes = dndActive ? Math.max(1, Math.round((p.dndUntil - Date.now()) / 60000)) : 0;
+
+  const startDnd = (mins: number) => {
+    set({ dndUntil: Date.now() + mins * 60_000 });
+    setDndStatus(`Do not disturb enabled for ${mins >= 1440 ? 'until tomorrow' : `${mins} min`}`);
+    setTimeout(() => setDndStatus(null), 2500);
+  };
+
+  return (
+    <section className="mb-8">
+      <h2 className="mb-1 text-sm font-medium text-white">Engagement</h2>
+      <p className="mb-4 text-[10px] text-mv-text-muted">
+        Notifications should help, never interrupt. Tune exactly how MangaVerse reaches you.
+      </p>
+
+      <div className="rounded-xl border border-mv-border bg-mv-darker divide-y divide-mv-border">
+        {/* Push channel */}
+        <div className="px-5 py-4">
+          <p className="text-xs font-medium text-mv-text">Push notifications</p>
+          <p className="mt-0.5 mb-3 text-[10px] text-mv-text-muted">Browser push for new chapters, replies and followers.</p>
+          <div className="flex gap-1 rounded-xl border border-mv-border-light bg-mv-surface/60 p-1">
+            {CHANNEL_OPTIONS.map((o) => (
+              <Segment key={o.key} active={p.push === o.key} onClick={() => set({ push: o.key })}>
+                {o.label}
+              </Segment>
+            ))}
+          </div>
+        </div>
+
+        {/* Digest frequency */}
+        <div className="px-5 py-4">
+          <p className="text-xs font-medium text-mv-text">Digest emails</p>
+          <p className="mt-0.5 mb-3 text-[10px] text-mv-text-muted">A summary of everything you missed, delivered to your inbox and notification center.</p>
+          <div className="flex gap-1 rounded-xl border border-mv-border-light bg-mv-surface/60 p-1">
+            {DIGEST_OPTIONS.map((o) => (
+              <Segment key={o.key} active={p.digest === o.key} onClick={() => set({ digest: o.key })}>
+                {o.label}
+              </Segment>
+            ))}
+          </div>
+        </div>
+
+        {/* Quiet hours */}
+        <div className="px-5 py-4">
+          <div className="mb-3 flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-medium text-mv-text">Quiet hours</p>
+              <p className="mt-0.5 text-[10px] text-mv-text-muted">No push notifications during this window. In-app alerts still appear.</p>
+            </div>
+            <label className="relative inline-flex cursor-pointer items-center">
+              <input
+                type="checkbox"
+                checked={p.quietHours.enabled}
+                onChange={(e) => set({ quietHours: { ...p.quietHours, enabled: e.target.checked } })}
+                className="peer sr-only"
+              />
+              <div className="h-5 w-9 rounded-full bg-mv-border-light after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:bg-mv-text-muted after:transition-all peer-checked:bg-mv-accent/60 peer-checked:after:translate-x-full peer-checked:after:bg-mv-accent" />
+            </label>
+          </div>
+          {p.quietHours.enabled && (
+            <div className="flex items-center gap-3">
+              <input
+                type="time"
+                value={p.quietHours.start}
+                onChange={(e) => set({ quietHours: { ...p.quietHours, start: e.target.value } })}
+                className="field w-28 text-center"
+                aria-label="Quiet hours start"
+              />
+              <span className="text-[10px] text-mv-text-dim">→</span>
+              <input
+                type="time"
+                value={p.quietHours.end}
+                onChange={(e) => set({ quietHours: { ...p.quietHours, end: e.target.value } })}
+                className="field w-28 text-center"
+                aria-label="Quiet hours end"
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Do Not Disturb */}
+        <div className="px-5 py-4">
+          <p className="text-xs font-medium text-mv-text">Do Not Disturb</p>
+          <p className="mt-0.5 mb-3 text-[10px] text-mv-text-muted">
+            {dndActive
+              ? `Active — ${dndMinutes >= 60 ? `${Math.floor(dndMinutes / 60)}h ${dndMinutes % 60}m` : `${dndMinutes}m`} remaining.`
+              : 'Pause all push notifications for a while.'}
+          </p>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button onClick={() => startDnd(30)} className="rounded-lg border border-mv-border-light bg-mv-surface px-3 py-1.5 text-[10px] text-mv-text-secondary transition-colors hover:text-mv-text">30 min</button>
+            <button onClick={() => startDnd(120)} className="rounded-lg border border-mv-border-light bg-mv-surface px-3 py-1.5 text-[10px] text-mv-text-secondary transition-colors hover:text-mv-text">2 hours</button>
+            <button onClick={() => startDnd(1440)} className="rounded-lg border border-mv-border-light bg-mv-surface px-3 py-1.5 text-[10px] text-mv-text-secondary transition-colors hover:text-mv-text">Until tomorrow</button>
+            {dndActive && (
+              <button onClick={() => { set({ dndUntil: 0 }); setDndStatus('Do not disturb cleared'); setTimeout(() => setDndStatus(null), 2000); }} className="rounded-lg border border-red-900/30 bg-red-900/10 px-3 py-1.5 text-[10px] text-red-400 transition-colors hover:bg-red-900/20">
+                Clear
+              </button>
+            )}
+            {dndStatus && <span className="animate-fade-in text-[10px] text-green-400">✓ {dndStatus}</span>}
+          </div>
+        </div>
+
+        {/* Announcement visibility */}
+        <div className="px-5 py-4">
+          <p className="text-xs font-medium text-mv-text">Announcements</p>
+          <p className="mt-0.5 mb-3 text-[10px] text-mv-text-muted">Product updates, events and maintenance notices.</p>
+          <div className="flex gap-1 rounded-xl border border-mv-border-light bg-mv-surface/60 p-1">
+            {CHANNEL_OPTIONS.map((o) => (
+              <Segment key={o.key} active={p.announcementVisibility === o.key} onClick={() => set({ announcementVisibility: o.key })}>
+                {o.label}
+              </Segment>
+            ))}
+          </div>
+        </div>
+
+        {/* Reminder toggles */}
+        <Toggle
+          checked={p.reminders}
+          onChange={(v) => set({ reminders: v })}
+          label="Reading reminders"
+          desc="Gentle nudges for streaks, abandoned reads, and daily goals."
+        />
+        <Toggle
+          checked={p.recommendations}
+          onChange={(v) => set({ recommendations: v })}
+          label="Recommendations"
+          desc="Personalized title suggestions based on your taste."
+        />
+      </div>
+      {update.isError && <p className="mt-2 text-[10px] text-red-400">Failed to save. Please try again.</p>}
+    </section>
   );
 }
 

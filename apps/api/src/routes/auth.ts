@@ -51,9 +51,18 @@ authRouter.post('/register', validate({ body: RegisterSchema }), async (req, res
       data: {
         email,
         displayName,
-        firebaseUid,
+        firebaseUid: firebaseUid ?? null,
       },
     });
+
+    // Dev mode aliases firebaseUid to the user's own db id (always — even if
+    // a caller supplied one), because the dev token is dev_<dbUserId> and
+    // every authed route + the realtime hub resolve tokens through
+    // findUnique({ firebaseUid }). Without this the local stack 404s on
+    // every authenticated call.
+    if (config.devAuth && !firebaseConfigured()) {
+      await prisma.user.update({ where: { id: user.id }, data: { firebaseUid: user.id } });
+    }
 
     // Seed welcome notifications for new users (fire-and-forget, but caught —
     // an unhandled rejection on Node 22 crashes the whole process).
@@ -92,13 +101,18 @@ authRouter.post('/login', validate({ body: LoginSchema }), async (req, res, next
     // Dev fallback (config.devAuth — never in production): accept a dev token
     // formatted as dev_<dbUserId> so the full stack stays testable locally.
     if (config.devAuth && !firebaseConfigured()) {
-      const user = await prisma.user.findFirst();
+      let user = await prisma.user.findFirst();
       if (!user) {
         res.status(401).json({
           success: false,
           error: { code: 'AUTH_FAILED', message: 'No users found. Register first.' },
         });
         return;
+      }
+      // Same firebaseUid alias as register — makes dev_<dbUserId> tokens
+      // resolve for rows created before this backfill existed.
+      if (!user.firebaseUid) {
+        user = await prisma.user.update({ where: { id: user.id }, data: { firebaseUid: user.id } });
       }
       res.json({
         success: true,

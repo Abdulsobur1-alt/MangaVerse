@@ -40,6 +40,7 @@ const OVERVIEW: NavItem[] = [
   { href: '/goals', label: 'Goals', icon: 'zap' },
   { href: '/download', label: 'Downloads', icon: 'download' },
   { href: '/notifications', label: 'Alerts', icon: 'bell' },
+  { href: '/activity', label: 'Activity', icon: 'activity' },
   { href: '/settings', label: 'Settings', icon: 'settings' },
 ];
 

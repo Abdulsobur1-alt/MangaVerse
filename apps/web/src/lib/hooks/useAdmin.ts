@@ -259,3 +259,140 @@ export function useAdminUpdateReport() {
     },
   });
 }
+
+// ─── Engagement tools (Phase 10) ──────────────────────
+
+export interface EngagementStats {
+  totals: {
+    notifications: number;
+    last7Days: number;
+    pushSubscriptions: number;
+    announcements: number;
+    digestEnabledUsers: number;
+  };
+  perDay: Record<string, number>;
+  byCategory: Record<string, number>;
+  byPriority: Record<string, number>;
+}
+
+export function useEngagementStats(enabled = true) {
+  return useQuery<EngagementStats>({
+    queryKey: ['admin', 'engagement', 'stats'],
+    queryFn: () => api.get<EngagementStats>('/admin/engagement/stats'),
+    enabled,
+    staleTime: 60 * 1000,
+  });
+}
+
+export interface BroadcastInput {
+  type: string;
+  title: string;
+  body?: string;
+  link?: string;
+  priority?: string;
+  audience: string;
+}
+
+export function useAdminBroadcast() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: BroadcastInput) => api.post('/admin/notifications/broadcast', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'engagement', 'stats'] });
+    },
+  });
+}
+
+export interface AdminAnnouncement {
+  id: string;
+  title: string;
+  body: string | null;
+  variant: string;
+  audience: string;
+  link: string | null;
+  dismissible: boolean;
+  active: boolean;
+  startsAt: string | null;
+  endsAt: string | null;
+  dismissals: number;
+  createdAt: string;
+}
+
+export function useAdminAnnouncements(enabled = true) {
+  return useQuery<Paginated<AdminAnnouncement>>({
+    queryKey: ['admin', 'announcements'],
+    queryFn: () => api.get<Paginated<AdminAnnouncement>>('/announcements/manage?page=1&limit=50'),
+    enabled,
+  });
+}
+
+export function useAdminCreateAnnouncement() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Partial<AdminAnnouncement> & { title: string }) => api.post('/announcements', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'announcements'] });
+      queryClient.invalidateQueries({ queryKey: ['announcements'] });
+    },
+  });
+}
+
+export function useAdminToggleAnnouncement() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, active }: { id: string; active: boolean }) => api.patch(`/announcements/${id}`, { active }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'announcements'] });
+      queryClient.invalidateQueries({ queryKey: ['announcements'] });
+    },
+  });
+}
+
+export function useAdminDeleteAnnouncement() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/announcements/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'announcements'] });
+      queryClient.invalidateQueries({ queryKey: ['announcements'] });
+    },
+  });
+}
+
+export function useAdminNotifyAnnouncement() {
+  return useMutation({
+    mutationFn: (id: string) => api.post(`/announcements/${id}/notify`, {}),
+  });
+}
+
+export interface NotificationTemplate {
+  key: string;
+  name: string;
+  type: string;
+  category: string;
+  priority: string;
+  title: string;
+  body: string | null;
+  link: string | null;
+  active: boolean;
+  updatedAt: string;
+}
+
+export function useAdminTemplates(enabled = true) {
+  return useQuery<{ items: NotificationTemplate[] }>({
+    queryKey: ['admin', 'templates'],
+    queryFn: () => api.get<{ items: NotificationTemplate[] }>('/admin/notification-templates'),
+    enabled,
+  });
+}
+
+export function useAdminSaveTemplate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Partial<NotificationTemplate> & { key: string; title: string; name: string; type: string }) =>
+      api.post('/admin/notification-templates', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'templates'] });
+    },
+  });
+}

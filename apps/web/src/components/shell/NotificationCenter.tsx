@@ -8,16 +8,22 @@ import {
   useNotifications,
   useMarkRead,
   useMarkAllRead,
+  usePinNotification,
+  useArchiveNotification,
   getNotificationIcon,
   getNotificationTypeColor,
+  getPriorityMeta,
+  type NotificationItem,
 } from '@/lib/hooks/useNotifications';
+import { useRealtime } from '@/lib/realtime';
 import { Icon } from '@/components/ui/Icon';
 import { cn } from '@/lib/cn';
 
 /* ═══════════════════════════════════════════════════════════════
    NotificationCenter — the bell affordance + unread badge + the
-   glass dropdown of recent notifications. Reusable anywhere in the
-   shell (top bar, expanded sidebar, mobile).
+   glass dropdown. Phase 10 redesign: All/Unread tabs, day-grouped
+   timeline, priority dots, pinned items, hover quick-actions, and
+   live updates over the realtime socket.
    ═══════════════════════════════════════════════════════════════ */
 
 function formatNotifTime(dateStr: string): string {
@@ -34,6 +40,97 @@ function formatNotifTime(dateStr: string): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+function dayGroup(dateStr: string): string {
+  const d = new Date(dateStr);
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const startOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const diffDays = Math.round((startOfToday - startOfDay) / 86_400_000);
+  if (diffDays <= 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return d.toLocaleDateString('en-US', { weekday: 'long' });
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+interface RowProps {
+  notif: NotificationItem;
+  onOpen: (n: NotificationItem) => void;
+}
+
+function NotifRow({ notif, onOpen }: RowProps) {
+  const markRead = useMarkRead();
+  const pin = usePinNotification();
+  const archive = useArchiveNotification();
+  const priority = getPriorityMeta(notif.priority);
+  const pinned = !!notif.pinnedAt;
+
+  return (
+    <button
+      onClick={() => onOpen(notif)}
+      className={cn(
+        'group flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-white/5',
+        !notif.read && 'bg-white/[0.03]',
+      )}
+    >
+      <div className="relative">
+        <div
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs"
+          style={{ backgroundColor: `${getNotificationTypeColor(notif.type)}20` }}
+        >
+          <span>{getNotificationIcon(notif.type)}</span>
+        </div>
+        {notif.priority !== 'normal' && (
+          <span
+            className="absolute -right-1 -top-1 h-2 w-2 rounded-full ring-2 ring-mv-darker"
+            style={{ backgroundColor: priority.color }}
+            title={`${priority.label} priority`}
+          />
+        )}
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <p className={cn('text-xs leading-relaxed', !notif.read ? 'font-medium text-white' : 'text-mv-text-secondary')}>
+          {notif.title}
+        </p>
+        {notif.body && <p className="mt-0.5 line-clamp-1 text-[10px] text-mv-text-muted">{notif.body}</p>}
+        <p className="mt-1 text-[9px] text-mv-text-dim">
+          {formatNotifTime(notif.createdAt)}
+          {pinned && <span className="ml-1.5 text-mv-violet">· pinned</span>}
+        </p>
+      </div>
+
+      {!notif.read && <div className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-gradient-to-r from-mv-accent to-mv-purple" />}
+
+      {/* Quick actions (hover) */}
+      <div className="absolute right-3 top-2.5 hidden items-center gap-0.5 rounded-lg bg-mv-darker/90 p-0.5 shadow-sm group-hover:flex">
+        <button
+          onClick={(e) => { e.stopPropagation(); pin.mutate({ id: notif.id, pinned }); }}
+          aria-label={pinned ? 'Unpin' : 'Pin'}
+          className={cn('rounded-md p-1 transition-colors hover:bg-white/10', pinned ? 'text-mv-violet' : 'text-mv-text-dim hover:text-mv-text')}
+        >
+          <Icon name="pin" size={11} />
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); archive.mutate({ id: notif.id, archived: false }); }}
+          aria-label="Archive"
+          className="rounded-md p-1 text-mv-text-dim transition-colors hover:bg-white/10 hover:text-mv-text"
+        >
+          <Icon name="archive" size={11} />
+        </button>
+        {!notif.read && (
+          <button
+            onClick={(e) => { e.stopPropagation(); markRead.mutate(notif.id); }}
+            aria-label="Mark as read"
+            className="rounded-md p-1 text-mv-text-dim transition-colors hover:bg-white/10 hover:text-mv-text"
+          >
+            <Icon name="check" size={11} />
+          </button>
+        )}
+      </div>
+    </button>
+  );
+}
+
 export interface NotificationCenterProps {
   className?: string;
 }
@@ -42,15 +139,20 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<'all' | 'unread'>('all');
   const ref = useRef<HTMLDivElement>(null);
 
+  // Live updates: invalidates the notification queries on new events
+  useRealtime();
+
   const { data: unreadData } = useUnreadCount();
-  const { data: notifData } = useNotifications(1, 5);
+  const { data: notifData } = useNotifications(1, 8);
   const markRead = useMarkRead();
   const markAllRead = useMarkAllRead();
 
   const unreadCount = unreadData?.count || 0;
-  const recentNotifs = notifData?.items || [];
+  const allNotifs = notifData?.items || [];
+  const notifs = tab === 'unread' ? allNotifs.filter((n) => !n.read) : allNotifs;
 
   // Close on outside click
   useEffect(() => {
@@ -76,11 +178,19 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
     return () => window.removeEventListener('keydown', handler);
   }, [open]);
 
-  const handleClick = (notif: (typeof recentNotifs)[0]) => {
+  const handleOpen = (notif: NotificationItem) => {
     if (!notif.read) markRead.mutate(notif.id);
     setOpen(false);
     if (notif.link) router.push(notif.link);
   };
+
+  // Group by day
+  const groups = new Map<string, NotificationItem[]>();
+  for (const n of notifs) {
+    const key = dayGroup(n.createdAt);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(n);
+  }
 
   return (
     <div className={cn('relative', className)} ref={ref}>
@@ -99,7 +209,7 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
       </button>
 
       {open && (
-        <div className="glass absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-2xl shadow-modal animate-scale-in">
+        <div className="glass absolute right-0 top-full z-50 mt-2 w-[22rem] overflow-hidden rounded-2xl shadow-modal animate-scale-in">
           <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
             <p className="text-xs font-semibold text-white">Notifications</p>
             <div className="flex items-center gap-3">
@@ -114,39 +224,44 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
             </div>
           </div>
 
-          {recentNotifs.length === 0 ? (
+          {/* Tabs */}
+          <div className="flex gap-1 border-b border-white/5 px-3 py-2">
+            {(['all', 'unread'] as const).map((t) => (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                aria-pressed={tab === t}
+                className={cn(
+                  'rounded-full px-3 py-1 text-[10px] font-medium transition-colors',
+                  tab === t ? 'bg-mv-accent/15 text-mv-violet' : 'text-mv-text-muted hover:text-mv-text',
+                )}
+              >
+                {t === 'all' ? 'All' : `Unread${unreadCount > 0 ? ` (${unreadCount})` : ''}`}
+              </button>
+            ))}
+          </div>
+
+          {notifs.length === 0 ? (
             <div className="px-4 py-8 text-center">
               <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-white/5">
                 <Icon name="bell" size={20} className="text-mv-text-dim" />
               </div>
-              <p className="text-[11px] text-mv-text-muted">No notifications yet</p>
-              <p className="mt-1 text-[9px] text-mv-text-dim">We&apos;ll notify you about new chapters and activity</p>
+              <p className="text-[11px] text-mv-text-muted">
+                {tab === 'unread' ? 'You’re all caught up!' : 'No notifications yet'}
+              </p>
+              <p className="mt-1 text-[9px] text-mv-text-dim">We’ll notify you about new chapters and activity</p>
             </div>
           ) : (
             <div className="max-h-80 overflow-y-auto">
-              {recentNotifs.map((notif) => (
-                <button
-                  key={notif.id}
-                  onClick={() => handleClick(notif)}
-                  className={`flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-white/5 ${
-                    !notif.read ? 'bg-white/[0.03]' : ''
-                  }`}
-                >
-                  <div
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs"
-                    style={{ backgroundColor: `${getNotificationTypeColor(notif.type)}20` }}
-                  >
-                    <span>{getNotificationIcon(notif.type)}</span>
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className={`text-xs leading-relaxed ${!notif.read ? 'font-medium text-white' : 'text-mv-text-secondary'}`}>
-                      {notif.title}
-                    </p>
-                    {notif.body && <p className="mt-0.5 line-clamp-1 text-[10px] text-mv-text-muted">{notif.body}</p>}
-                    <p className="mt-1 text-[9px] text-mv-text-dim">{formatNotifTime(notif.createdAt)}</p>
-                  </div>
-                  {!notif.read && <div className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-gradient-to-r from-mv-accent to-mv-purple" />}
-                </button>
+              {[...groups.entries()].map(([day, items]) => (
+                <div key={day}>
+                  <p className="px-4 pb-1 pt-3 text-[9px] font-semibold uppercase tracking-[0.14em] text-mv-text-dim">{day}</p>
+                  {items.map((notif) => (
+                    <div key={notif.id} className="relative">
+                      <NotifRow notif={notif} onOpen={handleOpen} />
+                    </div>
+                  ))}
+                </div>
               ))}
             </div>
           )}

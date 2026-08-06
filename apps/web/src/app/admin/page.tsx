@@ -18,9 +18,18 @@ import {
   useAdminDeleteClub,
   useAdminReports,
   useAdminUpdateReport,
+  useEngagementStats,
+  useAdminBroadcast,
+  useAdminAnnouncements,
+  useAdminCreateAnnouncement,
+  useAdminToggleAnnouncement,
+  useAdminDeleteAnnouncement,
+  useAdminNotifyAnnouncement,
+  useAdminTemplates,
+  useAdminSaveTemplate,
 } from '@/lib/hooks/useAdmin';
 
-const TABS = ['Overview', 'Users', 'Reports', 'Posts', 'Comments', 'Wiki', 'Clubs'] as const;
+const TABS = ['Overview', 'Users', 'Reports', 'Posts', 'Comments', 'Wiki', 'Clubs', 'Engagement'] as const;
 type Tab = (typeof TABS)[number];
 
 const ROLE_BADGE: Record<string, string> = {
@@ -486,10 +495,358 @@ export default function AdminPage() {
                 </div>
                 )
               )}
+
+              {/* ─── Engagement (Phase 10) ────────── */}
+              {tab === 'Engagement' && <EngagementTab />}
             </>
           )}
         </div>
       </AppShell>
     </ProtectedRoute>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   EngagementTab — Phase 10 admin tools: delivery analytics,
+   broadcast composer, announcement manager, template editor.
+   ═══════════════════════════════════════════════════════════════ */
+
+const VARIANTS = ['info', 'success', 'warning', 'seasonal', 'maintenance'];
+const BROADCAST_TYPES = ['system', 'announcement', 'security', 'moderator', 'recommendation', 'milestone'];
+const PRIORITIES = ['critical', 'high', 'normal', 'silent', 'background'];
+const AUDIENCES = ['all', 'logged_in', 'moderators'];
+
+function EngagementTab() {
+  const { data: stats } = useEngagementStats();
+  const broadcast = useAdminBroadcast();
+  const { data: annData } = useAdminAnnouncements();
+  const createAnn = useAdminCreateAnnouncement();
+  const toggleAnn = useAdminToggleAnnouncement();
+  const deleteAnn = useAdminDeleteAnnouncement();
+  const notifyAnn = useAdminNotifyAnnouncement();
+  const { data: tplData } = useAdminTemplates();
+  const saveTpl = useAdminSaveTemplate();
+
+  // Broadcast composer state
+  const [bType, setBType] = useState('system');
+  const [bTitle, setBTitle] = useState('');
+  const [bBody, setBBody] = useState('');
+  const [bLink, setBLink] = useState('');
+  const [bPriority, setBPriority] = useState('normal');
+  const [bAudience, setBAudience] = useState('all');
+  const [bSent, setBSent] = useState<number | null>(null);
+
+  // Announcement composer state
+  const [aTitle, setATitle] = useState('');
+  const [aBody, setABody] = useState('');
+  const [aVariant, setAVariant] = useState('info');
+  const [aAudience, setAAudience] = useState('all');
+  const [aLink, setALink] = useState('');
+  const [aCreated, setACreated] = useState(false);
+
+  // Template editor state
+  const [editKey, setEditKey] = useState<string | null>(null);
+  const [tTitle, setTTitle] = useState('');
+  const [tBody, setTBody] = useState('');
+
+  const sendBroadcast = () => {
+    if (!bTitle.trim()) return;
+    broadcast.mutate(
+      {
+        type: bType,
+        title: bTitle.trim(),
+        body: bBody.trim() || undefined,
+        link: bLink.trim() || undefined,
+        priority: bPriority,
+        audience: bAudience,
+      },
+      {
+        onSuccess: (res) => {
+          setBSent((res as { sent?: number })?.sent ?? null);
+          setBTitle('');
+          setBBody('');
+          setBLink('');
+        },
+      },
+    );
+  };
+
+  const createAnnouncement = () => {
+    if (!aTitle.trim()) return;
+    createAnn.mutate(
+      {
+        title: aTitle.trim(),
+        body: aBody.trim() || undefined,
+        variant: aVariant as never,
+        audience: aAudience as never,
+        link: aLink.trim() || undefined,
+      },
+      {
+        onSuccess: () => {
+          setACreated(true);
+          setATitle('');
+          setABody('');
+          setALink('');
+          setTimeout(() => setACreated(false), 2500);
+        },
+      },
+    );
+  };
+
+  const openTemplate = (key: string) => {
+    const t = tplData?.items.find((x) => x.key === key);
+    if (!t) return;
+    setEditKey(key);
+    setTTitle(t.title);
+    setTBody(t.body ?? '');
+  };
+
+  const saveTemplate = () => {
+    if (!editKey) return;
+    const t = tplData?.items.find((x) => x.key === editKey);
+    saveTpl.mutate({
+      key: editKey,
+      name: t?.name ?? editKey,
+      type: t?.type ?? 'system',
+      title: tTitle,
+      body: tBody || undefined,
+    });
+    setEditKey(null);
+  };
+
+  const maxDay = Math.max(1, ...Object.values(stats?.perDay ?? {}));
+  const days = Object.entries(stats?.perDay ?? {}).sort(([a], [b]) => (a < b ? -1 : 1));
+
+  return (
+    <div className="space-y-6">
+      {/* ── Delivery analytics ────────────────────── */}
+      <section>
+        <h3 className="mb-3 text-xs font-semibold text-white">Delivery analytics</h3>
+        {!stats ? (
+          <div className="flex items-center justify-center py-10">
+            <div className="h-7 w-7 animate-spin rounded-full border-2 border-mv-accent border-t-transparent" />
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+              <StatCard label="All-time notifications" value={stats.totals.notifications} accent="text-mv-accent" />
+              <StatCard label="Last 7 days" value={stats.totals.last7Days} />
+              <StatCard label="Push subscriptions" value={stats.totals.pushSubscriptions} accent="text-mv-violet" />
+              <StatCard label="Announcements" value={stats.totals.announcements} />
+              <StatCard label="Digest-enabled users" value={stats.totals.digestEnabledUsers} />
+            </div>
+            <div className="mt-3 grid gap-3 lg:grid-cols-2">
+              {/* Per-day bar chart */}
+              <div className="rounded-xl border border-mv-border bg-mv-darker p-4">
+                <p className="mb-3 text-[9px] font-semibold uppercase tracking-wider text-mv-text-muted">Notifications per day (7d)</p>
+                <div className="flex h-24 items-end gap-1.5">
+                  {days.map(([day, count]) => (
+                    <div key={day} className="flex flex-1 flex-col items-center gap-1">
+                      <span className="text-[8px] text-mv-text-dim">{count}</span>
+                      <div
+                        className="w-full rounded-t-md bg-gradient-to-t from-mv-purple/40 to-mv-accent/80 transition-all"
+                        style={{ height: `${Math.max(4, (count / maxDay) * 72)}px` }}
+                      />
+                      <span className="text-[7px] text-mv-text-dim">{day.slice(5)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {/* By category + priority */}
+              <div className="rounded-xl border border-mv-border bg-mv-darker p-4">
+                <p className="mb-3 text-[9px] font-semibold uppercase tracking-wider text-mv-text-muted">By category</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {Object.entries(stats.byCategory).map(([cat, count]) => (
+                    <span key={cat} className="rounded-full bg-mv-surface px-2.5 py-1 text-[10px] text-mv-text-secondary">
+                      {cat} · <span className="text-mv-text">{count}</span>
+                    </span>
+                  ))}
+                </div>
+                <p className="mb-2 mt-4 text-[9px] font-semibold uppercase tracking-wider text-mv-text-muted">By priority</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {Object.entries(stats.byPriority).map(([pr, count]) => (
+                    <span key={pr} className="rounded-full bg-mv-surface px-2.5 py-1 text-[10px] text-mv-text-secondary">
+                      {pr} · <span className="text-mv-text">{count}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+      </section>
+
+      {/* ── Broadcast composer ────────────────────── */}
+      <section className="rounded-xl border border-mv-border bg-mv-darker p-5">
+        <h3 className="mb-1 text-xs font-semibold text-white">Broadcast notification</h3>
+        <p className="mb-4 text-[10px] text-mv-text-muted">Send a notification to an entire audience — connected users see it live.</p>
+        <div className="grid gap-3 lg:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-[9px] uppercase tracking-wider text-mv-text-dim">Type</label>
+            <select value={bType} onChange={(e) => setBType(e.target.value)} className="field w-full">
+              {BROADCAST_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-[9px] uppercase tracking-wider text-mv-text-dim">Priority</label>
+            <select value={bPriority} onChange={(e) => setBPriority(e.target.value)} className="field w-full">
+              {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-[9px] uppercase tracking-wider text-mv-text-dim">Audience</label>
+            <select value={bAudience} onChange={(e) => setBAudience(e.target.value)} className="field w-full">
+              {AUDIENCES.map((a) => <option key={a} value={a}>{a}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-[9px] uppercase tracking-wider text-mv-text-dim">Link (optional)</label>
+            <input value={bLink} onChange={(e) => setBLink(e.target.value)} placeholder="/browse" className="field w-full" />
+          </div>
+          <div className="lg:col-span-2">
+            <label className="mb-1 block text-[9px] uppercase tracking-wider text-mv-text-dim">Title</label>
+            <input value={bTitle} onChange={(e) => setBTitle(e.target.value)} maxLength={140} placeholder="Important announcement…" className="field w-full" />
+          </div>
+          <div className="lg:col-span-2">
+            <label className="mb-1 block text-[9px] uppercase tracking-wider text-mv-text-dim">Body (optional)</label>
+            <textarea value={bBody} onChange={(e) => setBBody(e.target.value)} rows={2} maxLength={1000} placeholder="Details…" className="field w-full resize-none" />
+          </div>
+        </div>
+        <div className="mt-4 flex items-center gap-3">
+          <button onClick={sendBroadcast} disabled={broadcast.isPending || !bTitle.trim()} className="btn-primary px-5 py-2 text-xs disabled:opacity-50">
+            {broadcast.isPending ? 'Sending…' : 'Send broadcast'}
+          </button>
+          {bSent !== null && broadcast.isSuccess && (
+            <span className="animate-fade-in text-[10px] text-green-400">✓ Sent to {bSent} user{bSent === 1 ? '' : 's'}</span>
+          )}
+          {broadcast.isError && <span className="text-[10px] text-red-400">Failed to send</span>}
+        </div>
+      </section>
+
+      {/* ── Announcement manager ──────────────────── */}
+      <section>
+        <h3 className="mb-3 text-xs font-semibold text-white">Announcements</h3>
+        <div className="rounded-xl border border-mv-border bg-mv-darker p-5">
+          <div className="grid gap-3 lg:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-[9px] uppercase tracking-wider text-mv-text-dim">Title</label>
+              <input value={aTitle} onChange={(e) => setATitle(e.target.value)} maxLength={140} placeholder="Banner title…" className="field w-full" />
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="mb-1 block text-[9px] uppercase tracking-wider text-mv-text-dim">Variant</label>
+                <select value={aVariant} onChange={(e) => setAVariant(e.target.value)} className="field w-full">
+                  {VARIANTS.map((v) => <option key={v} value={v}>{v}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-[9px] uppercase tracking-wider text-mv-text-dim">Audience</label>
+                <select value={aAudience} onChange={(e) => setAAudience(e.target.value)} className="field w-full">
+                  {AUDIENCES.map((a) => <option key={a} value={a}>{a}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-[9px] uppercase tracking-wider text-mv-text-dim">Link</label>
+                <input value={aLink} onChange={(e) => setALink(e.target.value)} placeholder="/browse" className="field w-full" />
+              </div>
+            </div>
+            <div className="lg:col-span-2">
+              <label className="mb-1 block text-[9px] uppercase tracking-wider text-mv-text-dim">Body</label>
+              <textarea value={aBody} onChange={(e) => setABody(e.target.value)} rows={2} maxLength={2000} placeholder="Optional details…" className="field w-full resize-none" />
+            </div>
+          </div>
+          <div className="mt-3 flex items-center gap-3">
+            <button onClick={createAnnouncement} disabled={createAnn.isPending || !aTitle.trim()} className="btn-ghost px-4 py-2 text-[10px] disabled:opacity-50">
+              {createAnn.isPending ? 'Creating…' : 'Create announcement'}
+            </button>
+            {aCreated && <span className="animate-fade-in text-[10px] text-green-400">✓ Live (visible to matching visitors)</span>}
+          </div>
+        </div>
+
+        {/* Existing announcements */}
+        <div className="mt-3 space-y-2">
+          {(annData?.items ?? []).map((a) => (
+            <div key={a.id} className="flex items-start gap-3 rounded-xl border border-mv-border bg-mv-darker p-4">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-medium text-mv-text">
+                  {a.title}
+                  <span className="ml-2 rounded bg-mv-surface px-1.5 py-0.5 text-[8px] text-mv-text-muted">{a.variant}</span>
+                  <span className="ml-1 rounded bg-mv-surface px-1.5 py-0.5 text-[8px] text-mv-text-muted">{a.audience}</span>
+                </p>
+                {a.body && <p className="mt-0.5 line-clamp-1 text-[10px] text-mv-text-muted">{a.body}</p>}
+                <p className="mt-1 text-[9px] text-mv-text-dim">
+                  {a.dismissals} dismissals · created {new Date(a.createdAt).toLocaleDateString()}
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-1.5">
+                <button
+                  onClick={() => notifyAnn.mutate(a.id)}
+                  disabled={notifyAnn.isPending}
+                  className="rounded-md bg-mv-surface px-2 py-1 text-[9px] text-mv-violet transition-colors hover:bg-mv-violet/20"
+                >
+                  Notify
+                </button>
+                <button
+                  onClick={() => toggleAnn.mutate({ id: a.id, active: !a.active })}
+                  className={`rounded-md px-2 py-1 text-[9px] transition-colors ${a.active ? 'bg-green-500/10 text-green-400 hover:bg-green-500/20' : 'bg-mv-surface text-mv-text-dim hover:text-mv-text'}`}
+                >
+                  {a.active ? 'Live' : 'Paused'}
+                </button>
+                <button
+                  onClick={() => deleteAnn.mutate(a.id)}
+                  disabled={deleteAnn.isPending}
+                  className="rounded-md bg-mv-surface px-2 py-1 text-[9px] text-red-400/70 transition-colors hover:bg-red-900/20"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))}
+          {annData && annData.items.length === 0 && (
+            <p className="rounded-xl border border-mv-border bg-mv-darker p-6 text-center text-[10px] text-mv-text-dim">No announcements yet</p>
+          )}
+        </div>
+      </section>
+
+      {/* ── Template editor ───────────────────────── */}
+      <section>
+        <h3 className="mb-3 text-xs font-semibold text-white">Notification templates</h3>
+        <div className="rounded-xl border border-mv-border bg-mv-darker p-4">
+          <p className="mb-3 text-[10px] text-mv-text-muted">
+            Edit the copy behind system-led notifications. Tokens like <code className="rounded bg-mv-surface px-1 text-mv-violet">{"{series}"}</code>,{' '}
+            <code className="rounded bg-mv-surface px-1 text-mv-violet">{"{chapter}"}</code> are substituted at send time.
+          </p>
+          <div className="max-h-64 space-y-1 overflow-y-auto">
+            {(tplData?.items ?? []).map((t) => (
+              <div key={t.key} className="flex items-start gap-3 rounded-lg border border-mv-border/60 bg-mv-surface/40 p-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] font-medium text-mv-text">{t.key}</p>
+                  <p className="mt-0.5 truncate text-[9px] text-mv-text-muted">{t.title}</p>
+                </div>
+                {editKey === t.key ? (
+                  <div className="flex items-center gap-1.5">
+                    <button onClick={saveTemplate} disabled={saveTpl.isPending} className="rounded-md bg-mv-accent/20 px-2 py-1 text-[9px] text-mv-accent">
+                      Save
+                    </button>
+                    <button onClick={() => setEditKey(null)} className="rounded-md bg-mv-surface px-2 py-1 text-[9px] text-mv-text-dim">Cancel</button>
+                  </div>
+                ) : (
+                  <button onClick={() => openTemplate(t.key)} className="rounded-md bg-mv-surface px-2 py-1 text-[9px] text-mv-text-secondary transition-colors hover:text-mv-text">
+                    Edit
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          {editKey && (
+            <div className="mt-3 space-y-2 border-t border-mv-border pt-3">
+              <p className="text-[10px] font-medium text-mv-violet">Editing: {editKey}</p>
+              <input value={tTitle} onChange={(e) => setTTitle(e.target.value)} placeholder="Title template" className="field w-full" />
+              <textarea value={tBody} onChange={(e) => setTBody(e.target.value)} rows={2} placeholder="Body template" className="field w-full resize-none" />
+            </div>
+          )}
+        </div>
+      </section>
+    </div>
   );
 }

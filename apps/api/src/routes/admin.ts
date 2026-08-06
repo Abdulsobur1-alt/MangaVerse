@@ -4,6 +4,7 @@ import { prisma } from '../lib/prisma.js';
 import { validate } from '../middleware/validate.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { NotFoundError, ForbiddenError } from '../lib/errors.js';
+import { broadcastNotification } from '../services/notifications.js';
 
 export const adminRouter = Router();
 
@@ -542,6 +543,153 @@ adminRouter.delete('/clubs/:id', validate({ params: IdParams }), async (req, res
 
     await prisma.readingClub.delete({ where: { id } });
     res.json({ success: true, data: { deleted: true, id } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ═══ Engagement tools (Phase 10) ═══════════════════════
+
+// ─── GET /api/admin/engagement/stats ───────────────────
+// Delivery analytics: volumes per day/category/priority, push reach.
+
+adminRouter.get('/engagement/stats', async (_req, res, next) => {
+  try {
+    const days = 7;
+    const since = new Date(Date.now() - days * 86_400_000);
+
+    const [recent, totals, pushSubs, announcements, digestUsers] = await Promise.all([
+      prisma.notification.findMany({
+        where: { createdAt: { gte: since } },
+        select: { createdAt: true, category: true, priority: true, type: true },
+      }),
+      prisma.notification.count(),
+      prisma.pushSubscription.count(),
+      prisma.announcement.count(),
+      prisma.user.count({
+        where: { notificationPrefs: { path: ['digest'], not: 'off' } },
+      }),
+    ]);
+
+    const perDay = new Map<string, number>();
+    const byCategory = new Map<string, number>();
+    const byPriority = new Map<string, number>();
+    for (const n of recent) {
+      const day = n.createdAt.toISOString().slice(0, 10);
+      perDay.set(day, (perDay.get(day) || 0) + 1);
+      byCategory.set(n.category, (byCategory.get(n.category) || 0) + 1);
+      byPriority.set(n.priority, (byPriority.get(n.priority) || 0) + 1);
+    }
+
+    res.json({
+      success: true,
+      data: {
+        totals: {
+          notifications: totals,
+          last7Days: recent.length,
+          pushSubscriptions: pushSubs,
+          announcements,
+          digestEnabledUsers: digestUsers,
+        },
+        perDay: Object.fromEntries([...perDay.entries()].sort()),
+        byCategory: Object.fromEntries(byCategory),
+        byPriority: Object.fromEntries(byPriority),
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── POST /api/admin/notifications/broadcast ───────────
+// Composer: send a notification to an audience (with push for high/critical).
+
+const BroadcastSchema = z.object({
+  type: z.enum(['system', 'announcement', 'security', 'moderator', 'recommendation', 'milestone']),
+  title: z.string().min(1).max(140),
+  body: z.string().max(1000).optional(),
+  link: z.string().max(500).optional(),
+  imageUrl: z.string().max(500).optional(),
+  priority: z.enum(['critical', 'high', 'normal', 'silent', 'background']).optional(),
+  audience: z.enum(['all', 'logged_in', 'moderators']).default('all'),
+});
+
+adminRouter.post('/notifications/broadcast', validate({ body: BroadcastSchema }), async (req, res, next) => {
+  try {
+    const body = req.body as z.infer<typeof BroadcastSchema>;
+    const sent = await broadcastNotification({
+      type: body.type,
+      title: body.title,
+      body: body.body,
+      link: body.link,
+      imageUrl: body.imageUrl,
+      priority: body.priority,
+      audience: body.audience,
+    });
+    res.json({ success: true, data: { sent } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── Notification templates (editor) ───────────────────
+
+const TemplateSchema = z.object({
+  key: z.string().min(1).max(80),
+  name: z.string().min(1).max(120),
+  type: z.string().min(1).max(40),
+  category: z.string().default('system'),
+  priority: z.enum(['critical', 'high', 'normal', 'silent', 'background']).default('normal'),
+  title: z.string().min(1).max(200),
+  body: z.string().max(1000).optional(),
+  link: z.string().max(500).optional(),
+  active: z.boolean().default(true),
+});
+
+const TemplateKeyParams = z.object({ key: z.string().min(1) });
+
+adminRouter.get('/notification-templates', async (_req, res, next) => {
+  try {
+    const templates = await prisma.notificationTemplate.findMany({ orderBy: { key: 'asc' } });
+    res.json({ success: true, data: { items: templates } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.post('/notification-templates', validate({ body: TemplateSchema }), async (req, res, next) => {
+  try {
+    const body = req.body as z.infer<typeof TemplateSchema>;
+    const created = await prisma.notificationTemplate.upsert({
+      where: { key: body.key },
+      create: body,
+      update: body,
+    });
+    res.status(201).json({ success: true, data: created });
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.patch('/notification-templates/:key', validate({ params: TemplateKeyParams, body: TemplateSchema.partial() }), async (req, res, next) => {
+  try {
+    const { key } = req.params as unknown as z.infer<typeof TemplateKeyParams>;
+    const body = req.body as Partial<z.infer<typeof TemplateSchema>>;
+    const updated = await prisma.notificationTemplate.update({
+      where: { key },
+      data: body,
+    });
+    res.json({ success: true, data: updated });
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.delete('/notification-templates/:key', validate({ params: TemplateKeyParams }), async (req, res, next) => {
+  try {
+    const { key } = req.params as unknown as z.infer<typeof TemplateKeyParams>;
+    await prisma.notificationTemplate.deleteMany({ where: { key } });
+    res.json({ success: true, data: { deleted: true, key } });
   } catch (err) {
     next(err);
   }
