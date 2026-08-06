@@ -68,8 +68,16 @@ services:
     healthCheckPath: /
     envVars:
       # Inlined at build time — keep in sync with the api service name above.
+      # ⚠️ Render renames services that collide with an existing name, appending
+      # a random suffix (here mangaverse-api → mangaverse-api-cf0o). If this
+      # value points at a URL where no service exists, every API call from the
+      # web app fails with "CORS: No 'Access-Control-Allow-Origin' header" — the
+      # stale URL answers 404 with `x-render-routing: no-server` and no CORS
+      # headers. When the api service name changes, update BOTH this value and
+      # CORS_ORIGIN above, mirror the values into the dashboard Environment tab,
+      # then redeploy the web service (env vars are baked in at build time).
       - key: NEXT_PUBLIC_API_URL
-        value: https://mangaverse-api.onrender.com/api
+        value: https://mangaverse-api-cf0o.onrender.com/api
       - key: NEXT_PUBLIC_SUPABASE_URL
         sync: false
       - key: NEXT_PUBLIC_SUPABASE_ANON_KEY

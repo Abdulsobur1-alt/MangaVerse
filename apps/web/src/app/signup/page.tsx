@@ -145,6 +145,13 @@ export default function SignupPage() {
         <p className="mt-4 text-center text-[10px] text-mv-text-dim">
           By signing up, you agree to our Terms of Service
         </p>
+
+        {process.env.NODE_ENV === 'production' &&
+          !(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) && (
+            <p className="mt-2 text-center text-[10px] font-medium text-mv-orange">
+              ⚠ Sign-ups are disabled in this deployment — the auth provider is not configured.
+            </p>
+          )}
       </div>
     </main>
   );

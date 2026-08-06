@@ -103,7 +103,9 @@ export default function LoginPage() {
         <p className="mt-4 text-center text-[10px] text-mv-text-dim">
           {process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
             ? 'Secure sign-in powered by Supabase'
-            : 'Dev mode: enter any email to sign in (first registered user)'}
+            : process.env.NODE_ENV === 'production'
+              ? 'Sign-ups are disabled in this deployment — the auth provider is not configured'
+              : 'Dev mode: enter any email to sign in (first registered user)'}
         </p>
       </div>
     </main>

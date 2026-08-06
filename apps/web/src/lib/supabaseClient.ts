@@ -38,17 +38,46 @@ async function supabaseRequest<T>(path: string, body: Record<string, unknown>): 
     );
   }
 
-  const res = await fetch(`${SUPABASE_URL.replace(/\/+$/, '')}/auth/v1${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', apikey: ANON_KEY },
-    body: JSON.stringify(body),
-  });
+  // Bound the call and translate network-level failures. Browsers surface a
+  // wrong/blocked SUPABASE_URL (typo, http:// mixed content, CORS rejection,
+  // paused project) as a bare "Failed to fetch" — confusing. A 20s cap is
+  // plenty for GoTrue; config problems fail fast instead of spinning.
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 20_000);
 
+  let res: Response;
+  try {
+    res = await fetch(`${SUPABASE_URL.replace(/\/+$/, '')}/auth/v1${path}`, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: { 'Content-Type': 'application/json', apikey: ANON_KEY },
+      body: JSON.stringify(body),
+    });
+  } catch (err) {
+    // Network-level failure: wrong/blocked SUPABASE_URL (typo, http:// mixed
+    // content, CORS rejection, paused project). Browsers surface these as a
+    // bare "Failed to fetch" — translate into an actionable message.
+    const timedOut = (err as { name?: string } | null)?.name === 'AbortError';
+    throw new Error(
+      timedOut
+        ? 'Supabase took too long to respond. Check NEXT_PUBLIC_SUPABASE_URL and try again.'
+        : 'Cannot reach Supabase — check that NEXT_PUBLIC_SUPABASE_URL is correct and the project is active.',
+    );
+  }
+
+  // Read the body under the same timeout (a connection dropped mid-response
+  // would otherwise hang or surface as a bare "Failed to fetch" again).
   let json: SupabaseAuthResponse & T;
   try {
     json = (await res.json()) as SupabaseAuthResponse & T;
-  } catch {
+  } catch (err) {
+    const timedOut = (err as { name?: string } | null)?.name === 'AbortError';
+    if (timedOut) {
+      throw new Error('Supabase took too long to respond. Check NEXT_PUBLIC_SUPABASE_URL and try again.');
+    }
     throw new Error('Supabase returned an invalid response');
+  } finally {
+    clearTimeout(timeout);
   }
 
   if (!res.ok || json.error) {

@@ -20,6 +20,11 @@ class ApiError extends Error {
   }
 }
 
+// How long to wait for a response before giving up. Render's free tier can
+// take ~1 min to wake a spun-down API instance — but an infinite spinner is
+// worse than a clear error, so we cap the wait and explain what to do.
+const FETCH_TIMEOUT_MS = 45_000;
+
 async function request<T>(
   endpoint: string,
   options?: RequestInit,
@@ -27,18 +32,55 @@ async function request<T>(
   const url = `${API_BASE}${endpoint}`;
   const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
 
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options?.headers,
-    },
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...options?.headers,
+      },
+    });
+  } catch (err) {
+    // Network-level failure: server unreachable, CORS preflight rejected, or
+    // our timeout fired. Browsers surface these as a bare "Failed to fetch" —
+    // translate it into an actionable message.
+    const timedOut = (err as { name?: string } | null)?.name === 'AbortError';
+    throw new ApiError(
+      'NETWORK_ERROR',
+      timedOut
+        ? 'The server took too long to respond. It may be waking from sleep (free tier) — try again in a minute.'
+        : 'Cannot reach the server — it may be asleep (free tier) or your connection dropped. Try again in a minute.',
+      0,
+    );
+  }
+
+  // Read the body under the same timeout + network-error handling: a
+  // connection dropped mid-response (Render spin-down, flaky networks) would
+  // otherwise surface as a bare "Failed to fetch" again.
+  let raw: string;
+  try {
+    raw = await res.text();
+  } catch (err) {
+    const timedOut = (err as { name?: string } | null)?.name === 'AbortError';
+    throw new ApiError(
+      'NETWORK_ERROR',
+      timedOut
+        ? 'The server took too long to respond. It may be waking from sleep (free tier) — try again in a minute.'
+        : 'The connection to the server dropped while loading. Try again in a minute.',
+      0,
+    );
+  } finally {
+    clearTimeout(timeout);
+  }
 
   // Guard against non-JSON responses (proxy 404s, HTML error pages, timeouts)
   // — res.json() would throw a confusing SyntaxError.
-  const raw = await res.text();
   let json: ApiResponse<T>;
   try {
     json = JSON.parse(raw);

@@ -1,0 +1,4 @@
+# Shell scripts must keep LF line endings — the API container entrypoint
+# (apps/api/scripts/start.sh) is exec'd by `sh -c` in the Dockerfile CMD,
+# and a CRLF file would break the shebang on Linux.
+*.sh text eol=lf

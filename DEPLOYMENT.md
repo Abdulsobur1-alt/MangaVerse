@@ -171,17 +171,26 @@ This path costs **nothing and requires no credit card** — ideal if you can't p
    - `mangaverse-web`: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 5. **Deploy**. On boot the API syncs the schema to `schema.prisma` (`prisma db push` — it strips `?pgbouncer=true` from `DATABASE_URL` so the schema is created through Supabase's session pooler; a sync failure is logged but doesn't fail the deploy), then the scraper worker seeds ~100 titles from MangaDex 30 s later. Watch `mangaverse-api` logs for `🌱 Seeding database`.
 
-> ⚠️ **Service names must be unique on Render.** The URLs above assume the services are literally named `mangaverse-api` / `mangaverse-web`. If Render assigns a suffix because a name is taken, update both `NEXT_PUBLIC_API_URL` and `CORS_ORIGIN` in `render.yaml` to match.
+> ⚠️ **Service names must be unique on Render.** The URLs above assume the services are literally named `mangaverse-api` / `mangaverse-web`. If Render assigns a suffix because a name is taken (e.g. `mangaverse-api` → `mangaverse-api-cf0o`), update both `NEXT_PUBLIC_API_URL` and `CORS_ORIGIN` in `render.yaml` **and** in the dashboard Environment tab of the web service, then redeploy with a build.
+>
+> **How you'll know this bit you:** every API call from the web app fails with `Access to fetch at 'https://mangaverse-api.onrender.com/api/...' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource` — the stale URL answers `404` with `x-render-routing: no-server` and no CORS headers. (Check with `curl -i https://<your-api-name>.onrender.com/api/health`.) A second symptom: the login page shows the old *"Dev mode: enter any email to sign in"* footer even in production — that means the web image was built **without** `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY`, so sign-up calls `/api/auth/register` instead of Supabase. Both are fixed by setting the env vars below and doing a **Manual Deploy → Deploy** on the web service.
 > ⚠️ **Supabase + Prisma over SSL.** If the schema sync fails with SSL errors, append `?sslmode=require` to the `DATABASE_URL` (newer Supabase regions require TLS).
 > ⚠️ **Free-tier build memory.** Render free instances have 512 MB RAM; the web build (`pnpm install` of ~1190 packages + Next standalone) can OOM. If the build dies, re-run it — the pnpm store cache mount makes retries cheap — or pause the API service while the web builds. If it *keeps* dying, the reliable escape hatch is to build both images locally and push them to Docker Hub, then switch the services in `render.yaml` to `image:` (dropping `dockerContext`/`dockerfilePath`).
 
 ### 3. Verify
 
 ```bash
-curl https://mangaverse-api.onrender.com/api/health
+curl https://<your-api-name>.onrender.com/api/health
 ```
 
-The web app is at `https://mangaverse-web.onrender.com` and calls `https://mangaverse-api.onrender.com/api` (already wired via `NEXT_PUBLIC_API_URL` in `render.yaml`).
+The web app is at `https://mangaverse-web.onrender.com` and calls `https://<your-api-name>.onrender.com/api` (wired via `NEXT_PUBLIC_API_URL` in `render.yaml` — see the service-name warning above for the exact URL). The health endpoint reports whether real Supabase auth is live:
+
+```bash
+curl https://<your-api-name>.onrender.com/api/health
+# → "auth": { "provider": "supabase", ... }   ← Supabase auth live
+# → "auth": { "provider": "dev" }             ← dev tokens (not for production)
+# → "auth": { "provider": "none" }             ← SUPABASE_URL missing on the API
+```
 
 > Note: changing any `NEXT_PUBLIC_*` value later requires a **Manual Deploy → Deploy** (a plain restart won't do — the value is inlined at build time).
 > Note: the boot-time sync uses `prisma db push`, which does **not** write migration history (`_prisma_migrations`). The regenerated baseline migration (`20260803120000_init`) matches the schema, so a future switch to `prisma migrate deploy` works on a **fresh** database — but not on a `db push`-created one without re-baselining.
@@ -190,7 +199,7 @@ The web app is at `https://mangaverse-web.onrender.com` and calls `https://manga
 
 - **Cold starts**: the first request after idle takes ~1 min (Render shows a loading page meanwhile).
 - **Workers sleep too**: the scraper/predictions workers only run while the API is awake. Prediction resolution also happens lazily on reads, so due markets still resolve.
-- **No custom domain** on free tier — you get `<service>.onrender.com` URLs. The mobile app's `EXPO_PUBLIC_API_URL` can point straight at `https://mangaverse-api.onrender.com`.
+- **No custom domain** on free tier — you get `<service>.onrender.com` URLs. The mobile app's `EXPO_PUBLIC_API_URL` can point straight at `https://<your-api-name>.onrender.com`.
 - **Upstash command budget** — BullMQ's background polling counts against the free 500k commands/month. Fine for a low-traffic demo; a constantly-hit API will burn through it (then queues degrade to no-op until next month).
 - **The seed job re-runs on every cold start** — `index.ts` re-adds `seed-database` each time the service wakes from its 15-min sleep. It's idempotent (upserts), so don't be alarmed by repeated `🌱 Seeding database` lines in the logs.
 - **Supabase pauses after 7 days of no DB activity** (one click to unpause; data is kept).

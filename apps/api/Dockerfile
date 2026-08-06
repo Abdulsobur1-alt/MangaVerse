@@ -55,6 +55,12 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/apps/api/node_modules ./apps/api/node_modules
 COPY --from=build /app/apps/api/dist ./apps/api/dist
 WORKDIR /app/apps/api
+# scripts/start.sh is invoked by CMD via `sh -c`, which still requires the
+# executable bit on Linux (EACCES → exit 126 → "sh: scripts/start.sh:
+# Permission denied" → container never boots). Git on Windows doesn't record
+# the mode (index shows 100644), so enforce it here — otherwise every
+# Windows-authored checkout hits this on deploy.
+RUN chmod +x scripts/start.sh
 USER nodejs
 EXPOSE 3001
 
