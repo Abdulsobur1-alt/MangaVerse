@@ -10,6 +10,9 @@ const nextConfig: NextConfig = {
   // nests the app under apps/web/ deterministically (the Dockerfile's
   // `node apps/web/server.js` relies on this layout).
   outputFileTracingRoot: path.join(__dirname, '../../'),
+  // Enable src/instrumentation.ts (Sentry server-side init). Stable in
+  // Next 15 — the SDK is inert without SENTRY_DSN.
+  instrumentationHook: true,
   experimental: {
     optimizePackageImports: ['@mangaverse/shared'],
   },

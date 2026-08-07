@@ -309,6 +309,9 @@ adminCmsRouter.get('/cms/titles/:id/chapters', requirePermission('chapters:read'
         coinLocked: true,
         freeAt: true,
         createdAt: true,
+        // NOTE: contentText deliberately omitted — the list must not ship
+        // every novel's full prose. The Studio edit form fetches it via
+        // GET /cms/chapters/:id on demand.
       },
     });
     res.json({
@@ -318,6 +321,41 @@ adminCmsRouter.get('/cms/titles/:id/chapters', requirePermission('chapters:read'
         freeAt: c.freeAt?.toISOString() ?? null,
         createdAt: c.createdAt.toISOString(),
       })),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── GET /cms/chapters/:id — single chapter ─────────────
+// Includes contentText for the Studio edit form (prefill), keeping the
+// chapter LIST lightweight. The reader's own chapter endpoint is separate.
+
+adminCmsRouter.get('/cms/chapters/:id', requirePermission('chapters:read'), validate({ params: IdParams }), async (req, res, next) => {
+  try {
+    const id = req.params.id as string;
+    const chapter = await prisma.chapter.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        number: true,
+        title: true,
+        pageCount: true,
+        pageUrls: true,
+        coinLocked: true,
+        freeAt: true,
+        contentText: true,
+        createdAt: true,
+      },
+    });
+    if (!chapter) throw new NotFoundError('Chapter', id);
+    res.json({
+      success: true,
+      data: {
+        ...chapter,
+        freeAt: chapter.freeAt?.toISOString() ?? null,
+        createdAt: chapter.createdAt.toISOString(),
+      },
     });
   } catch (err) {
     next(err);

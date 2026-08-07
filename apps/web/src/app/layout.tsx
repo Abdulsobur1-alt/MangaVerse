@@ -4,6 +4,8 @@ import './globals.css';
 import { Providers } from './providers';
 import { AuthInitializer } from '@/components/AuthInitializer';
 import { PushInitializer } from '@/components/PushInitializer';
+import { CookieConsent } from '@/components/CookieConsent';
+import { SentryClient } from '@/components/SentryClient';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans', display: 'swap' });
 const spaceGrotesk = Space_Grotesk({ subsets: ['latin'], variable: '--font-display', display: 'swap' });
@@ -62,6 +64,8 @@ export default function RootLayout({
           <AuthInitializer />
           <PushInitializer />
           {children}
+          <CookieConsent />
+          <SentryClient />
         </Providers>
       </body>
     </html>

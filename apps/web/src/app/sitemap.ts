@@ -13,6 +13,7 @@ const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api')
 const STATIC_ROUTES = [
   '', '/browse', '/community', '/collections', '/lists', '/reviews',
   '/activity', '/download', '/login', '/signup',
+  '/privacy', '/terms', '/dmca',
 ];
 
 interface TitleItem {

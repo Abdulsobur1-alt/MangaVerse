@@ -72,6 +72,11 @@ services:
       # on first upload if missing). Defaults to 'mangaverse' in code.
       - key: SUPABASE_STORAGE_BUCKET
         value: mangaverse
+      # ── Sentry error tracking (optional) ─────────────────────────────
+      # DSN from Sentry → Settings → Projects → <project> → Client Keys.
+      # Without it the API logs structured JSON only (no crash reports).
+      - key: SENTRY_DSN
+        sync: false
 
   # ─── Web (Next.js standalone) ─────────────────────────────────────
   - type: web
@@ -98,4 +103,8 @@ services:
       - key: NEXT_PUBLIC_SUPABASE_URL
         sync: false
       - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
+      # Browser-side Sentry (public DSN, inlined at build time — set it,
+      # then Manual Deploy → Deploy to re-inline). Optional.
+      - key: NEXT_PUBLIC_SENTRY_DSN
         sync: false

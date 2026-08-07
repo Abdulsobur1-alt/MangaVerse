@@ -7,6 +7,8 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
 import { errorHandler, notFoundHandler } from './middleware/error.js';
+import { httpLogger } from './lib/logger.js';
+import { installSentryProcessHandlers } from './lib/sentry.js';
 import { authRouter } from './routes/auth.js';
 import { titlesRouter } from './routes/titles.js';
 import { chaptersRouter } from './routes/chapters.js';
@@ -52,7 +54,13 @@ const corsOrigins = (process.env.CORS_ORIGIN || '')
   .map((s) => s.trim())
   .filter(Boolean);
 app.use(cors({ origin: corsOrigins.length > 0 ? corsOrigins : true, credentials: true }));
-app.use(morgan('dev'));
+// Access log: readable morgan lines in dev, single-line JSON in production
+// (parseable by Render/log aggregators).
+if (process.env.NODE_ENV === 'production') {
+  app.use(httpLogger());
+} else {
+  app.use(morgan('dev'));
+}
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -153,6 +161,9 @@ app.use('/api/download', express.static(join(__dirname, '../public')));
 
 app.use(notFoundHandler);
 app.use(errorHandler);
+
+// Report crashes to Sentry (no-op without SENTRY_DSN).
+installSentryProcessHandlers();
 
 // ─── Start Server ─────────────────────────────────────
 

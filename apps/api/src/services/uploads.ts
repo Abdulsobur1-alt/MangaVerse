@@ -35,7 +35,7 @@ export interface UploadedImage {
   size: number;
 }
 
-function parseDataUrl(dataUrl: string): { buffer: Buffer; ext: string; mime: string } | null {
+export function parseDataUrl(dataUrl: string): { buffer: Buffer; ext: string; mime: string } | null {
   const match = dataUrl.match(/^data:([a-z0-9.+-]+\/[a-z0-9.+-]+);base64,(.+)$/i);
   if (!match) return null;
   const mime = match[1].toLowerCase();
@@ -43,7 +43,7 @@ function parseDataUrl(dataUrl: string): { buffer: Buffer; ext: string; mime: str
   return { buffer: Buffer.from(match[2], 'base64'), ext, mime };
 }
 
-function sanitizeName(name: string): string {
+export function sanitizeName(name: string): string {
   const cleaned = name
     .toLowerCase()
     .replace(/[^a-z0-9._-]+/g, '-')
@@ -57,7 +57,7 @@ function sanitizeName(name: string): string {
  * the data-URL header alone lets arbitrary bytes ride along as "image/png" —
  * the declared type must agree with the magic bytes we actually store.
  */
-function verifyMagicBytes(buffer: Buffer, mime: string): boolean {
+export function verifyMagicBytes(buffer: Buffer, mime: string): boolean {
   // PNG: 89 50 4E 47
   if (mime === 'image/png') return buffer.length >= 8 && buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47;
   // JPEG: FF D8 FF
@@ -71,7 +71,7 @@ function verifyMagicBytes(buffer: Buffer, mime: string): boolean {
   return false;
 }
 
-function ensureSafePath(parts: string[]): string {
+export function ensureSafePath(parts: string[]): string {
   // Reject any traversal; folder is used inside the upload root only.
   const safe = parts.map((p) => p.replace(/\.\./g, '').replace(/[\\/]/g, '-')).filter(Boolean);
   return safe.join('/');

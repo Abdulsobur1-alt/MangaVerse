@@ -178,8 +178,8 @@ This path costs **nothing and requires no credit card** — ideal if you can't p
 2. [render.com](https://render.com) → sign up with GitHub (no card) → **New → Blueprint**.
 3. Pick the MangaVerse repo → Render reads `render.yaml` and creates **mangaverse-api** + **mangaverse-web**.
 4. In the **Environment** tab of each service, fill the `sync: false` secrets **before the first deploy** (a blank `DATABASE_URL` skips the boot-time schema sync — the API still boots, but data routes fail):
-   - `mangaverse-api`: `DATABASE_URL`, `REDIS_URL`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (needed for durable Studio uploads — see above; `SUPABASE_STORAGE_BUCKET` defaults to `mangaverse`)
-   - `mangaverse-web`: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `mangaverse-api`: `DATABASE_URL`, `REDIS_URL`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (needed for durable Studio uploads — see above; `SUPABASE_STORAGE_BUCKET` defaults to `mangaverse`), `SENTRY_DSN` (optional — crash reporting)
+   - `mangaverse-web`: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SENTRY_DSN` (optional — browser error capture; inlined at build time, so set it before deploying or redeploy after)
 5. **Deploy**. On boot the API syncs the schema to `schema.prisma` (`prisma db push` — it strips `?pgbouncer=true` from `DATABASE_URL` so the schema is created through Supabase's session pooler; a sync failure is logged but doesn't fail the deploy), then the scraper worker seeds ~100 titles from MangaDex 30 s later. Watch `mangaverse-api` logs for `🌱 Seeding database`.
 
 > ⚠️ **Service names must be unique on Render.** The URLs above assume the services are literally named `mangaverse-api` / `mangaverse-web`. If Render assigns a suffix because a name is taken (e.g. `mangaverse-api` → `mangaverse-api-cf0o`), update both `NEXT_PUBLIC_API_URL` and `CORS_ORIGIN` in `render.yaml` **and** in the dashboard Environment tab of the web service, then redeploy with a build.
@@ -237,6 +237,18 @@ pnpm --filter @mangaverse/api webpush:generate-keys
 ```
 
 Paste the printed `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` into the API env. Skip if you don't need browser push.
+
+## Error tracking (Sentry, optional)
+
+[sentry.io](https://sentry.io) free tier → create two projects (e.g. `mangaverse-api`, `mangaverse-web`):
+
+- API: `SENTRY_DSN` — the API inits the SDK at boot (reports unhandled rejections, uncaught exceptions and unexpected route errors; expected 4xx/Zod failures are intentionally not reported).
+- Web: `NEXT_PUBLIC_SENTRY_DSN` — server errors via `src/instrumentation.ts`, browser errors via the SentryClient component. This value is inlined at build time, so set it and redeploy with a build.
+- Optional: `SENTRY_AUTH_TOKEN` in the web service for sourcemap uploads (Sentry → Settings → Auth Tokens).
+
+Without any DSN the code is a complete no-op (no SDK requests) — safe to skip entirely.
+
+In production the API also logs **single-line JSON** access logs (method, path, status, duration, ip) instead of the readable dev format — parseable by Render's log stream or any aggregator.
 
 ---
 

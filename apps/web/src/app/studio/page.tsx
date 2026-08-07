@@ -13,6 +13,7 @@ import {
   useStudioTitles,
   useStudioTitle,
   useStudioChapters,
+  useStudioChapter,
   useStudioCreateTitle,
   useStudioDeleteTitle,
   useStudioUpdateTitle,
@@ -45,6 +46,20 @@ const TYPE_EMOJI: Record<string, string> = {
 
 function typeLabel(t: string) {
   return STUDIO_TYPES.find((x) => x.value === t)?.label ?? t;
+}
+
+/** Turn an upload failure into something a staff member can act on. */
+function friendlyUploadError(err: unknown, file?: File): string {
+  const type = (file?.type || '').toLowerCase();
+  if (type === 'image/heic' || type === 'image/heif' || /heic|heif/.test(type)) {
+    return 'HEIC photos aren’t supported — convert the file to JPG or PNG first';
+  }
+  const msg = (err as { message?: string })?.message ?? '';
+  if (msg.includes('IMAGE_TOO_LARGE')) return 'That image is over the 10 MB limit — try a smaller file';
+  if (msg.includes('UNSUPPORTED_IMAGE_TYPE')) return 'Unsupported image type — use PNG, JPG, WebP, GIF or AVIF';
+  if (msg.includes('INVALID_IMAGE_DATA')) return 'That file isn’t a valid image — upload a real image file';
+  if (msg.includes('UPLOAD_FAILED')) return 'Upload failed — the storage backend isn’t reachable';
+  return 'Upload failed — please try again';
 }
 
 export default function StudioPage() {
@@ -274,8 +289,8 @@ function CreateTitleForm({ onDone }: { onDone: () => void }) {
     try {
       const res = await coverUpload.mutateAsync({ file, folder: 'covers', type: 'cover', name: `cover-${Date.now()}` });
       set('coverUrl', res.url);
-    } catch {
-      setError('Cover upload failed');
+    } catch (err) {
+      setError(friendlyUploadError(err, file));
     }
   };
 
@@ -561,6 +576,7 @@ function ChapterManager({ titleId }: { titleId: string }) {
   const upload = useStudioUpload();
 
   const [mode, setMode] = useState<'upload' | 'prose' | 'link'>('upload');
+  const [editId, setEditId] = useState<string | null>(null);
   const [number, setNumber] = useState('');
   const [chTitle, setChTitle] = useState('');
   const [sourceUrl, setSourceUrl] = useState('');
@@ -580,17 +596,27 @@ function ChapterManager({ titleId }: { titleId: string }) {
 
   const handleFiles = async (files: FileList | null) => {
     if (!files?.length) return;
+    // iPhone photos arrive as HEIC/HEIF, which browsers can't render and the
+    // API rejects — catch it client-side with a clear message instead of a
+    // generic failure.
+    const heic = Array.from(files).find((f) => /heic|heif/i.test(f.type));
+    if (heic) {
+      setError(friendlyUploadError(null, heic));
+      return;
+    }
     setUploading(true);
     setError(null);
     try {
       const urls: string[] = [];
       for (const f of Array.from(files)) {
-        const res = await upload.mutateAsync({ file: f, folder: `chapters/${titleId.slice(0, 8)}`, name: `page-${Date.now()}-${urls.length + 1}` });
-        urls.push(res.url);
+        try {
+          const res = await upload.mutateAsync({ file: f, folder: `chapters/${titleId.slice(0, 8)}`, name: `page-${Date.now()}-${urls.length + 1}` });
+          urls.push(res.url);
+        } catch (err) {
+          setError(friendlyUploadError(err, f));
+        }
       }
       setPageUrls((prev) => [...prev, ...urls]);
-    } catch {
-      setError('One or more page uploads failed');
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = '';
@@ -657,6 +683,7 @@ function ChapterManager({ titleId }: { titleId: string }) {
                 index={i}
                 total={chapters.length}
                 onMove={move}
+                onEdit={() => setEditId(editId === c.id ? null : c.id)}
                 onDelete={async () => {
                   if (confirm(`Delete chapter ${c.number}?`)) {
                     try { await del.mutateAsync({ id: c.id, titleId }); } catch { /* surfaced */ }
@@ -668,6 +695,16 @@ function ChapterManager({ titleId }: { titleId: string }) {
           </div>
         )}
       </div>
+
+      {/* Edit chapter */}
+      {editId && (
+        <EditChapterForm
+          key={editId}
+          chapter={chapters?.find((c) => c.id === editId)}
+          titleId={titleId}
+          onDone={() => setEditId(null)}
+        />
+      )}
 
       {/* Add chapter */}
       <div className="rounded-xl border border-mv-border/60 bg-mv-surface/30 p-3">
@@ -779,6 +816,164 @@ function ChapterManager({ titleId }: { titleId: string }) {
   );
 }
 
+/* ─── Edit chapter form ──────────────────────────────── */
+
+function EditChapterForm({
+  chapter,
+  titleId,
+  onDone,
+}: {
+  chapter?: StudioChapter;
+  titleId: string;
+  onDone: () => void;
+}) {
+  const update = useStudioUpdateChapter();
+  const upload = useStudioUpload();
+  // Prose bodies are fetched on demand — the chapter list deliberately stays
+  // lean (it would otherwise ship every novel's full text).
+  const { data: detail } = useStudioChapter(chapter?.id ?? null);
+  const [title, setTitle] = useState(chapter?.title ?? '');
+  const [pageUrls, setPageUrls] = useState<string[]>(chapter?.pageUrls ?? []);
+  const [contentText, setContentText] = useState('');
+  const [coinLocked, setCoinLocked] = useState(chapter?.coinLocked ?? false);
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  // Prefill the prose once the detail request lands.
+  useEffect(() => {
+    if (detail) setContentText(detail.contentText ?? '');
+  }, [detail]);
+
+  if (!chapter) return null;
+
+  const addFiles = async (files: FileList | null) => {
+    if (!files?.length) return;
+    const heic = Array.from(files).find((f) => /heic|heif/i.test(f.type));
+    if (heic) { setError(friendlyUploadError(null, heic)); return; }
+    setUploading(true);
+    setError(null);
+    try {
+      const urls: string[] = [];
+      for (const f of Array.from(files)) {
+        try {
+          const res = await upload.mutateAsync({ file: f, folder: `chapters/${titleId.slice(0, 8)}`, name: `page-${Date.now()}-${urls.length + 1}` });
+          urls.push(res.url);
+        } catch (err) {
+          setError(friendlyUploadError(err, f));
+        }
+      }
+      setPageUrls((prev) => [...prev, ...urls]);
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  };
+
+  const save = async () => {
+    if (saving) return;
+    setSaving(true);
+    setError(null);
+    setSaved(false);
+    const patch: Record<string, unknown> = {
+      title: title.trim() || null,
+      pageUrls,
+      coinLocked,
+      note: 'Edited in Studio',
+    };
+    if (contentText.trim()) patch.contentText = contentText.trim();
+    try {
+      await update.mutateAsync({ id: chapter.id, titleId, patch });
+      setSaved(true);
+      setTimeout(onDone, 900);
+    } catch (err) {
+      setError((err as { message?: string })?.message ?? 'Could not save chapter');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-mv-accent/30 bg-mv-surface/20 p-3">
+      <div className="mb-3 flex items-center justify-between">
+        <p className="text-[9px] font-semibold uppercase tracking-wider text-mv-accent">
+          Edit Ch. {chapter.number}
+        </p>
+        <button onClick={onDone} className="rounded-lg p-1 text-mv-text-dim hover:bg-white/5 hover:text-mv-text" aria-label="Close editor">
+          <Icon name="close" size={13} />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <label className="col-span-2 text-[9px] uppercase tracking-wider text-mv-text-dim">
+          Title
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Untitled chapter" className="field mt-1 w-full" />
+        </label>
+      </div>
+
+      {/* Pages */}
+      <div className="mt-3">
+        <span className="text-[9px] uppercase tracking-wider text-mv-text-dim">Pages ({pageUrls.length})</span>
+        {pageUrls.length > 0 && (
+          <div className="mt-1.5 flex flex-wrap gap-2">
+            {pageUrls.map((u, i) => (
+              <div key={u} className="group relative">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={u} alt={`Page ${i + 1}`} className="h-16 w-11 rounded-md border border-mv-border object-cover" />
+                <button
+                  onClick={() => setPageUrls((prev) => prev.filter((x) => x !== u))}
+                  className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500/90 text-[8px] text-white opacity-0 transition-opacity group-hover:opacity-100"
+                  aria-label="Remove page"
+                >
+                  ✕
+                </button>
+                <span className="absolute bottom-0.5 right-1 text-[8px] font-bold text-white drop-shadow">{i + 1}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        <label
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => { e.preventDefault(); addFiles(e.dataTransfer.files); }}
+          className="mt-2 flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-mv-violet/40 py-3 text-[10px] text-mv-text-secondary transition-colors hover:border-mv-accent/60"
+        >
+          <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => addFiles(e.target.files)} />
+          <span>{uploading ? '⏳' : '➕'}</span>
+          {uploading ? 'Uploading pages…' : 'Add or replace pages (drop / click)'}
+        </label>
+      </div>
+
+      {/* Prose */}
+      <label className="mt-3 block text-[9px] uppercase tracking-wider text-mv-text-dim">
+        Prose (light novels & novels)
+        <textarea
+          value={contentText}
+          onChange={(e) => setContentText(e.target.value)}
+          rows={5}
+          placeholder="Paste new prose to replace the chapter text (leave empty to keep current)"
+          className="field mt-1 w-full resize-none"
+        />
+      </label>
+
+      <label className="mt-3 flex items-center gap-2 text-[9px] text-mv-text-secondary">
+        <input type="checkbox" checked={coinLocked} onChange={(e) => setCoinLocked(e.target.checked)} className="h-3.5 w-3.5 accent-mv-accent" />
+        Coin-locked chapter (readers spend coins to unlock)
+      </label>
+
+      {error && <p className="mt-2 text-[10px] text-red-400">{error}</p>}
+      <div className="mt-3 flex items-center gap-2">
+        <Button onClick={save} loading={saving || uploading} size="sm">
+          <Icon name="check" size={12} /> Save changes
+        </Button>
+        {saved && <span className="animate-fade-in text-[10px] text-green-400">✓ Saved</span>}
+        <Button variant="outline" size="sm" onClick={onDone}>Cancel</Button>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Chapter row ────────────────────────────────────── */
 
 function ChapterRow({
@@ -786,6 +981,7 @@ function ChapterRow({
   index,
   total,
   onMove,
+  onEdit,
   onDelete,
   onToggleLock,
 }: {
@@ -793,6 +989,7 @@ function ChapterRow({
   index: number;
   total: number;
   onMove: (index: number, dir: -1 | 1) => void;
+  onEdit: () => void;
   onDelete: () => void;
   onToggleLock: () => void;
 }) {
@@ -816,6 +1013,13 @@ function ChapterRow({
         </span>
       )}
       <div className="flex shrink-0 items-center gap-0.5">
+        <button
+          onClick={onEdit}
+          className="rounded-md px-1.5 py-1 text-[9px] font-medium text-mv-text-dim hover:bg-white/5 hover:text-mv-accent"
+          aria-label={`Edit chapter ${chapter.number}`}
+        >
+          Edit
+        </button>
         <button onClick={() => onMove(index, -1)} disabled={index === 0} className="rounded-md p-1 text-mv-text-dim hover:bg-white/5 hover:text-mv-text disabled:opacity-30" aria-label="Move up">
           <Icon name="chevronUp" size={12} />
         </button>

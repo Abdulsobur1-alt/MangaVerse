@@ -47,6 +47,11 @@ export const config = {
     storageBucket: process.env.SUPABASE_STORAGE_BUCKET || 'mangaverse',
   },
 
+  // Sentry error tracking (optional — set SENTRY_DSN to enable)
+  sentry: {
+    dsn: process.env.SENTRY_DSN || '',
+  },
+
   // BullMQ
   bullmq: {
     prefix: 'mangaverse',

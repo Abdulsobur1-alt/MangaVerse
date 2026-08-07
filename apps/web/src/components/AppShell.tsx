@@ -7,6 +7,7 @@ import { Sidebar } from '@/components/shell/Sidebar';
 import { BottomNav } from '@/components/shell/BottomNav';
 import { CommandPalette } from '@/components/shell/CommandPalette';
 import { AnnouncementBanner } from '@/components/AnnouncementBanner';
+import { LegalFooter } from '@/components/LegalFooter';
 import { cn } from '@/lib/cn';
 
 /* ═══════════════════════════════════════════════════════════════
@@ -70,6 +71,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         >
           {children}
         </main>
+        <LegalFooter />
       </div>
 
       {/* Mobile bottom nav + floating search + Continue pill */}

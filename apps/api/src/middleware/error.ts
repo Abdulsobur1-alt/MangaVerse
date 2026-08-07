@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { AppError } from '../lib/errors.js';
 import { ZodError } from 'zod';
+import { logger } from '../lib/logger.js';
+import { captureException } from '../lib/sentry.js';
 
 export function errorHandler(
   err: Error,
@@ -53,8 +55,15 @@ export function errorHandler(
     return;
   }
 
-  // Log unexpected errors
-  console.error('❌ Unhandled error:', err);
+  // Log unexpected errors (structured JSON in production) + report to Sentry
+  // when configured. AppError/ZodError paths above are expected failures and
+  // are intentionally NOT reported.
+  logger.error('Unhandled error', {
+    name: err.name,
+    message: err.message,
+    stack: err.stack?.slice(0, 2000),
+  });
+  captureException(err);
 
   res.status(500).json({
     success: false,

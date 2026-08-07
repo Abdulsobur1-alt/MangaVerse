@@ -116,6 +116,30 @@ const ReorderSchema = z.object({
   order: z.array(z.object({ id: z.string().uuid(), number: z.number().nonnegative() })).min(1).max(2000),
 });
 
+/**
+ * Pure validation for a chapter-reorder payload — exported for unit tests.
+ * Returns a human-readable problem description, or null when the order is
+ * well-formed (every chapter of the title present, no duplicates, no
+ * foreign ids).
+ */
+export function validateReorderOrder(
+  order: { id: string; number: number }[],
+  existingIds: string[],
+  chapterCount: number,
+): string | null {
+  const ids = order.map((o) => o.id);
+  // Reject duplicate ids — a duplicated entry would silently corrupt the
+  // arrangement (last-write-wins on the same row).
+  if (new Set(ids).size !== ids.length) return 'duplicate chapter ids in order';
+  // Some ids don't belong to this title — reject the whole batch.
+  if (existingIds.length !== ids.length) return 'one or more ids do not belong to this title';
+  // The order must cover EVERY chapter of the title — an omitted chapter
+  // keeps a stale number that can collide with a new one (unique
+  // constraint) or get orphaned.
+  if (ids.length !== chapterCount) return `order must include all ${chapterCount} chapters of the title`;
+  return null;
+}
+
 const UploadSchema = z.object({
   data: z.string().min(20).max(15_000_000), // base64 data URL
   folder: z.string().max(200).default('general'),
@@ -211,23 +235,15 @@ adminStudioRouter.post('/studio/titles/:id/reorder', requirePermission('chapters
     const title = await prisma.title.findUnique({ where: { id: titleId }, select: { id: true } });
     if (!title) throw new NotFoundError('Title', titleId);
 
-    const ids = body.order.map((o) => o.id);
-    // Reject duplicate ids — a duplicated entry would silently corrupt the
-    // arrangement (last-write-wins on the same row).
-    if (new Set(ids).size !== ids.length) {
-      throw new NotFoundError('Chapter', 'duplicate chapter ids in order');
-    }
-    const existing = await prisma.chapter.findMany({ where: { titleId, id: { in: ids } }, select: { id: true } });
-    if (existing.length !== ids.length) {
-      // Some ids don't belong to this title — reject the whole batch.
-      throw new NotFoundError('Chapter', 'one or more ids do not belong to this title');
-    }
-    // The order must cover EVERY chapter of the title — an omitted chapter
-    // keeps a stale number that can collide with a new one (unique
-    // constraint) or get orphaned.
+    const existing = await prisma.chapter.findMany({ where: { titleId, id: { in: body.order.map((o) => o.id) } }, select: { id: true } });
     const chapterCount = await prisma.chapter.count({ where: { titleId } });
-    if (ids.length !== chapterCount) {
-      throw new NotFoundError('Chapter', `order must include all ${chapterCount} chapters of the title`);
+    const problem = validateReorderOrder(
+      body.order,
+      existing.map((c) => c.id),
+      chapterCount,
+    );
+    if (problem) {
+      throw new NotFoundError('Chapter', problem);
     }
 
     // Two-phase renumber: the (titleId, number) unique constraint makes a

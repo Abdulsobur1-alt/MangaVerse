@@ -29,6 +29,9 @@ export interface StudioChapter {
   coinLocked: boolean;
   freeAt: string | null;
   createdAt: string;
+  // Only present on the single-chapter detail fetch (GET /cms/chapters/:id)
+  // — the chapter list deliberately omits prose to stay light.
+  contentText?: string | null;
 }
 
 export interface StudioTitleDetail extends StudioTitle {
@@ -96,6 +99,14 @@ export function useStudioChapters(titleId: string | null, enabled = true) {
     queryKey: ['studio', 'chapters', titleId],
     queryFn: () => api.get<StudioChapter[]>(`/admin/cms/titles/${titleId}/chapters`),
     enabled: enabled && !!titleId,
+  });
+}
+
+export function useStudioChapter(id: string | null, enabled = true) {
+  return useQuery<StudioChapter>({
+    queryKey: ['studio', 'chapter', id],
+    queryFn: () => api.get<StudioChapter>(`/admin/cms/chapters/${id}`),
+    enabled: enabled && !!id,
   });
 }
 

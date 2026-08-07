@@ -52,4 +52,43 @@ describe('RBAC', () => {
     expect(keys).toContain('moderator');
     expect(keys.length).toBeGreaterThan(5);
   });
+
+  // ── Staff content powers (Studio) ────────────────────
+
+  it('gives uploaders full content CRUD but no promotion powers', () => {
+    const perms = rbac.basePermissions('uploader');
+    for (const p of ['titles:create', 'titles:update', 'titles:delete', 'chapters:create', 'chapters:update', 'chapters:delete', 'media:create', 'media:update', 'media:delete']) {
+      expect(perms).toContain(p);
+    }
+    // Role assignment stays admin-only.
+    expect(perms).not.toContain('users:manage');
+    expect(perms).not.toContain('roles:manage');
+  });
+
+  it('gives editors content CRUD plus publishing, no promotion powers', () => {
+    const perms = rbac.basePermissions('editor');
+    expect(perms).toContain('titles:publish');
+    expect(perms).toContain('chapters:create');
+    expect(perms).not.toContain('users:manage');
+    expect(perms).not.toContain('roles:manage');
+  });
+
+  it('gives moderators content CRUD alongside community duties', () => {
+    const perms = rbac.basePermissions('moderator');
+    expect(perms).toContain('titles:create');
+    expect(perms).toContain('chapters:delete');
+    expect(perms).toContain('media:create');
+    expect(perms).toContain('moderation:act');
+    expect(perms).not.toContain('users:manage');
+    expect(perms).not.toContain('roles:manage');
+  });
+
+  it('only admins hold roles:manage', () => {
+    for (const role of ['user', 'uploader', 'editor', 'moderator', 'content_manager', 'support_agent', 'translator']) {
+      expect(rbac.basePermissions(role)).not.toContain('roles:manage');
+    }
+    expect(rbac.basePermissions('platform_admin')).toContain('roles:manage');
+    expect(rbac.basePermissions('admin')).toContain('roles:manage'); // legacy admin maps on
+    expect(rbac.basePermissions('super_admin')).toEqual(['*']);
+  });
 });
