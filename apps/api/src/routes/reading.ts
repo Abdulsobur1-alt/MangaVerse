@@ -37,7 +37,9 @@ readingRouter.get('/progress', async (req, res, next) => {
         chapter: {
           include: {
             series: {
-              select: { slug: true, title: true, coverUrl: true },
+              // id + type are load-bearing: the web Continue Reading rail
+              // keys list items by series.id and renders type-aware covers.
+              select: { id: true, slug: true, title: true, coverUrl: true, type: true },
             },
           },
         },
@@ -158,7 +160,7 @@ readingRouter.get('/history', async (req, res, next) => {
           chapter: {
             include: {
               series: {
-                select: { slug: true, title: true, coverUrl: true },
+                select: { id: true, slug: true, title: true, coverUrl: true, type: true },
               },
             },
           },

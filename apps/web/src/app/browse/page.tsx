@@ -41,16 +41,21 @@ const PAGE_SIZE = 24;
  */
 function useBrowseFilters() {
   const router = useRouter();
-  const [filters, setFilters] = useState<FilterState>(() =>
-    typeof window === 'undefined' ? { ...DEFAULT_FILTERS } : filtersFromParams(new URLSearchParams(window.location.search)),
-  );
+  // Hydration-safe initial state: SSR and the first client render BOTH start
+  // from DEFAULT_FILTERS (a lazy initializer that read window.location here
+  // caused a hydration mismatch on deep links like /browse?sort=rating — the
+  // server rendered discovery mode, the client catalog mode). The URL is
+  // applied in the mount effect below, one frame after hydration.
+  const [filters, setFilters] = useState<FilterState>(() => ({ ...DEFAULT_FILTERS }));
   // Always-current snapshot so applyFilters never writes from a stale closure.
   const filtersRef = useRef(filters);
   filtersRef.current = filters;
 
-  // Re-sync whenever the URL query string changes (popstate / external nav)
+  // Re-sync whenever the URL query string changes (popstate / external nav).
+  // last starts as null so the FIRST sync() call applies the initial URL on
+  // mount (post-hydration) instead of bailing out.
   useEffect(() => {
-    let last = window.location.search;
+    let last: string | null = null;
     const sync = () => {
       const current = window.location.search;
       if (current === last) return;
@@ -58,6 +63,7 @@ function useBrowseFilters() {
       const next = filtersFromParams(new URLSearchParams(current));
       setFilters((prev) => (filtersToQuery(prev) === filtersToQuery(next) ? prev : next));
     };
+    sync();
     window.addEventListener('popstate', sync);
     const id = window.setInterval(sync, 400);
     return () => {

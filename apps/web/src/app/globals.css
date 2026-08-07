@@ -145,7 +145,10 @@
 
 html {
   color-scheme: dark;
-  scroll-behavior: smooth;
+  /* NB: no scroll-behavior: smooth here — Lenis (SmoothScroll.tsx) owns
+     smooth scrolling, and CSS smooth-scroll on <html> makes Next.js log a
+     dev warning during route transitions. The .lenis-smooth override below
+     forces auto anyway, so the rule was dead weight. */
 }
 
 body {

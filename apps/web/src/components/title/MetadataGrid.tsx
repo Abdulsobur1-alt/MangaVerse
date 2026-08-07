@@ -80,8 +80,8 @@ export function MetadataGrid({ title, chaptersTotal, views }: { title: TitleDeta
         Details
       </p>
       <div className="grid grid-cols-2 gap-2">
-        <div className="space-y-2">{left.map(render)}</div>
-        <div className="space-y-2">{right.map(render)}</div>
+        <div className="space-y-2">{left.map((m) => <div key={m.label}>{render(m)}</div>)}</div>
+        <div className="space-y-2">{right.map((m) => <div key={m.label}>{render(m)}</div>)}</div>
       </div>
 
       {/* Reading direction strip */}

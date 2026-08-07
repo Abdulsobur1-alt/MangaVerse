@@ -136,7 +136,7 @@ export default function DashboardPage() {
           {/* ─── Overview tab ──────────────────────── */}
           {tab === 'overview' && (
             <div className="mt-5 space-y-4 md:mt-6 md:space-y-5">
-              <div className="grid gap-5 lg:grid-cols-2">
+              <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
                 {/* Journey preview */}
                 <section className="rounded-2xl border border-mv-border bg-mv-darker p-5">
                   <div className="mb-4 flex items-center justify-between">
@@ -161,7 +161,7 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              <div className="grid gap-5 lg:grid-cols-2">
+              <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
                 {/* Recent activity */}
                 <section className="rounded-2xl border border-mv-border bg-mv-darker p-5" aria-label="Recent activity">
                   <div className="mb-4 flex items-center justify-between">
@@ -296,7 +296,7 @@ export default function DashboardPage() {
           )}
 
           {isLoading && tab === 'overview' && (
-            <div className="mt-6 grid gap-5 lg:grid-cols-2">
+            <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-2">
               <div className="skeleton h-72 rounded-2xl" />
               <div className="skeleton h-72 rounded-2xl" />
             </div>

@@ -142,16 +142,35 @@ export function getSnapshot(): DownloadRecord[] {
   return snapshot;
 }
 
+/** Stable empty snapshot — useSyncExternalStore requires getServerSnapshot
+ *  (and getSnapshot) to return a cached reference; a fresh [] each render
+ *  trips React's "result of getServerSnapshot should be cached" error. */
+const EMPTY_SNAPSHOT: DownloadRecord[] = [];
+
 /** React hook — live list of download records. */
 export function useDownloads(): DownloadRecord[] {
-  return useSyncExternalStore(subscribe, getSnapshot, () => []);
+  return useSyncExternalStore(subscribe, getSnapshot, () => EMPTY_SNAPSHOT);
 }
+
+// ── Prefs snapshot (stable reference for useSyncExternalStore) ──
+// loadDownloadPrefs() returns a fresh object per call, so the hook must
+// expose a cached snapshot that only changes when prefs actually change.
+// Hydrated from localStorage at module load on the client (preserves saved
+// prefs across reloads); SSR gets the shared DEFAULT_PREFS constant.
+let prefsSnapshot: DownloadPrefs = typeof window !== 'undefined' ? loadDownloadPrefs() : DEFAULT_PREFS;
 
 /** React hook — live download prefs. */
 export function useDownloadPrefs(): DownloadPrefs {
   return useSyncExternalStore(
     (cb) => {
-      const onStorage = (e: StorageEvent) => e.key === PREFS_KEY && cb();
+      const onStorage = (e: StorageEvent) => {
+        // Refresh the cached snapshot from storage BEFORE notifying — the
+        // snapshot must actually change for React to re-render (cross-tab).
+        if (e.key === PREFS_KEY) {
+          prefsSnapshot = loadDownloadPrefs();
+          cb();
+        }
+      };
       const onSameTab = () => cb();
       window.addEventListener('storage', onStorage);
       window.addEventListener(PREFS_KEY as any, onSameTab as any);
@@ -160,7 +179,7 @@ export function useDownloadPrefs(): DownloadPrefs {
         window.removeEventListener(PREFS_KEY as any, onSameTab as any);
       };
     },
-    () => loadDownloadPrefs(),
+    () => prefsSnapshot,
     () => DEFAULT_PREFS,
   );
 }
@@ -183,6 +202,10 @@ export function saveDownloadPrefs(prefs: DownloadPrefs): void {
   } catch {
     // quota — ignore
   }
+  // Keep the hook's cached snapshot in sync — normalize through
+  // loadDownloadPrefs() so the same-tab snapshot matches the cross-tab
+  // storage handler exactly (defaults merged, invalid JSON handled).
+  prefsSnapshot = loadDownloadPrefs();
   // Same-tab subscribers (the storage event only fires in other tabs).
   if (typeof window !== 'undefined') window.dispatchEvent(new Event(PREFS_KEY));
 }
