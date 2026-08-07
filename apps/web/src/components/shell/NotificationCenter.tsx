@@ -198,7 +198,7 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
         onClick={() => setOpen(!open)}
         aria-label="Notifications"
         aria-expanded={open}
-        className="relative flex h-9 w-9 items-center justify-center rounded-xl text-mv-text-secondary transition-colors hover:bg-white/5 hover:text-white"
+        className="tap-target relative h-10 w-10 rounded-xl text-mv-text-secondary transition-colors hover:bg-white/5 hover:text-white"
       >
         <Icon name="bell" size={18} />
         {unreadCount > 0 && (
@@ -209,7 +209,7 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
       </button>
 
       {open && (
-        <div className="glass absolute right-0 top-full z-50 mt-2 w-[22rem] overflow-hidden rounded-2xl shadow-modal animate-scale-in">
+        <div className="glass fixed inset-x-2 bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] z-[60] max-h-[72vh] w-auto overflow-hidden rounded-2xl shadow-modal animate-slide-up sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:bottom-auto sm:mt-2 sm:w-[22rem] sm:max-h-none sm:animate-scale-in">
           <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
             <p className="text-xs font-semibold text-white">Notifications</p>
             <div className="flex items-center gap-3">
@@ -252,7 +252,7 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
               <p className="mt-1 text-[9px] text-mv-text-dim">We’ll notify you about new chapters and activity</p>
             </div>
           ) : (
-            <div className="max-h-80 overflow-y-auto">
+            <div className="max-h-[60vh] overflow-y-auto overscroll-contain sm:max-h-80">
               {[...groups.entries()].map(([day, items]) => (
                 <div key={day}>
                   <p className="px-4 pb-1 pt-3 text-[9px] font-semibold uppercase tracking-[0.14em] text-mv-text-dim">{day}</p>

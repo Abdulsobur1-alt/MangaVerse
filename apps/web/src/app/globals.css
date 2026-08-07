@@ -107,25 +107,27 @@
   --focus-ring-width: 2px;
   --focus-ring-offset: 2px;
 
-  /* ── Typography scale (named) ─────────────────────── */
-  --text-display: clamp(2.5rem, 6vw, 3.75rem);
-  --text-display--line-height: 1.05;
+  /* ── Typography scale (named, mobile-first) ────────── */
+  /* Hero: 30–34px mobile → 48px desktop. Titles shrink on phones. */
+  --text-display: clamp(1.875rem, 4.5vw, 3rem);
+  --text-display--line-height: 1.08;
   --text-display--letter-spacing: -0.03em;
-  --text-h1: 2.25rem;
+  --text-h1: clamp(1.75rem, 3.6vw, 2.25rem);
   --text-h1--line-height: 1.15;
   --text-h1--letter-spacing: -0.02em;
-  --text-h2: 1.875rem;
+  --text-h2: clamp(1.375rem, 2.8vw, 1.75rem);
   --text-h2--line-height: 1.2;
   --text-h2--letter-spacing: -0.02em;
-  --text-h3: 1.5rem;
+  --text-h3: 1.375rem;
   --text-h3--line-height: 1.25;
-  --text-h4: 1.25rem;
+  --text-h4: 1.1875rem;
   --text-h4--line-height: 1.3;
-  --text-h5: 1.125rem;
+  --text-h5: 1.0625rem;
   --text-h5--line-height: 1.35;
   --text-overline: 0.6875rem;
   --text-overline--line-height: 1.2;
   --text-overline--letter-spacing: 0.14em;
+
 
   /* ── Reader palette (light-novel prose themes) ────── */
   --reader-bg-dark: #0a0a14;   --reader-text-dark: #d4d4d8;   --reader-muted-dark: #8a8a96;
@@ -212,6 +214,10 @@ html.lenis, html.lenis body { height: auto; }
   from { opacity: 0; transform: scale(0.96) translateY(6px); }
   to { opacity: 1; transform: scale(1) translateY(0); }
 }
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(32px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 @keyframes shimmer {
   0% { background-position: -600px 0; }
   100% { background-position: 600px 0; }
@@ -260,6 +266,7 @@ html.lenis, html.lenis body { height: auto; }
 .animate-fade-in { animation: fadeIn 0.3s ease-out both; }
 .animate-fade-up { animation: fadeUp 0.6s var(--ease-out-expo) both; }
 .animate-scale-in { animation: scaleIn 0.28s var(--ease-out-expo) both; }
+.animate-slide-up { animation: slideUp 0.3s var(--ease-out-expo) both; }
 .animate-aurora { animation: auroraShift 18s ease-in-out infinite; }
 .animate-float { animation: float 6s ease-in-out infinite; }
 .animate-pulse-dot { animation: pulse-dot 1.6s ease-in-out infinite; }
@@ -480,6 +487,27 @@ html.lenis, html.lenis body { height: auto; }
 } /* end @layer components */
 
 /* ── Utilities ─────────────────────────────────────────────────── */
+
+/* ── Safe-area helpers (iPhone notch / home indicator) ── */
+.pb-safe { padding-bottom: max(env(safe-area-inset-bottom), 0px); }
+.pt-safe { padding-top: max(env(safe-area-inset-top), 0px); }
+.pl-safe { padding-left: max(env(safe-area-inset-left), 0px); }
+.pr-safe { padding-right: max(env(safe-area-inset-right), 0px); }
+.px-safe { padding-left: max(env(safe-area-inset-left), 0px); padding-right: max(env(safe-area-inset-right), 0px); }
+.mb-safe { margin-bottom: max(env(safe-area-inset-bottom), 0px); }
+
+/* ── Touch targets — every interactive element ≥ 44px on touch ── */
+.tap-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* ── Guard against horizontal overflow everywhere ── */
+html, body { overflow-x: clip; }
+#__next, #root { overflow-x: clip; }
+
+/* Horizontal carousels must never escape the viewport */
+.overflow-x-auto { overscroll-behavior-x: contain; }
 
 /* Hide scrollbars on horizontal carousels */
 .scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }

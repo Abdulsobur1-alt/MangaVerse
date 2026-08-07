@@ -158,7 +158,7 @@ export default function ListDetailPage() {
   if (isLoading) {
     return (
       <AppShell>
-        <div className="mx-auto max-w-5xl px-5 py-8 sm:px-6 md:px-8">
+        <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 md:px-8 md:py-8">
           <div className="skeleton h-44 rounded-3xl" />
           <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
             {Array.from({ length: 10 }).map((_, i) => (
@@ -186,7 +186,7 @@ export default function ListDetailPage() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-6xl px-5 py-8 sm:px-6 md:px-8">
+      <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 md:px-8 md:py-8">
         <Link href="/lists" className="mb-4 inline-flex items-center gap-1 text-[10px] text-mv-text-muted transition-colors hover:text-mv-text">
           ← All lists
         </Link>

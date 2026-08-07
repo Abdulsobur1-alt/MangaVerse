@@ -153,11 +153,11 @@ export function HomeSearch() {
       {/* Search bar */}
       <div
         className={cn(
-          'group flex items-center gap-3 rounded-2xl border bg-mv-darker/85 px-4 backdrop-blur-xl transition-all duration-300',
+          'group flex h-11 items-center gap-2.5 rounded-2xl border bg-mv-darker/85 px-3.5 backdrop-blur-xl transition-all duration-300 sm:px-4',
           focused ? 'border-mv-violet/60 shadow-glow-sm' : 'border-mv-border-light hover:border-mv-violet/40',
         )}
       >
-        <Icon name="search" size={20} className="shrink-0 text-mv-text-muted transition-colors group-focus-within:text-mv-violet" />
+        <Icon name="search" size={18} className="shrink-0 text-mv-text-muted transition-colors group-focus-within:text-mv-violet" />
         <input
           ref={inputRef}
           value={query}
@@ -169,7 +169,7 @@ export function HomeSearch() {
           role="combobox"
           aria-expanded={showDropdown}
           aria-controls="home-search-results"
-          className="h-12 w-full bg-transparent text-sm text-mv-text outline-none placeholder:text-mv-text-dim"
+          className="h-11 w-full bg-transparent text-sm text-mv-text outline-none placeholder:text-mv-text-dim"
         />
         {searching ? (
           <Spinner size={16} className="shrink-0 text-mv-violet" />
@@ -184,11 +184,11 @@ export function HomeSearch() {
       {showDropdown && (
         <div
           id="home-search-results"
-          className="absolute inset-x-0 top-full z-30 mt-2 overflow-hidden rounded-2xl border border-mv-border bg-mv-darker/95 shadow-modal backdrop-blur-xl animate-scale-in"
+          className="absolute inset-x-0 top-full z-30 mt-2 max-h-[70vh] overflow-hidden rounded-2xl border border-mv-border bg-mv-darker/95 shadow-modal backdrop-blur-xl animate-scale-in"
           role="listbox"
           aria-label="Search suggestions"
         >
-          <div className="max-h-[60vh] overflow-y-auto p-2">
+          <div className="max-h-[60vh] overflow-y-auto overscroll-contain p-2">
             {/* ── Idle: trending + genres + filters + recents ── */}
             {q.length < 2 && (
               <>

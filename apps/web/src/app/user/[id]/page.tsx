@@ -148,7 +148,7 @@ export default function UserProfilePage() {
   if (isLoading) {
     return (
       <AppShell>
-        <div className="mx-auto max-w-5xl px-5 py-8 sm:px-6 md:px-8">
+        <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 md:px-8 md:py-8">
           <div className="skeleton h-72 rounded-3xl" />
           <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
             {Array.from({ length: 4 }).map((_, i) => <div key={i} className="skeleton h-20 rounded-2xl" />)}
@@ -174,7 +174,7 @@ export default function UserProfilePage() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-5xl px-5 py-8 sm:px-6 md:px-8">
+      <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 md:px-8 md:py-8">
         {/* ─── Hero ────────────────────────────────── */}
         <ProfileHero
           profile={{
@@ -286,7 +286,7 @@ export default function UserProfilePage() {
         {!profile.private && (
           <>
             {/* Tab bar */}
-            <div className="scrollbar-none -mx-5 mt-6 flex gap-1.5 overflow-x-auto px-5 sm:mx-0 sm:px-0" role="tablist" aria-label="Profile sections">
+            <div className="scrollbar-none -mx-4 mt-6 flex gap-1.5 overflow-x-auto px-4 sm:mx-0 sm:px-0" role="tablist" aria-label="Profile sections">
               {tabs.map((t) => (
                 <button
                   key={t.key}
@@ -294,7 +294,7 @@ export default function UserProfilePage() {
                   aria-selected={tab === t.key}
                   onClick={() => setTab(t.key)}
                   className={cn(
-                    'flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-[11px] font-medium transition-all',
+                    'flex min-h-11 shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-[11px] font-medium transition-all',
                     tab === t.key
                       ? 'bg-gradient-to-r from-mv-purple to-mv-accent text-white shadow-glow-sm'
                       : 'border border-mv-border-light bg-mv-surface/60 text-mv-text-secondary hover:border-mv-violet/40 hover:text-mv-text',
@@ -353,7 +353,7 @@ export default function UserProfilePage() {
                     <h2 className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-mv-text-muted">
                       <Icon name="book" size={13} /> Currently reading
                     </h2>
-                    <div className="scrollbar-none -mx-5 flex gap-3 overflow-x-auto px-5 sm:mx-0 sm:px-0">
+                    <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 sm:mx-0 sm:px-0">
                       {profile.currentReading.slice(0, 6).map((r: CurrentReadingItem) => (
                         <Link key={r.slug} href={`/reader/${r.chapterId}`} className="group w-28 shrink-0">
                           <div className="relative aspect-[3/4] overflow-hidden rounded-xl border border-mv-border bg-mv-surface transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-mv-violet/40">

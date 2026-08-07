@@ -90,7 +90,7 @@ export function AchievementsGrid({ achievements, className, limit }: { achieveme
       </div>
 
       {/* Category chips */}
-      <div className="scrollbar-none -mx-5 flex gap-1.5 overflow-x-auto px-5 sm:mx-0 sm:px-0" role="group" aria-label="Filter achievements by category">
+      <div className="scrollbar-none -mx-4 flex gap-1.5 overflow-x-auto px-4 sm:mx-0 sm:px-0" role="group" aria-label="Filter achievements by category">
         {categoryOptions.map((c) => {
           const active = category === c.key;
           return (

@@ -165,12 +165,12 @@ export default function ListsPage() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-6xl px-5 py-8 sm:px-6 md:px-8">
+      <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 md:px-8 md:py-8">
         {/* ─── Header ───────────────────────────────── */}
         <header className="mb-7 flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="eyebrow mb-2">Curated by the community</p>
-            <h1 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
+            <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl md:text-4xl">
               <span className="text-gradient">Lists</span>
             </h1>
             <p className="mt-1.5 text-xs text-mv-text-muted">

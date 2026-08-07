@@ -82,7 +82,7 @@ export function AnnouncementBanner() {
   if (isLoading || !announcements || announcements.length === 0) return null;
 
   return (
-    <div className="sticky top-[56px] z-40 mx-auto flex max-w-5xl flex-col gap-2 px-4 pt-3 md:px-8">
+    <div className="sticky top-12 z-40 mx-auto flex max-w-5xl flex-col gap-2 px-4 pt-2.5 sm:top-14 md:px-8">
       {announcements.slice(0, 2).map((a) => (
         <Banner key={a.id} announcement={a} />
       ))}

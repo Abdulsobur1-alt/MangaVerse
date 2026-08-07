@@ -89,7 +89,7 @@ export default function TitleDetailPage() {
   if (isLoading) {
     return (
       <AppShell>
-        <div className="mx-auto max-w-6xl px-5 py-8 sm:px-6 md:px-8">
+        <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 md:px-8 md:py-8">
           <div className="flex flex-col gap-8 md:flex-row">
             <div className="w-full shrink-0 md:w-[250px]">
               <div className="skeleton aspect-[3/4] w-full rounded-2xl" />
@@ -143,8 +143,8 @@ export default function TitleDetailPage() {
       />
 
       {/* ─── Body ─────────────────────────────────────────── */}
-      <div className="mx-auto max-w-6xl px-5 sm:px-6 md:px-8">
-        <div className="flex flex-col gap-10 py-8 lg:flex-row">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 md:px-8">
+        <div className="flex flex-col gap-10 py-6 md:py-8 lg:flex-row">
           {/* Main column */}
           <div className="min-w-0 flex-1 space-y-12">
             <Reveal>

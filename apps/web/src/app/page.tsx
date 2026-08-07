@@ -125,9 +125,9 @@ export default function HomePage() {
     <AppShell>
       {/* ─── Hero ──────────────────────────────────────────── */}
       {trendingLoading || heroTitles.length === 0 ? (
-        <div className="relative h-[520px] overflow-hidden md:h-[560px]">
+        <div className="relative h-[440px] overflow-hidden sm:h-[500px] md:h-[560px]">
           <div className="absolute inset-0 bg-gradient-to-br from-[#150b2e] via-[#1a0f38] to-[#0d0d12]" />
-          <div className="skeleton absolute inset-x-8 bottom-16 h-40 max-w-2xl rounded-2xl" />
+          <div className="skeleton absolute inset-x-8 bottom-14 h-36 max-w-2xl rounded-2xl" />
         </div>
       ) : (
         <Hero titles={heroTitles} resume={resumeMap} />
@@ -155,7 +155,7 @@ export default function HomePage() {
         </div>
       )}
 
-      <div className="mx-auto max-w-7xl space-y-14 px-5 py-10 sm:px-6 md:px-8">
+      <div className="mx-auto max-w-7xl space-y-12 px-5 py-10 sm:px-6 md:space-y-16 md:px-8">
         {/* ─── Search preview ──────────────────────────────── */}
         <Reveal>
           <section aria-label="Search">
@@ -253,7 +253,7 @@ export default function HomePage() {
                   <SectionHeader title="Recently Viewed" href="/history" sub="Jump back in" icon={<span aria-hidden="true">🕘</span>} />
                   <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none">
                     {recentlyViewed.map((v) => (
-                      <Link key={v.slug} href={`/reader/${v.chapterId}`} className="group w-[150px] shrink-0">
+                      <Link key={v.slug} href={`/reader/${v.chapterId}`} className="group w-[132px] shrink-0 sm:w-[150px]">
                         <div className="relative aspect-[3/4] overflow-hidden rounded-xl border border-mv-border bg-mv-surface">
                           <CoverImage src={v.coverUrl} title={v.title} type="MANGA" className="h-full w-full" />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
@@ -294,13 +294,13 @@ export default function HomePage() {
             <section aria-label="Editor's picks">
               <SectionHeader title="Editor's Picks" href="/browse?sort=rating" sub="Hand-picked, top-rated series" icon={<span aria-hidden="true">⭐</span>} />
               {picksLoading ? (
-                <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-5">
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
                   {Array.from({ length: 10 }).map((_, i) => (
                     <div key={i}><div className="skeleton aspect-[3/4] rounded-xl" /><div className="skeleton mt-2 h-3 w-4/5 rounded" /></div>
                   ))}
                 </div>
               ) : (
-                <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-5">
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
                   {picks.map((item) => (
                     <TitleCard key={item.id} item={item} fluid progress={resumeMap.get(item.id)?.pct} />
                   ))}
@@ -339,7 +339,7 @@ export default function HomePage() {
         <Reveal>
           <section aria-label="Browse by format">
             <SectionHeader title="Browse by Format" href="/browse" sub="Four ways to read" icon={<span aria-hidden="true">🗂️</span>} />
-            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               {CATEGORY_RAILS.map((cat) => (
                 <Link key={cat.key} href={cat.href} className="group relative overflow-hidden rounded-2xl border border-mv-border-light bg-mv-surface/50 p-5 transition-all duration-300 hover:-translate-y-1 hover:border-mv-violet/40 hover:shadow-card-hover">
                   <div className={`pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-gradient-to-br ${cat.accent} opacity-15 blur-2xl transition-opacity duration-300 group-hover:opacity-30`} />
@@ -375,7 +375,7 @@ export default function HomePage() {
       </div>
 
       {/* ─── App Download CTA ──────────────────────────────── */}
-      <section className="px-5 py-16 sm:px-6 md:px-8">
+      <section className="px-5 py-14 sm:px-6 md:px-8 md:py-16">
         <div className="relative mx-auto max-w-4xl rounded-3xl bg-gradient-to-r from-mv-accent via-mv-purple to-mv-violet p-[1.5px] shadow-glow">
           <span className="animate-float absolute -left-4 -top-4 hidden text-2xl sm:block" style={{ '--float-rot': '-8deg' } as CSSProperties}>📖</span>
           <span className="animate-float absolute -bottom-4 -right-4 hidden text-2xl sm:block" style={{ '--float-rot': '10deg', animationDelay: '-3s' } as CSSProperties}>🔔</span>
@@ -411,8 +411,8 @@ export default function HomePage() {
       </section>
 
       {/* ─── Footer ─────────────────────────────────────────── */}
-      <footer className="border-t border-mv-border/60 bg-mv-darker/50 py-12 backdrop-blur-xl">
-        <div className="mx-auto max-w-7xl px-6">
+      <footer className="border-t border-mv-border/60 bg-mv-darker/50 py-10 backdrop-blur-xl">
+        <div className="mx-auto max-w-7xl px-5 sm:px-6 md:px-8">
           <div className="mb-6 h-px w-full bg-gradient-to-r from-transparent via-mv-accent/40 to-transparent" />
           <div className="flex flex-col items-center gap-6 sm:flex-row sm:justify-between">
             <div className="text-center sm:text-left">

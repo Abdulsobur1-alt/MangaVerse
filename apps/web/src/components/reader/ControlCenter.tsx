@@ -65,7 +65,7 @@ export function ControlCenter({
 
   return (
     <div
-      className="absolute inset-x-0 bottom-14 z-40 mx-auto w-[min(94vw,26rem)] overflow-hidden rounded-2xl border border-mv-border-light bg-mv-darker/95 shadow-modal backdrop-blur-xl animate-scale-in"
+      className="absolute inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 mx-auto w-[min(94vw,26rem)] overflow-hidden rounded-2xl border border-mv-border-light bg-mv-darker/95 shadow-modal backdrop-blur-xl animate-scale-in"
       role="dialog"
       aria-label="Reader controls"
     >

@@ -213,12 +213,12 @@ export default function NotificationsPage() {
   return (
     <ProtectedRoute>
       <AppShell>
-        <div className="mx-auto max-w-3xl px-5 py-8 sm:px-6 md:px-8">
+        <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 md:px-8 md:py-8">
           {/* Header */}
           <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
             <div>
               <p className="eyebrow mb-2">Inbox</p>
-              <h1 className="text-3xl font-bold tracking-tight text-white md:text-4xl">Notifications</h1>
+              <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl md:text-4xl">Notifications</h1>
               <p className="mt-1 text-xs text-mv-text-muted">
                 {scope === 'inbox'
                   ? `${total} notification${total !== 1 ? 's' : ''}${unreadData?.count ? ` · ${unreadData.count} unread` : ''}`
@@ -296,7 +296,7 @@ export default function NotificationsPage() {
               </div>
             </div>
             {/* Category chips */}
-            <div className="scrollbar-none -mx-5 flex gap-1.5 overflow-x-auto px-5 sm:mx-0 sm:px-0" role="group" aria-label="Filter by category">
+            <div className="scrollbar-none -mx-4 flex gap-1.5 overflow-x-auto px-4 sm:mx-0 sm:px-0" role="group" aria-label="Filter by category">
               {NOTIFICATION_FILTERS.map((f) => {
                 const active = (category === '' && f.key === '') || category === f.key;
                 return (
@@ -357,7 +357,7 @@ export default function NotificationsPage() {
               {[...groups.entries()].map(([day, items]) => (
                 <section key={day} aria-label={day}>
                   <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-mv-text-dim">{day}</p>
-                  <div className="space-y-1">
+                  <div className="space-y-2">
                     {items.map((notif) => (
                       <NotifRow key={notif.id} notif={notif} />
                     ))}

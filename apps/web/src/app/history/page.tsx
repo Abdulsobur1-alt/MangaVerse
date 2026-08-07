@@ -80,11 +80,11 @@ export default function HistoryPage() {
   return (
     <ProtectedRoute>
       <AppShell>
-        <div className="mx-auto max-w-5xl px-5 py-8 sm:px-6 md:px-8">
+        <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 md:px-8 md:py-8">
           <div className="mb-8">
             <p className="eyebrow mb-2">Reading Journey</p>
             <div className="flex flex-wrap items-end justify-between gap-3">
-              <h1 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
+              <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl md:text-4xl">
                 Reading <span className="text-gradient">History</span>
               </h1>
               {history && !historyLoading && (
@@ -110,7 +110,7 @@ export default function HistoryPage() {
                 <Icon name="check" size={15} className="text-mv-success" />
                 Recently Finished
               </h2>
-              <div className="scrollbar-none -mx-5 flex gap-3 overflow-x-auto px-5 sm:mx-0 sm:px-0">
+              <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 sm:mx-0 sm:px-0">
                 {recentlyFinished.map((entry) => (
                   <Link
                     key={entry.id}

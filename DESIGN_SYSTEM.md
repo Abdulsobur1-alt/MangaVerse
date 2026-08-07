@@ -103,13 +103,15 @@ Generated utilities: `bg-app`, `bg-surface-raised`, `text-ink`, `border-soft`, `
 ### 3.3 Typography scale
 | Token / utility | Size | Line-height | Tracking | Use |
 |---|---|---|---|---|
-| `text-display` | clamp(2.5→3.75rem) | 1.05 | −0.03em | hero |
-| `text-h1` | 2.25rem | 1.15 | −0.02em | page titles |
-| `text-h2` | 1.875rem | 1.2 | −0.02em | sections |
-| `text-h3` | 1.5rem | 1.25 | — | cards |
-| `text-h4` | 1.25rem | 1.3 | — | sub-cards |
-| `text-h5` | 1.125rem | 1.35 | — | list titles |
+| `text-display` | clamp(1.875→3rem) | 1.08 | −0.03em | hero (30px mobile → 48px desktop) |
+| `text-h1` | clamp(1.75→2.25rem) | 1.15 | −0.02em | page titles |
+| `text-h2` | clamp(1.375→1.75rem) | 1.2 | −0.02em | sections |
+| `text-h3` | 1.375rem | 1.25 | — | cards |
+| `text-h4` | 1.1875rem | 1.3 | — | sub-cards |
+| `text-h5` | 1.0625rem | 1.35 | — | list titles |
 | `text-overline` | 0.6875rem | 1.2 | +0.14em | eyebrows (`.eyebrow`) |
+
+**Mobile-first rule:** headings use `text-2xl sm:text-3xl md:text-4xl` (28→36→40px) — never `text-3xl` at the base width. Hero titles: 30–34px mobile → 48px desktop (`text-[1.875rem] sm:text-4xl md:text-6xl` or the `text-display` token).
 | body | 14px (`text-sm`) | 1.5 | — | default |
 | caption | 12px (`text-xs`) | 1.5 | — | secondary |
 | label | 10–11px | 1.4 | — | meta, badges |
@@ -144,7 +146,7 @@ Reader prose: serif (Georgia) default for light novels, 18–20px, line-height 1
 - Page column: `max-w-content` (80rem), centered.
 - Forms/settings: `max-w-compact` (48rem). Reader prose: `max-w-prose` (42rem). Strip reader: 700px.
 - Desktop shell: fixed sidebar (`w-14` → `w-60` on hover) + `md:pl-14` content offset + sticky topbar.
-- Mobile: bottom nav `h-16` + `pb-24` content buffer + `safe-area-inset-bottom`.
+- Mobile: bottom nav `h-16` + `pb-[calc(4rem+env(safe-area-inset-bottom)+3.5rem)]` content buffer (clears Continue pill + floating search) + `safe-area-inset-bottom`.
 
 ---
 

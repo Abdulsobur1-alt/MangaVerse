@@ -57,7 +57,7 @@ export default function AuthorPage() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-7xl px-5 py-8 sm:px-6 md:px-8">
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 md:px-8 md:py-8">
         {/* ─── Header ───────────────────────────────────── */}
         <header className="relative overflow-hidden rounded-3xl border border-mv-border-light">
           <div className="absolute inset-0 bg-gradient-to-br from-mv-darker via-mv-surface to-mv-darker" />
@@ -69,7 +69,7 @@ export default function AuthorPage() {
             </div>
             <div className="min-w-0 flex-1">
               <p className="eyebrow">Creator</p>
-              <h1 className="mt-1.5 text-3xl font-bold tracking-tight text-white md:text-4xl">{author}</h1>
+              <h1 className="mt-1.5 text-2xl font-bold tracking-tight text-white sm:text-3xl md:text-4xl">{author}</h1>
               <p className="mt-2 text-sm text-mv-text-secondary">
                 {isLoading ? 'Looking up their works…' : `${total.toLocaleString()} work${total === 1 ? '' : 's'} in the catalog`}
               </p>

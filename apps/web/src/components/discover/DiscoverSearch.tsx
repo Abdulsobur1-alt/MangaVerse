@@ -165,8 +165,8 @@ export function DiscoverSearch({ value, onChange, onSubmit, large = false, autoF
       {/* ── Search bar ── */}
       <div
         className={cn(
-          'group flex items-center gap-3 rounded-2xl border bg-mv-darker/85 px-4 backdrop-blur-xl transition-all duration-300',
-          large ? 'h-14 shadow-card' : 'h-11',
+          'group flex items-center gap-2.5 rounded-2xl border bg-mv-darker/85 px-3.5 backdrop-blur-xl transition-all duration-300 sm:px-4',
+          large ? 'h-12 shadow-card sm:h-14' : 'h-11',
           focused ? 'border-mv-violet/60 shadow-glow-sm' : 'border-mv-border-light hover:border-mv-violet/40',
         )}
       >
@@ -183,7 +183,7 @@ export function DiscoverSearch({ value, onChange, onSubmit, large = false, autoF
           aria-expanded={showDropdown}
           aria-controls="discover-search-results"
           aria-autocomplete="list"
-          className={cn('w-full bg-transparent text-mv-text outline-none placeholder:text-mv-text-dim', large ? 'text-[15px]' : 'text-sm')}
+          className={cn('w-full bg-transparent text-mv-text outline-none placeholder:text-mv-text-dim', large ? 'text-sm sm:text-[15px]' : 'text-sm')}
         />
         {q && (
           <button
@@ -211,7 +211,7 @@ export function DiscoverSearch({ value, onChange, onSubmit, large = false, autoF
           role="listbox"
           aria-label="Search suggestions"
         >
-          <div ref={listRef} className="max-h-[62vh] overflow-y-auto p-2">
+          <div ref={listRef} className="max-h-[60vh] overflow-y-auto overscroll-contain p-2">
             {/* ── Idle state: never empty ── */}
             {q.length < 2 && (
               <>

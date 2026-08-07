@@ -57,7 +57,7 @@ export function TitleHero({ title, reading, chaptersTotal, estMinutes, views, on
       {/* Cover shine sweep */}
       <div className="pointer-events-none absolute -inset-x-40 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" aria-hidden="true" />
 
-      <div className="relative mx-auto max-w-6xl px-5 pb-10 pt-8 sm:px-6 md:px-8 md:pb-14 md:pt-12">
+      <div className="relative mx-auto max-w-6xl px-4 pb-10 pt-6 sm:px-6 md:px-8 md:pb-14 md:pt-12">
         <div className="flex flex-col gap-8 md:flex-row md:items-start">
           {/* ── Cover ── */}
           <div className="mx-auto w-48 shrink-0 md:mx-0 md:w-[250px]">
@@ -96,8 +96,8 @@ export function TitleHero({ title, reading, chaptersTotal, estMinutes, views, on
               )}
             </div>
 
-            {/* Title + alt */}
-            <h1 className="text-3xl font-bold leading-[1.08] tracking-tight text-white drop-shadow-lg md:text-5xl">{title.title}</h1>
+            {/* Title + alt — 28–32px mobile → 48px desktop */}
+            <h1 className="text-[1.75rem] font-bold leading-[1.12] tracking-tight text-white drop-shadow-lg sm:text-4xl md:text-5xl">{title.title}</h1>
             {title.alternativeTitles && (
               <p className="mt-2 text-xs italic text-mv-text-muted" aria-label="Alternative titles">{title.alternativeTitles}</p>
             )}

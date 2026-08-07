@@ -139,7 +139,7 @@ export function FilterBar({ filters, onChange, genreCounts, resultCount }: Filte
           </button>
 
           {genreOpen && (
-            <div className="glass absolute left-0 top-full z-40 mt-2 w-72 rounded-2xl p-3 shadow-modal animate-scale-in">
+            <div className="glass absolute left-0 top-full z-40 mt-2 w-[min(18rem,calc(100vw-2.5rem))] rounded-2xl p-3 shadow-modal animate-scale-in">
               <div className="mb-2 flex items-center justify-between">
                 <p className="text-[10px] font-semibold text-mv-text">Filter by genre</p>
                 {activeCount > 0 && (

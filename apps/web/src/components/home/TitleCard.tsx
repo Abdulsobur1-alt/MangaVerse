@@ -75,7 +75,7 @@ export function TitleCard({
   const showMenu = !!token && !bookmarked;
 
   return (
-    <div className={cn('group relative shrink-0', fluid ? 'w-full' : 'w-[130px] sm:w-[148px]')}>
+    <div className={cn('group relative shrink-0', fluid ? 'w-full' : 'w-[136px] sm:w-[150px]')}>
       <Spotlight className="rounded-xl">
         <div className="relative aspect-[3/4] overflow-hidden rounded-xl border border-mv-border bg-mv-surface">
           <Link href={`/title/${item.slug}`} className="img-zoom absolute inset-0" aria-label={`View ${item.title}`}>
@@ -127,7 +127,7 @@ export function TitleCard({
       </Spotlight>
 
       {/* Meta */}
-      <div className="mt-2">
+      <div className="mt-2.5">
         <Link href={`/title/${item.slug}`} className="line-clamp-2 text-xs font-medium leading-snug text-mv-text-secondary transition-colors group-hover:text-white">
           {item.title}
         </Link>

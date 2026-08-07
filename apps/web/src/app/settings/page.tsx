@@ -77,10 +77,10 @@ export default function SettingsPage() {
   return (
     <ProtectedRoute>
       <AppShell>
-        <div className="mx-auto max-w-2xl px-5 py-8 sm:px-6 md:px-8">
+        <div className="mx-auto max-w-2xl px-4 py-6 sm:px-6 md:px-8 md:py-8">
           <div className="mb-8">
             <p className="eyebrow mb-2">Preferences</p>
-            <h1 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
+            <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl md:text-4xl">
               Settings
             </h1>
             <p className="mt-1 text-xs text-mv-text-muted">Manage your profile, preferences, and account</p>

@@ -128,7 +128,7 @@ export default function AdminPage() {
   return (
     <ProtectedRoute>
       <AppShell>
-        <div className="mx-auto max-w-6xl px-5 py-8 sm:px-6 md:px-8">
+        <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 md:px-8 md:py-8">
           <div className="mb-6 flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-mv-accent/20 text-mv-accent">
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

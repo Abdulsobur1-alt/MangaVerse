@@ -228,7 +228,7 @@ export function StatsSection({ stats, className }: { stats: AnalyticsData; class
           <h3 className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-mv-text-muted">
             <Icon name="check" size={13} /> Stories you finished
           </h3>
-          <div className="scrollbar-none -mx-5 flex gap-3 overflow-x-auto px-5 sm:mx-0 sm:px-0">
+          <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 sm:mx-0 sm:px-0">
             {stats.completedSeries.map((s) => (
               <Link key={s.titleId} href={`/title/${s.slug}`} className="group w-24 shrink-0">
                 <div className="relative aspect-[3/4] overflow-hidden rounded-lg bg-mv-surface transition-transform duration-300 group-hover:scale-[1.03]">

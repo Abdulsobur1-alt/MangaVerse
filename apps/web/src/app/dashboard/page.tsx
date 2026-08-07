@@ -69,7 +69,7 @@ export default function DashboardPage() {
   return (
     <ProtectedRoute>
       <AppShell>
-        <div className="mx-auto max-w-7xl px-5 py-8 sm:px-6 md:px-8">
+        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 md:px-8 md:py-8">
           {/* ─── Welcome hero ───────────────────────── */}
           <header className="relative overflow-hidden rounded-3xl border border-mv-border bg-mv-darker p-6 md:p-8">
             <div className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-mv-purple/15 blur-3xl" aria-hidden="true" />
@@ -111,7 +111,7 @@ export default function DashboardPage() {
 
           {/* ─── Narrative strip ───────────────────── */}
           {stats && (
-            <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+            <div className="mt-4 grid grid-cols-2 gap-2.5 md:mt-5 md:grid-cols-4 md:gap-3">
               <NarrativeTile icon="book" label="Pages read" value={stats.pagesRead.toLocaleString()} sub="across every series" />
               <NarrativeTile icon="check" label="Series completed" value={String(stats.seriesCompleted)} sub={`${stats.completionRate}% completion`} />
               <NarrativeTile icon="flame" label="Best streak" value={`${stats.bestStreak} days`} sub="in a row" accent="text-mv-orange" />
@@ -119,27 +119,29 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* ─── Tabs ──────────────────────────────── */}
-          <div className="mt-6 flex gap-1 overflow-x-auto rounded-2xl border border-mv-border bg-mv-darker p-1" role="tablist" aria-label="Dashboard sections">
-            {TABS.map((t) => (
-              <button
-                key={t.key}
-                role="tab"
-                aria-selected={tab === t.key}
-                onClick={() => setTab(t.key)}
-                className={cn(
-                  'flex flex-1 shrink-0 items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-[11px] font-medium transition-all',
-                  tab === t.key ? 'bg-gradient-to-r from-mv-purple to-mv-accent text-white shadow-glow-sm' : 'text-mv-text-secondary hover:bg-white/5 hover:text-mv-text',
-                )}
-              >
-                <Icon name={t.icon} size={13} /> {t.label}
-              </button>
-            ))}
+          {/* ─── Tabs — segmented control; scrollable + snap on phones ── */}
+          <div className="scrollbar-none -mx-4 mt-6 overflow-x-auto px-4 sm:mx-0 sm:px-0" role="tablist" aria-label="Dashboard sections">
+            <div className="grid min-w-max grid-cols-4 gap-1 rounded-2xl border border-mv-border bg-mv-darker p-1 sm:w-full sm:min-w-0">
+              {TABS.map((t) => (
+                <button
+                  key={t.key}
+                  role="tab"
+                  aria-selected={tab === t.key}
+                  onClick={() => setTab(t.key)}
+                  className={cn(
+                    'flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-[10px] font-medium transition-all sm:px-2 sm:text-[11px]',
+                    tab === t.key ? 'bg-gradient-to-r from-mv-purple to-mv-accent text-white shadow-glow-sm' : 'text-mv-text-secondary hover:bg-white/5 hover:text-mv-text',
+                  )}
+                >
+                  <Icon name={t.icon} size={13} className="hidden sm:block" /> {t.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* ─── Overview tab ──────────────────────── */}
           {tab === 'overview' && (
-            <div className="mt-6 space-y-5">
+            <div className="mt-5 space-y-4 md:mt-6 md:space-y-5">
               <div className="grid gap-5 lg:grid-cols-2">
                 {/* Journey preview */}
                 <section className="rounded-2xl border border-mv-border bg-mv-darker p-5">

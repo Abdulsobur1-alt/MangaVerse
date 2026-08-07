@@ -44,7 +44,7 @@ export function ContinueRail({
           ) : undefined
         }
       />
-      <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-none" role="list">
+      <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none sm:gap-4" role="list">
         {entries.map((entry) => {
           const minutes = estimateMinutesLeft(entry);
           const completed = entry.completed || entry.pct >= 100;
@@ -52,7 +52,7 @@ export function ContinueRail({
             <div
               key={entry.seriesId}
               role="listitem"
-              className="group relative w-[300px] shrink-0 overflow-hidden rounded-2xl border border-mv-border bg-mv-darker transition-all duration-300 hover:-translate-y-1 hover:border-mv-violet/40 hover:shadow-card-hover"
+              className="group relative w-[272px] shrink-0 overflow-hidden rounded-2xl border border-mv-border bg-mv-darker transition-all duration-300 hover:-translate-y-1 hover:border-mv-violet/40 hover:shadow-card-hover sm:w-[300px]"
             >
               {/* Backdrop artwork */}
               <div className="absolute inset-0" aria-hidden="true">
@@ -118,7 +118,7 @@ export function ContinueRailSkeleton() {
   return (
     <div className="flex gap-4 overflow-hidden">
       {Array.from({ length: 3 }).map((_, i) => (
-        <div key={i} className="w-[300px] shrink-0 rounded-2xl border border-mv-border bg-mv-darker p-3.5">
+        <div key={i} className="w-[272px] shrink-0 rounded-2xl border border-mv-border bg-mv-darker p-3.5 sm:w-[300px]">
           <div className="flex gap-3">
             <div className="skeleton h-24 w-[62px] rounded-lg" />
             <div className="flex-1 space-y-2 py-1">

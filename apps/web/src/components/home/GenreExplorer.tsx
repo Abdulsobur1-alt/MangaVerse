@@ -25,7 +25,7 @@ export function GenreExplorer({ pool }: { pool: HomeTitle[] }) {
   return (
     <section aria-label="Browse by genre">
       <SectionHeader title="Explore Genres" href="/browse" sub="Find your next obsession" />
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
         {GENRES_META.map((genre, i) => {
           const titles = byGenre.get(genre.key) ?? [];
           const artwork = titles[0]?.coverUrl ?? null;

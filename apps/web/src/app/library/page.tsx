@@ -160,14 +160,14 @@ export default function LibraryPage() {
   return (
     <ProtectedRoute>
       <AppShell>
-        <div className="mx-auto max-w-7xl px-5 py-8 sm:px-6 md:px-8">
+        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 md:px-8 md:py-8">
           {/* ─── Welcome header ─────────────────────── */}
           <header className="relative overflow-hidden">
             <div className="pointer-events-none absolute -top-24 left-1/2 h-64 w-[36rem] -translate-x-1/2 rounded-full bg-mv-purple/15 blur-3xl" aria-hidden="true" />
             <div className="relative flex flex-wrap items-end justify-between gap-3">
               <div>
                 <p className="eyebrow mb-2">Personal Shelf</p>
-                <h1 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
+                <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl md:text-4xl">
                   {user?.displayName ? `${user.displayName.split(' ')[0]}'s ` : 'My '}
                   <span className="text-gradient">Library</span>
                 </h1>
@@ -175,7 +175,7 @@ export default function LibraryPage() {
                   Your bookshelf, reading journal, and next great read — in one place.
                 </p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="hidden items-center gap-2 sm:flex">
                 {!isLoading && (
                   <span className="rounded-full border border-mv-border-light bg-mv-surface/60 px-3 py-1 text-[11px] text-mv-text-secondary">
                     {libraryData?.total || 0} titles · {chaptersRead.toLocaleString()} chapters read
@@ -218,7 +218,7 @@ export default function LibraryPage() {
                   Full history →
                 </Link>
               </div>
-              <div className="scrollbar-none -mx-5 flex gap-3 overflow-x-auto px-5 sm:mx-0 sm:px-0">
+              <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 sm:mx-0 sm:px-0">
                 {resume.entries.map((entry) => (
                   <Link
                     key={entry.titleId}
@@ -251,7 +251,7 @@ export default function LibraryPage() {
           )}
 
           {/* ─── Stat tiles ─────────────────────────── */}
-          <div className="mt-8 grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-5">
+          <div className="mt-6 grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:mt-8 md:grid-cols-4 md:gap-3 lg:grid-cols-5">
             <StatTile label="In Library" value={items.length} hint="total bookmarks" icon="book" />
             <StatTile label="Reading Now" value={readingNow} accent="text-mv-violet" hint="in progress" icon="play" />
             <StatTile label="Completed" value={completed} accent="text-mv-success" hint="finished series" icon="check" />
@@ -272,7 +272,7 @@ export default function LibraryPage() {
                 </Link>
               </div>
               {collections && collections.length > 0 ? (
-                <div className="scrollbar-none -mx-5 flex gap-3 overflow-x-auto px-5 sm:mx-0 sm:px-0">
+                <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 sm:mx-0 sm:px-0">
                   {collections.slice(0, 6).map((c) => (
                     <Link
                       key={c.id}
@@ -323,7 +323,7 @@ export default function LibraryPage() {
 
           {/* ─── Toolbar: shelf tabs + search + view ── */}
           <div className="mt-8 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="scrollbar-none -mx-5 flex gap-1.5 overflow-x-auto px-5 sm:mx-0 sm:px-0" role="group" aria-label="Library shelves">
+            <div className="scrollbar-none -mx-4 flex gap-1.5 overflow-x-auto px-4 sm:mx-0 sm:px-0" role="group" aria-label="Library shelves">
               {(['All', ...SHELVES] as const).map((shelf) => {
                 const active = activeShelf === shelf;
                 return (

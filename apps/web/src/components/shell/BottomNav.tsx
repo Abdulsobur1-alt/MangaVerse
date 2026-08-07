@@ -2,15 +2,19 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { useAuthStore } from '@/store/authStore';
 import { useResumeData } from './ContinueReading';
 import { cn } from '@/lib/cn';
 
 /* ═══════════════════════════════════════════════════════════════
-   BottomNav — thumb-zone-optimized mobile navigation. Five slots,
-   a raised floating search button, and a sticky "Continue" pill
-   that resumes the reader with one tap.
+   BottomNav — thumb-zone-optimized mobile navigation.
+   • Five 44px+ tap targets, active state pill
+   • Floating search button (raised above the tab row)
+   • Continue pill docked ABOVE the nav — never overlaps content
+   • Pill hides while scrolling down, reappears on scroll up
+   • Respects iPhone safe-area inset
    ═══════════════════════════════════════════════════════════════ */
 
 const TABS: Array<{ href: string; label: string; icon: IconName }> = [
@@ -26,6 +30,35 @@ function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+/** True when the user is scrolling down the main document. */
+function useScrollDirection() {
+  const [hidden, setHidden] = useState(false);
+  const lastY = useRef(0);
+  const raf = useRef<number | null>(null);
+
+  useEffect(() => {
+    lastY.current = window.scrollY;
+    const onScroll = () => {
+      if (raf.current != null) return;
+      raf.current = requestAnimationFrame(() => {
+        raf.current = null;
+        const y = window.scrollY;
+        // Hide while scrolling down (past a small threshold), show on scroll
+        // up or when near the very top. Keep visible if the page is short.
+        setHidden(y > lastY.current && y > 120 && window.innerHeight < document.body.scrollHeight - 240);
+        lastY.current = y;
+      });
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      if (raf.current != null) cancelAnimationFrame(raf.current);
+    };
+  }, []);
+
+  return hidden;
+}
+
 export interface BottomNavProps {
   /** Opens the global search overlay. */
   onOpenSearch: () => void;
@@ -35,27 +68,32 @@ export function BottomNav({ onOpenSearch }: BottomNavProps) {
   const pathname = usePathname();
   const { token } = useAuthStore();
   const { latest } = useResumeData(1);
+  const pillHidden = useScrollDirection();
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-50 md:hidden" aria-label="Mobile navigation">
       <div className="relative border-t border-mv-border/70 bg-mv-darker/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl">
-        {/* Sticky Continue pill — the reader shortcut */}
+        {/* Sticky Continue pill — docked above the tab row */}
         {token && latest && (
           <Link
             href={`/reader/${latest.chapterId}`}
-            className="absolute -top-12 right-3 flex items-center gap-2 rounded-full border border-mv-violet/30 bg-mv-darker/95 py-1.5 pl-2 pr-3 shadow-glow-sm backdrop-blur-xl animate-fade-up"
+            aria-label={`Continue reading ${latest.title}, chapter ${latest.chapterNumber}`}
+            className={cn(
+              'tap-target absolute -top-14 right-3 max-w-[calc(100vw-5rem)] gap-2 rounded-full border border-mv-violet/30 bg-mv-darker/95 py-1.5 pl-2 pr-3.5 shadow-glow-sm backdrop-blur-xl transition-all duration-300 ease-out',
+              pillHidden ? 'pointer-events-none -translate-y-2 opacity-0' : 'translate-y-0 opacity-100',
+            )}
           >
-            <span className="relative flex h-6 w-6 items-center justify-center">
-              <svg className="h-6 w-6 -rotate-90" viewBox="0 0 24 24">
+            <span className="relative flex h-7 w-7 shrink-0 items-center justify-center">
+              <svg className="h-7 w-7 -rotate-90" viewBox="0 0 24 24" aria-hidden="true">
                 <circle cx="12" cy="12" r="10" fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="2.5" />
                 <circle
                   cx="12" cy="12" r="10" fill="none" stroke="#8b5cf6" strokeWidth="2.5" strokeLinecap="round"
                   strokeDasharray={`${Math.min(62.8, Math.max(0, (latest.pct / 100) * 62.8))} 62.8`}
                 />
               </svg>
-              <Icon name="play" size={9} className="absolute text-mv-violet" strokeWidth={2.4} />
+              <Icon name="play" size={10} className="absolute text-mv-violet" strokeWidth={2.4} />
             </span>
-            <span className="max-w-28 truncate text-[10px] font-medium text-mv-text-secondary">
+            <span className="min-w-0 truncate text-[11px] font-medium text-mv-text-secondary">
               {latest.title} <span className="text-mv-violet">· Ch. {latest.chapterNumber}</span>
             </span>
           </Link>
@@ -78,7 +116,7 @@ export function BottomNav({ onOpenSearch }: BottomNavProps) {
                 key={tab.href}
                 href={tab.href}
                 aria-current={active ? 'page' : undefined}
-                className="relative flex flex-col items-center justify-center gap-1 rounded-xl transition-colors"
+                className="relative flex min-h-11 flex-col items-center justify-center gap-1 rounded-xl transition-colors"
               >
                 <span
                   className={cn(

@@ -97,7 +97,7 @@ export function Hero({
           setPaused(false);
         }
       }}
-      className="group relative h-[520px] overflow-hidden outline-none focus-visible:ring-2 focus-visible:ring-mv-violet/60 md:h-[560px]"
+      className="group relative h-[440px] overflow-hidden outline-none focus-visible:ring-2 focus-visible:ring-mv-violet/60 sm:h-[500px] md:h-[560px]"
     >
       {/* ── Background layers ── */}
       <div className="absolute inset-0 bg-gradient-to-br from-[#150b2e] via-[#1a0f38] to-[#0d0d12]" />
@@ -121,7 +121,7 @@ export function Hero({
       </div>
 
       {/* ── Content ── */}
-      <div className="relative z-10 mx-auto flex h-full w-full max-w-7xl items-end px-5 pb-16 sm:px-6 md:px-8">
+      <div className="relative z-10 mx-auto flex h-full w-full max-w-7xl items-end px-5 pb-14 sm:px-6 md:px-8 md:pb-16">
         <div key={active.slug} className="w-full max-w-2xl">
           {/* Eyebrow row */}
           <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -141,8 +141,8 @@ export function Hero({
             )}
           </div>
 
-          {/* Title — word stagger */}
-          <h1 className="text-4xl font-bold leading-[1.06] tracking-tight text-white drop-shadow-lg md:text-6xl">
+          {/* Title — word stagger (30–34px mobile → 48px desktop) */}
+          <h1 className="text-[1.875rem] font-bold leading-[1.12] tracking-tight text-white drop-shadow-lg sm:text-4xl md:text-6xl md:leading-[1.06]">
             {active.title.split(' ').map((word, i) => (
               <span key={i} className="hero-word inline-block" style={{ animationDelay: `${180 + i * 55}ms` }}>
                 {word}{' '}

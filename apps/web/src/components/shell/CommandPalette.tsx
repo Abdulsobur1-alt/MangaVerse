@@ -184,12 +184,12 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
 
   return (
     <div
-      className="fixed inset-0 z-[90] flex items-start justify-center bg-black/70 p-4 pt-[12vh] backdrop-blur-sm animate-fade-in"
+      className="fixed inset-0 z-[90] flex items-end justify-center bg-black/70 backdrop-blur-sm animate-fade-in sm:items-start sm:p-4 sm:pt-[12vh]"
       onClick={onClose}
     >
       <div
         ref={dialogRef}
-        className="w-full max-w-xl overflow-hidden rounded-2xl border border-mv-border bg-mv-darker shadow-modal animate-scale-in"
+        className="w-full max-w-xl overflow-hidden rounded-t-3xl border border-mv-border bg-mv-darker pb-[max(env(safe-area-inset-bottom),0.5rem)] shadow-modal animate-slide-up sm:rounded-2xl sm:pb-0 sm:animate-scale-in"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"

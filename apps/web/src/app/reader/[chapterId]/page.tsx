@@ -808,7 +808,7 @@ export default function ReaderPage() {
       {/* ── Floating bottom bar ───────────────────────── */}
       <div
         className={cn(
-          'absolute inset-x-0 bottom-0 z-30 flex h-12 items-center gap-2 border-t border-mv-border/70 bg-mv-darker/85 px-3 backdrop-blur-xl transition-all duration-300 sm:px-4',
+          'absolute inset-x-0 bottom-0 z-30 flex min-h-12 items-center gap-2 border-t border-mv-border/70 bg-mv-darker/85 px-3 pb-[max(env(safe-area-inset-bottom),0.25rem)] pt-1.5 backdrop-blur-xl transition-all duration-300 sm:px-4',
           chrome ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none',
         )}
         style={chromeStyle}

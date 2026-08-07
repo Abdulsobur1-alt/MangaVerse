@@ -152,13 +152,13 @@ function BrowseHub() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-7xl px-5 py-8 sm:px-6 md:px-8">
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 md:px-8 md:py-8">
         {/* ─── Hero ─────────────────────────────────────── */}
         <header className="relative overflow-hidden">
           <div className="pointer-events-none absolute -top-24 left-1/2 h-64 w-[36rem] -translate-x-1/2 rounded-full bg-mv-purple/15 blur-3xl" aria-hidden="true" />
           <div className="relative">
             <p className="eyebrow">Discovery Hub</p>
-            <h1 className="mt-2 text-3xl font-bold tracking-tight text-white md:text-4xl">
+            <h1 className="mt-2 text-2xl font-bold tracking-tight text-white sm:text-3xl md:text-4xl">
               Find your next <span className="text-gradient">obsession</span>
             </h1>
             <p className="mt-2 max-w-xl text-sm text-mv-text-secondary">
@@ -176,7 +176,7 @@ function BrowseHub() {
           </div>
         </header>
 
-        <div className="mt-10 space-y-14">
+        <div className="mt-8 space-y-12 md:mt-10 md:space-y-16">
           {!active ? (
             /* ══ Discovery mode ══ */
             <>

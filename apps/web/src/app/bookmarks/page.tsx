@@ -109,12 +109,12 @@ export default function BookmarksPage() {
   return (
     <ProtectedRoute>
       <AppShell>
-        <div className="mx-auto max-w-5xl px-5 py-8 sm:px-6 md:px-8">
+        <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 md:px-8 md:py-8">
           {/* ─── Header ──────────────────────────────── */}
           <header className="mb-7 flex flex-wrap items-end justify-between gap-3">
             <div>
               <p className="eyebrow mb-2">Reading Journal</p>
-              <h1 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
+              <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl md:text-4xl">
                 <span className="text-gradient">Bookmarks</span>
               </h1>
               <p className="mt-1.5 text-xs text-mv-text-muted">
@@ -140,7 +140,7 @@ export default function BookmarksPage() {
 
           {/* ─── Filters ─────────────────────────────── */}
           <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="scrollbar-none -mx-5 flex gap-1.5 overflow-x-auto px-5 sm:mx-0 sm:px-0" role="group" aria-label="Bookmark folders">
+            <div className="scrollbar-none -mx-4 flex gap-1.5 overflow-x-auto px-4 sm:mx-0 sm:px-0" role="group" aria-label="Bookmark folders">
               {folders.map((f) => {
                 const active = folder === f.name || (folder === null && f.name === 'All');
                 return (

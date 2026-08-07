@@ -60,7 +60,7 @@ export default function GenrePage() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-7xl px-5 py-8 sm:px-6 md:px-8">
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 md:px-8 md:py-8">
         {/* ─── Genre hero ───────────────────────────────── */}
         <header className="relative overflow-hidden rounded-3xl border border-mv-border-light">
           <div className="absolute inset-0 bg-gradient-to-br from-mv-darker via-mv-surface to-mv-darker" />
@@ -78,7 +78,7 @@ export default function GenrePage() {
                   {count > 0 ? `${compactNumber(count)} titles` : 'Genre'}
                 </span>
               </div>
-              <h1 className="mt-4 text-3xl font-bold tracking-tight text-white md:text-4xl">{meta.label}</h1>
+              <h1 className="mt-4 text-2xl font-bold tracking-tight text-white sm:text-3xl md:text-4xl">{meta.label}</h1>
               <p className="mt-2 text-sm leading-relaxed text-mv-text-secondary">{meta.blurb}</p>
             </div>
             <div className="flex shrink-0 flex-wrap gap-2.5">

@@ -36,8 +36,6 @@ export function MetadataGrid({ title, chaptersTotal, views }: { title: TitleDeta
   const left: MetaItem[] = [
     { icon: 'book', label: 'Format', value: title.type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) },
     { icon: 'tag', label: 'Author', value: title.author ?? '', href: title.author ? `/author/${encodeURIComponent(title.author)}` : undefined },
-    { icon: 'sparkles', label: 'Artist', value: title.artist ?? '', href: title.artist ? `/author/${encodeURIComponent(title.artist)}` : undefined },
-    { icon: 'sparkles', label: 'Artist', value: title.artist ?? '' },
     { icon: 'calendar', label: 'Release year', value: title.releaseYear ? String(title.releaseYear) : '' },
     { icon: 'clock', label: 'Updated', value: title.updatedAt ? formatTimeAgo(title.updatedAt) : '' },
     { icon: 'globe', label: 'Language', value: '' },

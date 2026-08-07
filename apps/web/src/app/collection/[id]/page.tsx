@@ -97,7 +97,7 @@ export default function CollectionDetailPage() {
   return (
     <ProtectedRoute>
       <AppShell>
-        <div className="mx-auto max-w-6xl px-5 py-8 sm:px-6 md:px-8">
+        <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 md:px-8 md:py-8">
           {/* ─── Back ─────────────────────────────────── */}
           <Link href="/collections" className="mb-5 inline-flex items-center gap-1.5 text-[11px] text-mv-text-dim transition-colors hover:text-mv-violet">
             <Icon name="arrowLeft" size={13} />

@@ -26,7 +26,7 @@ export function TopBar({ onOpenSearch, immersive }: TopBarProps) {
   return (
     <header
       className={cn(
-        'sticky top-0 z-40 flex h-14 items-center gap-2 border-b border-mv-border/70 px-3 backdrop-blur-xl sm:px-4',
+        'sticky top-0 z-40 flex min-h-12 items-center gap-1 border-b border-mv-border/70 px-2.5 py-1.5 backdrop-blur-xl sm:min-h-14 sm:gap-2 sm:px-4 pt-safe',
         immersive ? 'bg-black/80' : 'bg-mv-darker/75',
       )}
     >
@@ -44,7 +44,7 @@ export function TopBar({ onOpenSearch, immersive }: TopBarProps) {
       {/* Breadcrumb — desktop context trail */}
       <Breadcrumb />
 
-      <div className="ml-auto flex items-center gap-1.5 sm:gap-2.5">
+      <div className="ml-auto flex items-center gap-1 sm:gap-2.5">
         {/* Search — desktop pill */}
         {onOpenSearch && (
           <button
@@ -61,7 +61,7 @@ export function TopBar({ onOpenSearch, immersive }: TopBarProps) {
           <button
             onClick={onOpenSearch}
             aria-label="Search"
-            className="flex h-9 w-9 items-center justify-center rounded-xl text-mv-text-secondary transition-colors hover:bg-white/5 hover:text-white lg:hidden"
+            className="tap-target h-10 w-10 rounded-xl text-mv-text-secondary transition-colors hover:bg-white/5 hover:text-white lg:hidden"
           >
             <Icon name="search" size={18} />
           </button>

@@ -68,7 +68,7 @@ export function ProfileMenu({ className }: ProfileMenuProps) {
         onClick={() => setOpen(!open)}
         aria-label="Account menu"
         aria-expanded={open}
-        className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl border border-mv-border-light bg-mv-surface transition-all hover:border-mv-violet/50"
+        className="tap-target h-10 w-10 overflow-hidden rounded-xl border border-mv-border-light bg-mv-surface transition-all hover:border-mv-violet/50"
       >
         {user?.avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element

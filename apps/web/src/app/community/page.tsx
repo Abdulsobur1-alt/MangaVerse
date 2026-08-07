@@ -90,12 +90,12 @@ export default function CommunityPage() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-7xl px-5 py-8 sm:px-6 md:px-8">
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 md:px-8 md:py-8">
         <div className="mb-8">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <p className="eyebrow mb-2">Fandom Central</p>
-              <h1 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
+              <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl md:text-4xl">
                 Community
               </h1>
             </div>
@@ -179,11 +179,9 @@ export default function CommunityPage() {
               </button>
             </div>
           </div>
-        )}
-
-        <div className="flex flex-col gap-6 lg:flex-row">
-          {/* ─── Main Feed ─────────────────────────── */}
-          <div className="flex-1 space-y-3">
+        )}          <div className="flex flex-col gap-6 lg:flex-row">
+            {/* ─── Main Feed ─────────────────────────── */}
+            <div className="flex-1 space-y-3.5">
             {isLoading ? (
               <div className="flex items-center justify-center py-16">
                 <div className="h-7 w-7 animate-spin rounded-full border-2 border-mv-accent border-t-transparent" />

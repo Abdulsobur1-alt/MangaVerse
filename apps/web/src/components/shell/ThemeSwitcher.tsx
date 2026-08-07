@@ -83,7 +83,7 @@ export function ThemeSwitcher({ labelled = false, className }: ThemeSwitcherProp
       title={`Switch to ${isDark ? 'light' : 'dark'} theme`}
       className={cn(
         'flex items-center gap-3 rounded-xl px-2.5 py-2.5 text-mv-text-muted transition-colors hover:bg-white/5 hover:text-mv-text',
-        labelled ? 'w-full' : 'h-9 w-9 justify-center hover:text-white',
+        labelled ? 'w-full' : 'tap-target h-10 w-10 justify-center hover:text-white',
         className,
       )}
     >

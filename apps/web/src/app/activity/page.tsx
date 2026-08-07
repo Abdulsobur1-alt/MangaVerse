@@ -97,17 +97,17 @@ export default function ActivityPage() {
   return (
     <ProtectedRoute>
       <AppShell>
-        <div className="mx-auto max-w-2xl px-5 py-8 sm:px-6 md:px-8">
+        <div className="mx-auto max-w-2xl px-4 py-6 sm:px-6 md:px-8 md:py-8">
           <div className="mb-5">
             <p className="eyebrow mb-2">Feed</p>
-            <h1 className="text-3xl font-bold tracking-tight text-white md:text-4xl">Activity</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl md:text-4xl">Activity</h1>
             <p className="mt-1 text-xs text-mv-text-muted">
               What your community is reading, writing, and celebrating
             </p>
           </div>
 
           {/* Kind tabs */}
-          <div className="scrollbar-none -mx-5 mb-6 flex gap-1.5 overflow-x-auto px-5 sm:mx-0 sm:px-0" role="group" aria-label="Feed source">
+          <div className="scrollbar-none -mx-4 mb-6 flex gap-1.5 overflow-x-auto px-4 sm:mx-0 sm:px-0" role="group" aria-label="Feed source">
             {KIND_TABS.map((t) => (
               <button
                 key={t.key}
