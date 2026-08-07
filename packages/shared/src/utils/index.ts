@@ -32,6 +32,7 @@ export function formatLabel(type: ContentFormat): string {
     manhwa: 'Manhwa',
     manhua: 'Manhua',
     light_novel: 'Light Novel',
+    novel: 'Novel',
     webtoon: 'Webtoon',
   };
   return labels[type] ?? 'Manga';

@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { useAuthStore } from '@/store/authStore';
 import { useResumeData } from './ContinueReading';
+import { isStaffRole } from '@/lib/hooks/useStudio';
 import { cn } from '@/lib/cn';
 
 /* ═══════════════════════════════════════════════════════════════
@@ -66,9 +67,10 @@ export interface BottomNavProps {
 
 export function BottomNav({ onOpenSearch }: BottomNavProps) {
   const pathname = usePathname();
-  const { token } = useAuthStore();
+  const { token, user } = useAuthStore();
   const { latest } = useResumeData(1);
   const pillHidden = useScrollDirection();
+  const staff = isStaffRole(user?.role);
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-50 md:hidden" aria-label="Mobile navigation">
@@ -96,6 +98,18 @@ export function BottomNav({ onOpenSearch }: BottomNavProps) {
             <span className="min-w-0 truncate text-[11px] font-medium text-mv-text-secondary">
               {latest.title} <span className="text-mv-violet">· Ch. {latest.chapterNumber}</span>
             </span>
+          </Link>
+        )}
+
+        {/* Staff Studio — floating pill, mirrored to the Continue pill */}
+        {staff && !pillHidden && (
+          <Link
+            href="/studio"
+            aria-label="Content Studio"
+            className="tap-target absolute -top-14 left-3 flex items-center gap-1.5 rounded-full border border-mv-violet/30 bg-mv-darker/95 py-1.5 pl-2.5 pr-3.5 shadow-glow-sm backdrop-blur-xl transition-all duration-300 ease-out"
+          >
+            <Icon name="sparkles" size={13} className="text-mv-violet" strokeWidth={2} />
+            <span className="text-[11px] font-medium text-mv-text-secondary">Studio</span>
           </Link>
         )}
 

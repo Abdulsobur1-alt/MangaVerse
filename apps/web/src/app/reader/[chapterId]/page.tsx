@@ -112,7 +112,7 @@ export default function ReaderPage() {
 
   // ─── Format detection ────────────────────────────────
   const formatKey = ((chapter?.series?.type || '').toUpperCase());
-  const isLightNovel = formatKey === 'LIGHT_NOVEL';
+  const isLightNovel = formatKey === 'LIGHT_NOVEL' || formatKey === 'NOVEL';
   const hasProse = isLightNovel && !!chapter?.contentText;
 
   const effectiveMode: ReaderMode =

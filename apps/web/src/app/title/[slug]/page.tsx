@@ -80,7 +80,7 @@ export default function TitleDetailPage() {
     if (!title || pagination.total === 0) return null;
     const withPages = chapters.filter((c) => c.pageCount);
     const avgPages = withPages.length > 0 ? withPages.reduce((s, c) => s + (c.pageCount ?? 0), 0) / withPages.length : 20;
-    const secPerPage = title.type === 'light_novel' ? 150 : 75;
+    const secPerPage = title.type === 'light_novel' || title.type === 'novel' ? 150 : 75;
     return Math.max(1, Math.round((pagination.total * avgPages * secPerPage) / 60));
   }, [title, chapters, pagination.total]);
 

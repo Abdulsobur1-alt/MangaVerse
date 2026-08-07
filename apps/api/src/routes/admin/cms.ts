@@ -305,6 +305,7 @@ adminCmsRouter.get('/cms/titles/:id/chapters', requirePermission('chapters:read'
         number: true,
         title: true,
         pageCount: true,
+        pageUrls: true,
         coinLocked: true,
         freeAt: true,
         createdAt: true,
@@ -326,6 +327,9 @@ adminCmsRouter.get('/cms/titles/:id/chapters', requirePermission('chapters:read'
 const UpdateChapterSchema = z.object({
   title: z.string().max(300).nullable().optional(),
   pageCount: z.number().int().positive().nullable().optional(),
+  // Staff-uploaded page image URLs (Studio). Editing these replaces the
+  // chapter's pages — the reader serves them in order.
+  pageUrls: z.array(z.string().max(2000)).max(500).optional(),
   coinLocked: z.boolean().optional(),
   freeAt: z.string().datetime().nullable().optional(),
   contentText: z.string().max(200_000).nullable().optional(),
@@ -343,6 +347,7 @@ adminCmsRouter.patch('/cms/chapters/:id', requirePermission('chapters:update'), 
     const data: Record<string, unknown> = {};
     if (body.title !== undefined) data.title = body.title;
     if (body.pageCount !== undefined) data.pageCount = body.pageCount;
+    if (body.pageUrls !== undefined) data.pageUrls = body.pageUrls;
     if (body.coinLocked !== undefined) data.coinLocked = body.coinLocked;
     if (body.freeAt !== undefined) data.freeAt = body.freeAt ? new Date(body.freeAt) : null;
     if (body.contentText !== undefined) data.contentText = body.contentText;

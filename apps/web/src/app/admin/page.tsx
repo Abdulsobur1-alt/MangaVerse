@@ -291,6 +291,7 @@ function UsersTab({ enabled, isAdmin }: { enabled: boolean; isAdmin: boolean }) 
   const { data: usersData, isLoading } = useAdminUsers({ page, search: debounced || undefined }, enabled);
 
   const roleOptions = rolesData?.items?.map((r) => r.key) ?? ['user', 'moderator', 'admin'];
+  const roleLabels = Object.fromEntries((rolesData?.items ?? []).map((r) => [r.key, r.label]));
 
   return (
     <div>
@@ -358,7 +359,7 @@ function UsersTab({ enabled, isAdmin }: { enabled: boolean; isAdmin: boolean }) 
                         className="rounded-md border border-mv-border-light bg-mv-surface px-2 py-1 text-[10px] text-mv-text outline-none focus:border-mv-accent disabled:opacity-40"
                       >
                         {roleOptions.map((r) => (
-                          <option key={r} value={r}>{r}</option>
+                          <option key={r} value={r}>{roleLabels[r] ?? r}</option>
                         ))}
                       </select>
                       {u.id === user?.id && <span className="text-[8px] text-mv-text-dim">(you)</span>}

@@ -196,7 +196,10 @@ model Chapter {
   coinLocked  Boolean   @default(false) @map("coin_locked")
   freeAt      DateTime? @map("free_at")
   sourceUrl   String?   @map("source_url")
-  // Prose content for light novels (and any text-based chapters).
+  // Direct page image URLs for staff-uploaded chapters (Studio). When set,
+  // the reader serves these instead of MangaDex/placeholder pages.
+  pageUrls    String[]  @default([]) @map("page_urls")
+  // Prose content for light novels/novels (and any text-based chapters).
   // NULL for image-based chapters (manga/manhwa/manhua).
   contentText String?   @map("content_text") @db.Text
   createdAt   DateTime  @default(now()) @map("created_at")

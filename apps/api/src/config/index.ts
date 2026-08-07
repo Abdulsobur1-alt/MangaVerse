@@ -40,6 +40,11 @@ export const config = {
       .replace(/\/rest\/v1\/?$/, '')
       .replace(/\/+$/, ''),
     anonKey: process.env.SUPABASE_ANON_KEY || '',
+    // Server-side key used ONLY by the API to write files into Supabase
+    // Storage (Studio uploads). Never expose this to the browser.
+    serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+    // Storage bucket for uploaded covers, banners and chapter pages.
+    storageBucket: process.env.SUPABASE_STORAGE_BUCKET || 'mangaverse',
   },
 
   // BullMQ

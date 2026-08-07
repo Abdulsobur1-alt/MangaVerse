@@ -9,6 +9,7 @@ import { useUnreadCount } from '@/lib/hooks/useNotifications';
 import { useReadingHistory } from '@/lib/hooks/useReadingStats';
 import { ThemeSwitcher } from './ThemeSwitcher';
 import { useResumeData, ContinueReading } from './ContinueReading';
+import { isStaffRole } from '@/lib/hooks/useStudio';
 import { cn } from '@/lib/cn';
 
 /* ═══════════════════════════════════════════════════════════════
@@ -110,6 +111,7 @@ export function Sidebar() {
   const overview = OVERVIEW.map((item) => (item.href === '/notifications' ? { ...item, badge: unread } : item));
   const recent = token && history ? history.items.slice(0, 3) : [];
   const resumeEntries = resume?.entries ?? [];
+  const staff = isStaffRole(user?.role);
 
   return (
     <aside className="group/side fixed inset-y-0 left-0 z-50 hidden md:block">
@@ -149,6 +151,14 @@ export function Sidebar() {
             <NavLink key={item.href} item={item} pathname={pathname} />
           ))}
         </nav>
+
+        {/* Staff Studio — content workspace (editors/uploaders/admin) */}
+        {staff && (
+          <nav aria-label="Staff" className="mt-2 flex flex-col gap-1 border-t border-mv-border/50 pt-1">
+            <SectionLabel>Staff</SectionLabel>
+            <NavLink item={{ href: '/studio', label: 'Studio', icon: 'sparkles' }} pathname={pathname} />
+          </nav>
+        )}
 
         {/* Recently viewed */}
         {recent.length > 0 && (

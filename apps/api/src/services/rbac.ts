@@ -63,15 +63,34 @@ const BASE: Record<string, string[]> = {
     'content:export',
     'analytics:read',
   ],
+  // Full content self-management: staff create, edit, publish, delete and
+  // arrange titles/chapters. "Staff self-manage" — no extra hierarchy
+  // beyond the role itself (admins only assign roles).
   editor: [
     'dashboard:read',
-    'titles:read', 'titles:create', 'titles:update',
-    'chapters:read', 'chapters:create', 'chapters:update', 'chapters:publish',
-    'media:read', 'media:create', 'media:update',
-    'picks:read', 'picks:update',
+    ...all('titles'),
+    ...all('chapters'),
+    ...all('media'),
+    ...all('picks'),
+    'content:export',
+    'analytics:read',
   ],
+  // Uploaders are content staff too: full create/edit/delete on titles,
+  // chapters and media (the "upload" role).
+  uploader: [
+    ...all('titles'),
+    ...all('chapters'),
+    ...all('media'),
+  ],
+  // Moderators manage community AND content: the user's staff model assigns
+  // moderator/editor/uploader roles and expects all three to upload, edit
+  // and arrange every series (full titles/chapters/media CRUD) plus the
+  // community moderation duties.
   moderator: [
     'dashboard:read',
+    ...all('titles'),
+    ...all('chapters'),
+    ...all('media'),
     'moderation:read', 'moderation:act', 'moderation:approve', 'moderation:reject',
     'users:read', 'users:update',
     'reports:read', 'reports:act',
@@ -83,7 +102,6 @@ const BASE: Record<string, string[]> = {
   support_agent: ['tickets:read', 'tickets:create', 'tickets:update', 'tickets:assign', 'users:read', 'reports:read'],
   data_analyst: ['dashboard:read', 'analytics:read', 'content:export', 'audit:read'],
   translator: ['titles:read', 'titles:update', 'chapters:read', 'chapters:update'],
-  uploader: ['chapters:create', 'media:create', 'titles:create', 'media:read'],
   qa_tester: ['dashboard:read', 'health:read', 'titles:read', 'chapters:read', 'flags:read', 'analytics:read'],
   guest_admin: ['dashboard:read', 'users:read', 'reports:read', 'audit:read', 'analytics:read', 'health:read', 'titles:read', 'flags:read'],
 };

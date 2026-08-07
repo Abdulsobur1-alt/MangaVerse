@@ -7,6 +7,7 @@ export const ContentFormat = {
   MANHWA: 'manhwa',
   MANHUA: 'manhua',
   LIGHT_NOVEL: 'light_novel',
+  NOVEL: 'novel',
   WEBTOON: 'webtoon',
 } as const;
 export type ContentFormat = (typeof ContentFormat)[keyof typeof ContentFormat];

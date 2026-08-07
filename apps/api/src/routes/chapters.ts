@@ -149,7 +149,7 @@ chaptersRouter.get('/:id/pages', optionalAuth, async (req, res, next) => {
 
     const chapter = await prisma.chapter.findUnique({
       where: { id },
-      select: { id: true, number: true, pageCount: true, sourceUrl: true, titleId: true, coinLocked: true, freeAt: true },
+      select: { id: true, number: true, pageCount: true, sourceUrl: true, pageUrls: true, titleId: true, coinLocked: true, freeAt: true },
     });
 
     if (!chapter) throw new NotFoundError('Chapter', id);
@@ -180,6 +180,26 @@ chaptersRouter.get('/:id/pages', optionalAuth, async (req, res, next) => {
     }
 
     const pageCount = chapter.pageCount || 12;
+
+    // Studio-uploaded pages take priority: when staff uploaded images for
+    // this chapter (Chapter.pageUrls), serve those directly — no MangaDex
+    // lookup or placeholder generation needed.
+    if (chapter.pageUrls && chapter.pageUrls.length > 0) {
+      return res.json({
+        success: true,
+        data: {
+          pages: chapter.pageUrls.map((url: string, i: number) => ({
+            index: i,
+            url,
+            width: 800,
+            height: 1200,
+          })),
+          total: chapter.pageUrls.length,
+          chapterId: chapter.id,
+          chapterNumber: chapter.number,
+        },
+      });
+    }
 
     // Try to get real pages from MangaDex if we have a source URL
     // MangaDex source URLs look like: https://mangadex.org/chapter/{chapterId}

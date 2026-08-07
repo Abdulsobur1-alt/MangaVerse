@@ -4,6 +4,7 @@ import { adminCoreRouter } from './core.js';
 import { adminDashboardRouter } from './dashboard.js';
 import { adminCmsRouter } from './cms.js';
 import { adminMediaRouter } from './media.js';
+import { adminStudioRouter } from './studio.js';
 import { adminModerationRouter } from './moderation.js';
 import { adminFlagsRouter } from './flags.js';
 import { adminAuditRouter } from './audit.js';
@@ -20,6 +21,7 @@ import { adminImpersonateRouter } from './impersonate.js';
    • /dashboard       executive widgets
    • /cms             titles, chapters, revisions, editorial picks
    • /media           asset library
+   • /studio          staff content workspace (create/arrange/upload)
    • /moderation      warn → suspend → ban ladder
    • /flags           feature flags + per-user overrides
    • /audit           audit log (read + export)
@@ -40,6 +42,7 @@ adminRouter.use('/', adminCoreRouter);
 adminRouter.use('/', adminDashboardRouter);
 adminRouter.use('/', adminCmsRouter);
 adminRouter.use('/', adminMediaRouter);
+adminRouter.use('/', adminStudioRouter);
 adminRouter.use('/', adminModerationRouter);
 adminRouter.use('/', adminFlagsRouter);
 adminRouter.use('/', adminAuditRouter);
