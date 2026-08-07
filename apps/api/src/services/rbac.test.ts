@@ -46,6 +46,51 @@ describe('RBAC', () => {
     expect(rbac.hasPermission(['users:read'], 'users:manage')).toBe(false);
   });
 
+  // ── Multi-role (User.roles) ─────────────────────────
+
+  it('unions permissions across every held role', () => {
+    // A moderator who is also an editor keeps both permission sets.
+    const perms = rbac.permissionsForRoles(['moderator', 'editor'], null);
+    expect(perms).toContain('moderation:act');
+    expect(perms).toContain('titles:publish');
+    expect(perms).toContain('chapters:create');
+    expect(perms).toContain('comments:delete');
+    expect(perms).not.toContain('roles:manage'); // neither holds promotion powers
+    expect(perms).not.toContain('settings:manage');
+  });
+
+  it('short-circuits to wildcard when any role is super_admin', () => {
+    expect(rbac.permissionsForRoles(['user', 'super_admin'], null)).toEqual(['*']);
+    expect(rbac.permissionsForRoles(['moderator', 'super_admin'], ['-titles:update'])).toEqual(['*']);
+  });
+
+  it('applies the override once to the unioned set', () => {
+    const perms = rbac.permissionsForRoles(['editor', 'uploader'], ['-titles:update']);
+    expect(perms).toContain('titles:create');
+    expect(perms).not.toContain('titles:update');
+    expect(perms).toContain('chapters:create');
+  });
+
+  it('ignores unknown roles in the union', () => {
+    const perms = rbac.permissionsForRoles(['editor', 'not_a_role'], null);
+    expect(perms).toEqual(rbac.basePermissions('editor'));
+  });
+
+  it('permissionsForUser stays equivalent to a single-role union', () => {
+    expect(rbac.permissionsForUser('moderator', null)).toEqual(rbac.permissionsForRoles(['moderator'], null));
+  });
+
+  it('effectiveRoles prefers the roles list over the legacy role column', () => {
+    expect(rbac.effectiveRoles({ role: 'admin', roles: ['editor', 'moderator'] })).toEqual(['editor', 'moderator']);
+    expect(rbac.effectiveRoles({ role: 'admin', roles: [] })).toEqual(['admin']);
+    expect(rbac.effectiveRoles({ role: 'moderator' })).toEqual(['moderator']);
+    expect(rbac.effectiveRoles({ role: 'user', roles: null })).toEqual(['user']);
+  });
+
+  it('effectiveRoles dedupes repeated entries', () => {
+    expect(rbac.effectiveRoles({ role: 'user', roles: ['editor', 'editor'] })).toEqual(['editor']);
+  });
+
   it('exposes the role catalog for the admin UI', () => {
     const keys = rbac.ROLES.map((r) => r.key);
     expect(keys).toContain('super_admin');

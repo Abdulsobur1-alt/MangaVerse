@@ -706,9 +706,12 @@ export async function broadcastNotification(input: BroadcastInput): Promise<numb
     const priority = input.priority ?? meta.priority;
     const category = input.category ?? meta.category;
 
+    // Moderator audience is multi-role aware: match either the legacy `role`
+    // column (pre-migration safety) or any entry in the `roles` list.
+    const MOD_AUDIENCE = ['moderator', 'admin', 'super_admin', 'platform_admin'];
     const audienceWhere =
       input.audience === 'moderators'
-        ? { role: { in: ['moderator', 'admin'] as string[] } }
+        ? { OR: [{ role: { in: MOD_AUDIENCE } }, { roles: { hasSome: MOD_AUDIENCE } }] }
         : input.audience === 'logged_in'
           ? { firebaseUid: { not: null } }
           : {};

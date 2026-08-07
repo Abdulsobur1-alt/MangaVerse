@@ -3,6 +3,7 @@ import { UnauthorizedError, ForbiddenError } from '../lib/errors.js';
 import { prisma } from '../lib/prisma.js';
 import { verifySupabaseToken, supabaseConfigured } from '../lib/supabase.js';
 import { config } from '../config/index.js';
+import { effectiveRoles } from '../services/rbac.js';
 
 // Extend Express Request to include user info
 declare global {
@@ -131,7 +132,9 @@ export async function optionalAuth(req: Request, _res: Response, next: NextFunct
 /**
  * Require the authenticated user to hold one of the given roles.
  * Must be composed AFTER requireAuth (or optionalAuth) — reads req.user.uid.
- * An 'admin' gate also admits the granular admin-equivalent roles
+ * Multi-role aware: ANY held role (User.roles) matching the gate admits the
+ * user, with the legacy single `role` column as fallback for pre-migration
+ * rows. An 'admin' gate also admits the granular admin-equivalent roles
  * (platform_admin, super_admin) so canonical RBAC roles can use the console.
  */
 export function requireRole(...roles: UserRole[]) {
@@ -143,7 +146,7 @@ export function requireRole(...roles: UserRole[]) {
 
       const user = await prisma.user.findUnique({
         where: { firebaseUid: req.user.uid },
-        select: { role: true },
+        select: { role: true, roles: true },
       });
 
       // Expand the requested roles with their equivalents: an 'admin' gate
@@ -157,7 +160,7 @@ export function requireRole(...roles: UserRole[]) {
         }
       }
 
-      if (!user || !allowed.has(user.role)) {
+      if (!user || !effectiveRoles(user).some((r) => allowed.has(r))) {
         return next(new ForbiddenError('You do not have permission to perform this action'));
       }
 

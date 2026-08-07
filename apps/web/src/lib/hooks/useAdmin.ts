@@ -24,6 +24,7 @@ export interface AdminUser {
   displayName: string;
   avatarUrl: string | null;
   role: string;
+  roles?: string[];
   streakDays: number;
   bannedAt: string | null;
   suspendedUntil: string | null;
@@ -128,8 +129,8 @@ export function useSetUserRole() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: { userId: string; role: string }) =>
-      api.patch<AdminUser>(`/admin/users/${data.userId}/role`, { role: data.role }),
+    mutationFn: (data: { userId: string; roles: string[] }) =>
+      api.patch<AdminUser>(`/admin/users/${data.userId}/role`, { roles: data.roles }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
     },

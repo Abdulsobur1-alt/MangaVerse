@@ -59,7 +59,7 @@ authRouter.post('/register', validate({ body: RegisterSchema }), async (req, res
         email,
         displayName,
         firebaseUid: firebaseUid ?? null,
-        ...(wasFirstUser && config.devAuth ? { role: 'admin' } : {}),
+        ...(wasFirstUser && config.devAuth ? { role: 'admin', roles: ['admin'] } : {}),
       },
     });
 
@@ -136,7 +136,12 @@ authRouter.post('/login', validate({ body: LoginSchema }), async (req, res, next
       // signing in. Prod flow untouched (devAuth is never on there).
       const adminCount = await prisma.user.count({ where: { role: { in: ['admin', 'super_admin', 'platform_admin'] } } });
       if (adminCount === 0) {
-        user = await prisma.user.update({ where: { id: user.id }, data: { role: 'admin' } });
+        // Promote to admin WITHOUT wiping any other roles the account holds —
+        // admin stays the primary (roles[0]) so `role` mirrors it.
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: { role: 'admin', roles: ['admin', ...(user.roles ?? []).filter((r) => r !== 'admin')] },
+        });
       }
       res.json({
         success: true,
@@ -148,6 +153,7 @@ authRouter.post('/login', validate({ body: LoginSchema }), async (req, res, next
           coinBalance: user.coinBalance,
           subscriptionTier: user.subscriptionTier,
           role: user.role,
+          roles: Array.isArray(user.roles) && user.roles.length ? user.roles : [user.role],
           token: `dev_${user.id}`,
         },
       });
@@ -210,13 +216,13 @@ authRouter.post('/login', validate({ body: LoginSchema }), async (req, res, next
       if ((err as { code?: string })?.code === 'P2002') {
         const existing = await prisma.user.findUnique({
           where: { email },
-          select: { id: true, email: true, displayName: true, avatarUrl: true, coinBalance: true, role: true, subscriptionTier: true, streakDays: true, createdAt: true },
+          select: { id: true, email: true, displayName: true, avatarUrl: true, coinBalance: true, role: true, roles: true, subscriptionTier: true, streakDays: true, createdAt: true },
         });
         if (existing) {
           const user = await prisma.user.update({
             where: { id: existing.id },
             data: { firebaseUid: decoded.uid, ...(decoded.displayName ? { displayName: decoded.displayName } : {}) },
-            select: { id: true, email: true, displayName: true, avatarUrl: true, coinBalance: true, role: true, subscriptionTier: true, streakDays: true, createdAt: true },
+            select: { id: true, email: true, displayName: true, avatarUrl: true, coinBalance: true, role: true, roles: true, subscriptionTier: true, streakDays: true, createdAt: true },
           });
           return sendUser(res, user, authToken);
         }
@@ -238,6 +244,7 @@ function sendUser(
     avatarUrl: string | null;
     coinBalance: number;
     role: string;
+    roles?: string[];
     subscriptionTier: string;
     streakDays: number;
     createdAt: Date;
@@ -253,6 +260,7 @@ function sendUser(
       avatarUrl: user.avatarUrl,
       coinBalance: user.coinBalance,
       role: user.role,
+      roles: Array.isArray(user.roles) && user.roles.length ? user.roles : [user.role],
       subscriptionTier: user.subscriptionTier,
       streakDays: user.streakDays,
       createdAt: user.createdAt.toISOString(),
@@ -289,6 +297,7 @@ authRouter.get('/me', requireAuth, async (req, res, next) => {
         avatarUrl: user.avatarUrl,
         coinBalance: user.coinBalance,
         role: user.role,
+        roles: Array.isArray(user.roles) && user.roles.length ? user.roles : [user.role],
         subscriptionTier: user.subscriptionTier,
         streakDays: user.streakDays,
         libraryCount: user._count.bookmarks,

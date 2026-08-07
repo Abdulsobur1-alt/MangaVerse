@@ -6,7 +6,7 @@ import { requireAuth, requireRole } from '../../middleware/auth.js';
 import { NotFoundError, ForbiddenError } from '../../lib/errors.js';
 import { broadcastNotification } from '../../services/notifications.js';
 import { logAudit } from '../../services/audit.js';
-import { ROLES } from '../../services/rbac.js';
+import { ROLES, effectiveRoles } from '../../services/rbac.js';
 
 export const adminCoreRouter = Router();
 
@@ -25,10 +25,16 @@ const ListQuery = z.object({
 
 const IdParams = z.object({ id: z.string().uuid() });
 
-const SetRoleSchema = z.object({
-  role: z.string().min(1).max(40),
-  rolePermissions: z.array(z.string().min(1).max(60)).max(100).optional(),
-});
+const SetRoleSchema = z
+  .object({
+    // Legacy single-role payloads send `role`; the console sends `roles`.
+    role: z.string().min(1).max(40).optional(),
+    roles: z.array(z.string().min(1).max(40)).min(1).max(20).optional(),
+    rolePermissions: z.array(z.string().min(1).max(60)).max(100).optional(),
+  })
+  .refine((v) => v.role !== undefined || v.roles !== undefined, {
+    message: 'Provide `role` (legacy) or `roles` (multi-role list)',
+  });
 
 const WikiParams = z.object({ slug: z.string().min(1) });
 
@@ -127,6 +133,7 @@ adminCoreRouter.get('/users', validate({ query: ListQuery }), async (req, res, n
           displayName: true,
           avatarUrl: true,
           role: true,
+          roles: true,
           streakDays: true,
           bannedAt: true,
           suspendedUntil: true,
@@ -165,23 +172,44 @@ adminCoreRouter.patch('/users/:id/role', requireRole('admin'), validate({ params
     const id = req.params.id as string;
     const body = req.body as z.infer<typeof SetRoleSchema>;
 
-    const acting = await prisma.user.findUnique({ where: { firebaseUid: req.user!.uid }, select: { id: true } });
+    const acting = await prisma.user.findUnique({ where: { firebaseUid: req.user!.uid }, select: { id: true, role: true, roles: true } });
     if (!acting) throw new NotFoundError('User');
 
     if (acting.id === id) {
       throw new ForbiddenError('You cannot change your own role');
     }
 
-    const target = await prisma.user.findUnique({ where: { id }, select: { id: true, role: true } });
+    const target = await prisma.user.findUnique({ where: { id }, select: { id: true, role: true, roles: true } });
     if (!target) throw new NotFoundError('User', id);
+
+    // Multi-role list wins; legacy single `role` wraps into one entry. The
+    // `role` column always mirrors the PRIMARY role (roles[0]) so legacy
+    // role-based checks keep working.
+    const nextRoles = body.roles ? [...new Set(body.roles)] : [body.role as string];
+
+    const actorRoles = effectiveRoles(acting);
+    const targetRoles = effectiveRoles(target);
+    const actorIsSuper = actorRoles.includes('super_admin');
+
+    // Super admins can only be modified by another super admin — role
+    // management is the one power even platform admins do not hold over them.
+    if (targetRoles.includes('super_admin') && !actorIsSuper) {
+      throw new ForbiddenError('Only a super admin can modify another super admin');
+    }
+    // ...and only super admins may grant the super_admin role (prevents a
+    // platform admin from minting new super admins via the role console).
+    if (!actorIsSuper && nextRoles.includes('super_admin')) {
+      throw new ForbiddenError('Only a super admin can grant the super_admin role');
+    }
 
     const updated = await prisma.user.update({
       where: { id },
       data: {
-        role: body.role,
+        role: nextRoles[0],
+        roles: nextRoles,
         ...(body.rolePermissions !== undefined ? { rolePermissions: body.rolePermissions as never } : {}),
       },
-      select: { id: true, displayName: true, email: true, role: true },
+      select: { id: true, displayName: true, email: true, role: true, roles: true },
     });
 
     await logAudit({
@@ -190,7 +218,7 @@ adminCoreRouter.patch('/users/:id/role', requireRole('admin'), validate({ params
       resource: 'user',
       resourceId: id,
       targetUserId: id,
-      details: { from: target.role, to: body.role },
+      details: { from: target.role, fromRoles: effectiveRoles(target), to: nextRoles[0], roles: nextRoles },
       ip: req.ip,
     });
 
@@ -211,13 +239,21 @@ adminCoreRouter.patch('/users/:id/permissions', validate({ params: IdParams, bod
   try {
     const id = req.params.id as string;
     const body = req.body as z.infer<typeof PermissionsSchema>;
-    const acting = await prisma.user.findUnique({ where: { firebaseUid: req.user!.uid }, select: { id: true } });
+    const acting = await prisma.user.findUnique({ where: { firebaseUid: req.user!.uid }, select: { id: true, role: true, roles: true } });
     if (!acting) throw new NotFoundError('User');
+
+    // Same super-admin protection as the role route: granular permission
+    // overrides must not be applied to a super admin by anyone else.
+    const target = await prisma.user.findUnique({ where: { id }, select: { id: true, role: true, roles: true } });
+    if (!target) throw new NotFoundError('User', id);
+    if (effectiveRoles(target).includes('super_admin') && !effectiveRoles(acting).includes('super_admin')) {
+      throw new ForbiddenError('Only a super admin can modify another super admin');
+    }
 
     const updated = await prisma.user.update({
       where: { id },
       data: { rolePermissions: body.rolePermissions as never },
-      select: { id: true, displayName: true, role: true },
+      select: { id: true, displayName: true, role: true, roles: true },
     });
 
     await logAudit({

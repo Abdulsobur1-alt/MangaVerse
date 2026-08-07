@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../../lib/prisma.js';
 import { validate } from '../../middleware/validate.js';
 import { NotFoundError, ForbiddenError } from '../../lib/errors.js';
-import { requirePermission } from '../../services/rbac.js';
+import { requirePermission, effectiveRoles } from '../../services/rbac.js';
 import { logAudit } from '../../services/audit.js';
 import { createSystemNotification } from '../../services/notifications.js';
 
@@ -17,6 +17,14 @@ import { createSystemNotification } from '../../services/notifications.js';
 export const adminModerationRouter = Router();
 
 adminModerationRouter.use(requirePermission('moderation:read', 'users:read'));
+
+// Staff accounts hold admin-equivalent powers and are off-limits to the
+// moderation ladder — checked against the full multi-role set (User.roles).
+const STAFF_PROTECTED = new Set(['admin', 'super_admin', 'platform_admin']);
+
+function isStaffProtected(target: { role: string; roles?: string[] | null }): boolean {
+  return effectiveRoles(target).some((r) => STAFF_PROTECTED.has(r));
+}
 
 const IdParams = z.object({ id: z.string().uuid() });
 
@@ -85,9 +93,9 @@ adminModerationRouter.post('/users/:id/warn', requirePermission('moderation:act'
     const acting = await prisma.user.findUnique({ where: { firebaseUid: req.user!.uid }, select: { id: true } });
     const actorId = acting?.id ?? null;
 
-    const target = await prisma.user.findUnique({ where: { id }, select: { id: true, role: true } });
+    const target = await prisma.user.findUnique({ where: { id }, select: { id: true, role: true, roles: true } });
     if (!target) throw new NotFoundError('User', id);
-    if (target.role === 'admin' || target.role === 'super_admin') {
+    if (isStaffProtected(target)) {
       throw new ForbiddenError('Admins cannot be warned');
     }
 
@@ -136,9 +144,9 @@ adminModerationRouter.post('/users/:id/suspend', requirePermission('moderation:a
     const body = req.body as z.infer<typeof SuspendSchema>;
     const actorId = await resolveActorId(req.user!.uid);
 
-    const target = await prisma.user.findUnique({ where: { id }, select: { id: true, role: true } });
+    const target = await prisma.user.findUnique({ where: { id }, select: { id: true, role: true, roles: true } });
     if (!target) throw new NotFoundError('User', id);
-    if (target.role === 'admin' || target.role === 'super_admin') {
+    if (isStaffProtected(target)) {
       throw new ForbiddenError('Admins cannot be suspended');
     }
 
@@ -171,9 +179,9 @@ adminModerationRouter.post('/users/:id/ban', requirePermission('moderation:act')
     const body = req.body as z.infer<typeof BanSchema>;
     const actorId = await resolveActorId(req.user!.uid);
 
-    const target = await prisma.user.findUnique({ where: { id }, select: { id: true, role: true } });
+    const target = await prisma.user.findUnique({ where: { id }, select: { id: true, role: true, roles: true } });
     if (!target) throw new NotFoundError('User', id);
-    if (target.role === 'admin' || target.role === 'super_admin') {
+    if (isStaffProtected(target)) {
       throw new ForbiddenError('Admins cannot be banned');
     }
 

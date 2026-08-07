@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../../lib/prisma.js';
 import { validate } from '../../middleware/validate.js';
 import { NotFoundError, ForbiddenError } from '../../lib/errors.js';
-import { requirePermission } from '../../services/rbac.js';
+import { requirePermission, effectiveRoles } from '../../services/rbac.js';
 import { logAudit } from '../../services/audit.js';
 import { config } from '../../config/index.js';
 import { supabaseConfigured } from '../../lib/supabase.js';
@@ -24,9 +24,9 @@ const IdParams = z.object({ id: z.string().uuid() });
 adminImpersonateRouter.post('/impersonate/:id', requirePermission('impersonate:act'), validate({ params: IdParams }), async (req, res, next) => {
   try {
     const id = req.params.id as string;
-    const target = await prisma.user.findUnique({ where: { id }, select: { id: true, displayName: true, role: true } });
+    const target = await prisma.user.findUnique({ where: { id }, select: { id: true, displayName: true, role: true, roles: true } });
     if (!target) throw new NotFoundError('User', id);
-    if (target.role === 'super_admin') throw new ForbiddenError('Cannot impersonate a super admin');
+    if (effectiveRoles(target).includes('super_admin')) throw new ForbiddenError('Cannot impersonate a super admin');
 
     const actorId = await prisma.user
       .findUnique({ where: { firebaseUid: req.user!.uid }, select: { id: true } })

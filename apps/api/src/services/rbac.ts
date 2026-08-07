@@ -9,6 +9,10 @@ import { ForbiddenError, UnauthorizedError } from '../lib/errors.js';
    • Every role maps to a base permission set; individual users can
      extend/trim it via `rolePermissions` (add "x:y", remove "-x:y").
    • Wildcards: "titles:*" covers every action on titles.
+   • Multi-role: accounts hold 1+ roles in `User.roles` (primary = roles[0],
+     mirrored to the legacy `User.role`). The matrix UNIONS permissions
+     across every held role — a moderator who is also an editor keeps both
+     permission sets.
    • requirePermission(...) gates routes AND enforces bans/suspensions.
    Legacy roles ("user"/"moderator"/"admin") keep working — they map
    onto the matrix (admin ≈ platform_admin, moderator ≈ moderator).
@@ -113,14 +117,29 @@ export function basePermissions(role: string): string[] {
 }
 
 /**
- * Effective permissions for a user: base role set, extended/trimmed by
- * the user's rolePermissions override ("x:y" adds, "-x:y" removes).
+ * Roles effective for a user: the `roles` list when populated (multi-role),
+ * otherwise the legacy single `role` column (pre-migration rows).
  */
-export function permissionsForUser(role: string, override: unknown): string[] {
-  const base = basePermissions(role);
-  if (base.includes('*')) return ['*'];
-  if (!Array.isArray(override)) return base;
-  const perms = new Set(base);
+export function effectiveRoles(user: { role: string; roles?: string[] | null }): string[] {
+  if (Array.isArray(user.roles) && user.roles.length > 0) return [...new Set(user.roles)];
+  return [user.role];
+}
+
+/**
+ * Effective permissions for a user holding MULTIPLE roles: base permission
+ * sets are unioned across every entry, so the RBAC matrix composes. A
+ * `['*']` set (super_admin) short-circuits to everything. The per-user
+ * rolePermissions override is applied once to the union ("x:y" adds,
+ * "-x:y" removes).
+ */
+export function permissionsForRoles(roles: string[], override: unknown): string[] {
+  const perms = new Set<string>();
+  for (const role of roles) {
+    const base = basePermissions(role);
+    if (base.includes('*')) return ['*'];
+    for (const p of base) perms.add(p);
+  }
+  if (!Array.isArray(override)) return [...perms];
   for (const entry of override) {
     if (typeof entry !== 'string') continue;
     if (entry.startsWith('-')) {
@@ -130,6 +149,14 @@ export function permissionsForUser(role: string, override: unknown): string[] {
     }
   }
   return [...perms];
+}
+
+/**
+ * Effective permissions for a single role — kept for the RBAC unit tests
+ * and legacy callers; multi-role accounts go through permissionsForRoles.
+ */
+export function permissionsForUser(role: string, override: unknown): string[] {
+  return permissionsForRoles([role], override);
 }
 
 /** Wildcard-aware check: "titles:*" matches "titles:update"; "*" matches all. */
@@ -154,7 +181,7 @@ export function requirePermission(...permissions: string[]) {
 
       const user = await prisma.user.findUnique({
         where: { firebaseUid: req.user.uid },
-        select: { id: true, role: true, rolePermissions: true, bannedAt: true, suspendedUntil: true },
+        select: { id: true, role: true, roles: true, rolePermissions: true, bannedAt: true, suspendedUntil: true },
       });
       if (!user) return next(new ForbiddenError('Account not found'));
 
@@ -164,7 +191,7 @@ export function requirePermission(...permissions: string[]) {
         return next(new ForbiddenError('This account is temporarily suspended'));
       }
 
-      const perms = permissionsForUser(user.role, user.rolePermissions);
+      const perms = permissionsForRoles(effectiveRoles(user), user.rolePermissions);
       if (!permissions.every((p) => hasPermission(perms, p))) {
         return next(new ForbiddenError('You do not have permission to perform this action'));
       }

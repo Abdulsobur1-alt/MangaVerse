@@ -6,6 +6,7 @@ import { requireAuth, optionalAuth, requireRole } from '../middleware/auth.js';
 import { NotFoundError } from '../lib/errors.js';
 import { broadcastToAll } from '../lib/realtime.js';
 import { broadcastNotification } from '../services/notifications.js';
+import { effectiveRoles } from '../services/rbac.js';
 
 export const announcementsRouter = Router();
 
@@ -46,10 +47,11 @@ announcementsRouter.get('/', optionalAuth, async (req, res, next) => {
     } else if (req.user.uid) {
       const viewer = await prisma.user.findUnique({
         where: { firebaseUid: req.user.uid },
-        select: { id: true, role: true },
+        select: { id: true, role: true, roles: true },
       });
       if (viewer) {
-        if (viewer.role === 'user') {
+        // Staff = any held role beyond the default `user` (multi-role aware).
+        if (effectiveRoles(viewer).every((r) => r === 'user')) {
           audienceWhere.audience = { in: ['all', 'logged_in'] };
         } else {
           audienceWhere.audience = { in: ['all', 'logged_in', 'moderators'] };

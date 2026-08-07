@@ -89,6 +89,22 @@ const ROLE_BADGE: Record<string, string> = {
   user: 'bg-mv-surface text-mv-text-dim border border-mv-border',
 };
 
+// Chip styles for the multi-role toggle badges in the Users tab.
+const ROLE_CHIP: Record<string, string> = {
+  super_admin: 'bg-mv-accent/20 text-mv-accent border-mv-accent/30 hover:bg-mv-accent/30',
+  platform_admin: 'bg-mv-accent/20 text-mv-accent border-mv-accent/30 hover:bg-mv-accent/30',
+  admin: 'bg-mv-accent/20 text-mv-accent border-mv-accent/30 hover:bg-mv-accent/30',
+  moderator: 'bg-mv-purple/20 text-mv-purple border-mv-purple/30 hover:bg-mv-purple/30',
+  editor: 'bg-mv-violet/20 text-mv-violet border-mv-violet/30 hover:bg-mv-violet/30',
+  uploader: 'bg-mv-violet/20 text-mv-violet border-mv-violet/30 hover:bg-mv-violet/30',
+  user: 'bg-mv-surface text-mv-text-dim border-mv-border hover:text-mv-text',
+};
+
+/** Roles held by a user — the multi-role list, with the legacy `role` fallback. */
+function userRoles(u: { role: string; roles?: string[] }): string[] {
+  return u.roles && u.roles.length ? u.roles : [u.role];
+}
+
 // The console accepts the legacy 'admin' string plus the granular
 // admin-equivalent roles from the RBAC matrix (mirrors requireRole on the
 // API). Any other role falls back to the mod view / access-denied state.
@@ -290,8 +306,17 @@ function UsersTab({ enabled, isAdmin }: { enabled: boolean; isAdmin: boolean }) 
 
   const { data: usersData, isLoading } = useAdminUsers({ page, search: debounced || undefined }, enabled);
 
-  const roleOptions = rolesData?.items?.map((r) => r.key) ?? ['user', 'moderator', 'admin'];
   const roleLabels = Object.fromEntries((rolesData?.items ?? []).map((r) => [r.key, r.label]));
+
+  // Toggle one role on/off for a user — never allow an empty set (falls
+  // back to the default `user` role). `roleOptions` may be empty until the
+  // roles catalog loads; derive it from the API response too.
+  const roleOptions = rolesData?.items?.map((r) => r.key) ?? ['user', 'moderator', 'admin'];
+  const toggleUserRole = (u: { id: string; role: string; roles?: string[] }, role: string) => {
+    const current = userRoles(u);
+    const next = current.includes(role) ? current.filter((r) => r !== role) : [...current, role];
+    setRole.mutate({ userId: u.id, roles: next.length ? next : ['user'] });
+  };
 
   return (
     <div>
@@ -303,7 +328,7 @@ function UsersTab({ enabled, isAdmin }: { enabled: boolean; isAdmin: boolean }) 
           className="w-full max-w-xs rounded-lg border border-mv-border-light bg-mv-surface px-3 py-2 text-xs text-mv-text placeholder:text-mv-text-dim outline-none focus:border-mv-accent"
         />
         {isAdmin && (
-          <span className="text-[9px] text-mv-text-dim">Granular roles available — impersonation is dev-only</span>
+          <span className="text-[9px] text-mv-text-dim">Click role badges to toggle — accounts can hold multiple roles; the first is primary</span>
         )}
       </div>
 
@@ -351,17 +376,27 @@ function UsersTab({ enabled, isAdmin }: { enabled: boolean; isAdmin: boolean }) 
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <select
-                        value={roleOptions.includes(u.role) ? u.role : 'user'}
-                        onChange={(e) => setRole.mutate({ userId: u.id, role: e.target.value })}
-                        disabled={u.id === user?.id || setRole.isPending}
-                        className="rounded-md border border-mv-border-light bg-mv-surface px-2 py-1 text-[10px] text-mv-text outline-none focus:border-mv-accent disabled:opacity-40"
-                      >
-                        {roleOptions.map((r) => (
-                          <option key={r} value={r}>{roleLabels[r] ?? r}</option>
-                        ))}
-                      </select>
+                    <div className="flex max-w-64 flex-wrap items-center gap-1">
+                      {/* Union catalog options with the user's held roles so legacy keys (user/admin) stay visible and removable. */}
+                      {[...new Set([...roleOptions, ...userRoles(u)])].map((r) => {
+                        const held = userRoles(u).includes(r);
+                        return (
+                          <button
+                            key={r}
+                            type="button"
+                            onClick={() => toggleUserRole(u, r)}
+                            disabled={u.id === user?.id || setRole.isPending}
+                            title={`${roleLabels[r] ?? r} — click to ${held ? 'remove' : 'add'}`}
+                            className={`rounded-full border px-2 py-0.5 text-[9px] font-medium transition-all disabled:opacity-40 ${
+                              held
+                                ? ROLE_CHIP[r] ?? ROLE_CHIP.user
+                                : 'border-mv-border/40 bg-transparent text-mv-text-dim/50 hover:border-mv-border hover:text-mv-text'
+                            }`}
+                          >
+                            {roleLabels[r] ?? r}
+                          </button>
+                        );
+                      })}
                       {u.id === user?.id && <span className="text-[8px] text-mv-text-dim">(you)</span>}
                     </div>
                   </td>

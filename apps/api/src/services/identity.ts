@@ -59,6 +59,7 @@ export interface OwnIdentity {
     layoutStyle: string;
     cardStyle: string;
     role: string;
+    roles: string[];
     subscriptionTier: string;
     streakDays: number;
     reputation: number;
@@ -108,6 +109,7 @@ export async function getOwnIdentity(dbUserId: string): Promise<OwnIdentity> {
       layoutStyle: user.layoutStyle,
       cardStyle: user.cardStyle,
       role: user.role,
+      roles: Array.isArray(user.roles) && user.roles.length ? user.roles : [user.role],
       subscriptionTier: user.subscriptionTier,
       streakDays: user.streakDays,
       reputation: user.reputation,
