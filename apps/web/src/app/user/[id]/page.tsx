@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { CoverImage } from '@/components/CoverImage';
@@ -110,7 +110,15 @@ export default function UserProfilePage() {
 
   const [tab, setTab] = useState('overview');
   const [showList, setShowList] = useState<'followers' | 'following' | null>(null);
+  const searchParams = useSearchParams();
   const followUser = useFollowUser();
+
+  // Deep-link support: ?tab=achievements (etc.) preselects a profile section.
+  useEffect(() => {
+    const t = searchParams.get('tab');
+    const KNOWN = ['overview', 'stats', 'achievements', 'collections', 'reviews', 'bookmarks', 'goals', 'lists'];
+    if (t && KNOWN.includes(t)) setTab(t);
+  }, [searchParams]);
 
   // Reset UI state when navigating between profiles.
   useEffect(() => {
