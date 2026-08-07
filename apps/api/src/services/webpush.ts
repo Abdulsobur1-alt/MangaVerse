@@ -9,12 +9,22 @@ const vapidPublicKey = process.env.VAPID_PUBLIC_KEY || '';
 const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY || '';
 const vapidSubject = process.env.VAPID_SUBJECT || 'mailto:admin@mangaverse.app';
 
-/** True when VAPID keys are configured (needed to send pushes). */
-export const webpushConfigured = Boolean(vapidPublicKey && vapidPrivateKey);
-
-if (webpushConfigured) {
-  webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey);
+// VAPID config is GUARDED: a missing OR malformed key (e.g. one pasted with
+// base64 '=' padding or stray line breaks) must never crash the API at import
+// time. Web push is an optional feature — it degrades to disabled and the
+// /api/push routes answer 503 instead of taking the whole server down.
+let vapidConfigured = false;
+if (vapidPublicKey && vapidPrivateKey) {
+  try {
+    webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey);
+    vapidConfigured = true;
+  } catch (err) {
+    console.warn('⚠️  Invalid VAPID keys — web push disabled:', (err as Error).message);
+  }
 }
+
+/** True when VAPID keys are configured (needed to send pushes). */
+export const webpushConfigured = vapidConfigured;
 
 // ─── Types ────────────────────────────────────────────
 
