@@ -131,6 +131,8 @@ export async function optionalAuth(req: Request, _res: Response, next: NextFunct
 /**
  * Require the authenticated user to hold one of the given roles.
  * Must be composed AFTER requireAuth (or optionalAuth) — reads req.user.uid.
+ * An 'admin' gate also admits the granular admin-equivalent roles
+ * (platform_admin, super_admin) so canonical RBAC roles can use the console.
  */
 export function requireRole(...roles: UserRole[]) {
   return async (req: Request, _res: Response, next: NextFunction) => {
@@ -144,7 +146,18 @@ export function requireRole(...roles: UserRole[]) {
         select: { role: true },
       });
 
-      if (!user || !roles.includes(user.role as UserRole)) {
+      // Expand the requested roles with their equivalents: an 'admin' gate
+      // must not lock out super_admin/platform_admin accounts.
+      const allowed = new Set<string>();
+      for (const r of roles) {
+        allowed.add(r);
+        if (r === 'admin') {
+          allowed.add('platform_admin');
+          allowed.add('super_admin');
+        }
+      }
+
+      if (!user || !allowed.has(user.role)) {
         return next(new ForbiddenError('You do not have permission to perform this action'));
       }
 

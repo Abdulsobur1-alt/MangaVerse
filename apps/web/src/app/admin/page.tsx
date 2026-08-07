@@ -83,9 +83,17 @@ type Tab = (typeof TABS)[number];
 
 const ROLE_BADGE: Record<string, string> = {
   admin: 'bg-mv-accent/20 text-mv-accent border border-mv-accent/30',
+  super_admin: 'bg-mv-accent/20 text-mv-accent border border-mv-accent/30',
+  platform_admin: 'bg-mv-accent/20 text-mv-accent border border-mv-accent/30',
   moderator: 'bg-mv-purple/20 text-mv-purple border border-mv-purple/30',
   user: 'bg-mv-surface text-mv-text-dim border border-mv-border',
 };
+
+// The console accepts the legacy 'admin' string plus the granular
+// admin-equivalent roles from the RBAC matrix (mirrors requireRole on the
+// API). Any other role falls back to the mod view / access-denied state.
+const ADMIN_ROLES = ['admin', 'platform_admin', 'super_admin'];
+const MOD_ROLES = ['moderator', ...ADMIN_ROLES];
 
 function StatCard({ label, value, accent }: { label: string; value: number | string; accent?: string }) {
   return (
@@ -112,8 +120,8 @@ export default function AdminPage() {
   const { user } = useAuthStore();
   const [tab, setTab] = useState<Tab>('Overview');
 
-  const isMod = user?.role === 'moderator' || user?.role === 'admin';
-  const isAdmin = user?.role === 'admin';
+  const isMod = user?.role ? MOD_ROLES.includes(user.role) : false;
+  const isAdmin = user?.role ? ADMIN_ROLES.includes(user.role) : false;
   const visibleTabs: readonly Tab[] = isAdmin ? TABS : MOD_TABS;
   const currentTab = visibleTabs.includes(tab) ? tab : 'Overview';
 

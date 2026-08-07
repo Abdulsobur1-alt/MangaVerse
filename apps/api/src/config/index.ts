@@ -53,3 +53,30 @@ export const config = {
     },
   },
 } as const;
+
+// ─── Boot-time environment warnings ─────────────────────
+// The API degrades gracefully when optional services are missing, which
+// hides misconfiguration (the classic case: a wrong DATABASE_URL boots fine
+// but 500s every data route). Production-only warnings make the failure
+// visible in the first log lines instead of after the first user hits it.
+function warnOnMissingEnv(): void {
+  if (process.env.NODE_ENV !== 'production') return;
+
+  const checks: Array<[string, string]> = [
+    ['DATABASE_URL', 'every data route will 500 — use the Supabase Session pooler URI (port 5432, aws-0-<region>.pooler.supabase.com)'],
+    ['REDIS_URL', 'queues/scraper are disabled and the database stays empty'],
+    ['SUPABASE_URL', 'auth falls back to dev mode (dev_ tokens) — never for production'],
+    ['SUPABASE_ANON_KEY', 'Supabase auth is configured but the anon key is missing'],
+    ['VAPID_PUBLIC_KEY', 'web push is disabled'],
+    ['VAPID_PRIVATE_KEY', 'web push is disabled'],
+    ['CORS_ORIGIN', 'CORS reflects the request origin — set it explicitly before going public'],
+  ];
+
+  for (const [key, hint] of checks) {
+    if (!process.env[key]) {
+      console.warn(`⚠️  Missing env var ${key} — ${hint}.`);
+    }
+  }
+}
+
+warnOnMissingEnv();

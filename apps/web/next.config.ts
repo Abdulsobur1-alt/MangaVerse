@@ -27,6 +27,24 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+
+  // Security headers on every response. CSP is intentionally omitted here:
+  // Next.js inlines scripts for the RSC payload, so a strict policy needs a
+  // nonce strategy (see docs/phase12/README.md → P1).
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), payment=()' },
+          { key: 'X-DNS-Prefetch-Control', value: 'on' },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;
