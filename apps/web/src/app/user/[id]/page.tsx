@@ -73,8 +73,7 @@ interface ProfileSections {
 }
 
 function SuggestionCard({ s, onFollow }: { s: SuggestionUser; onFollow: (id: string) => void }) {
-  return (
-    <div className="flex items-center gap-3 rounded-2xl border border-mv-border bg-mv-darker p-3 transition-all hover:border-mv-violet/40">
+  return (      <div className="card-lift flex items-center gap-3 rounded-2xl border border-mv-border bg-mv-darker p-3">
       <Link href={`/user/${s.id}`} className="block h-10 w-10 shrink-0 overflow-hidden rounded-full bg-gradient-to-br from-mv-purple to-mv-accent">
         {s.avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element

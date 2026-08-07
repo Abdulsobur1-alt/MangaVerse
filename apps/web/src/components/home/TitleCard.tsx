@@ -77,7 +77,7 @@ export function TitleCard({
   return (
     <div className={cn('group relative shrink-0', fluid ? 'w-full' : 'w-[136px] sm:w-[150px]')}>
       <Spotlight className="rounded-xl">
-        <div className="relative aspect-[3/4] overflow-hidden rounded-xl border border-mv-border bg-mv-surface">
+        <div className="relative aspect-[3/4] overflow-hidden rounded-xl border border-mv-border bg-mv-surface transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-mv-violet/35">
           <Link href={`/title/${item.slug}`} className="img-zoom absolute inset-0" aria-label={`View ${item.title}`}>
             <CoverImage src={item.coverUrl} title={item.title} type={item.type} className="h-full w-full" />
             {/* Hover overlay */}
@@ -109,11 +109,16 @@ export function TitleCard({
           {/* Status */}
           <span className={cn('status-pill absolute bottom-1.5 left-1.5', status.className)}>{status.label}</span>
 
-          {/* Reading progress bar */}
+          {/* Reading progress bar — rounded, glowing, animated */}
           {pct !== undefined && (
-            <div className="absolute inset-x-0 bottom-0 h-1 bg-white/10">
+            <div className="absolute inset-x-1.5 bottom-0.5 h-[3px] overflow-hidden rounded-full bg-white/10">
               <div
-                className={cn('h-full transition-all duration-500', isComplete ? 'bg-mv-success' : 'bg-gradient-to-r from-mv-purple to-mv-accent')}
+                className={cn(
+                  'h-full rounded-full transition-all duration-500',
+                  isComplete
+                    ? 'bg-mv-success'
+                    : 'bg-gradient-to-r from-mv-purple to-mv-accent shadow-[0_0_8px_rgba(139,92,246,0.55)]',
+                )}
                 style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
               />
             </div>

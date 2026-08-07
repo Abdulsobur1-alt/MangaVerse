@@ -48,7 +48,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   return (
-    <div className="min-h-screen bg-app text-ink">
+    <div className="relative isolate min-h-screen bg-app text-ink">
+      {/* Ambient aurora — blurred light fields drifting behind content */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+        <div className="orb animate-orb-drift left-[-8%] top-[-10%] h-[30vmax] w-[30vmax] bg-mv-accent/[0.12]" />
+        <div className="orb animate-orb-drift right-[-10%] top-[8%] h-[26vmax] w-[26vmax] bg-mv-purple/[0.08]" style={{ animationDelay: '-7s' }} />
+        <div className="orb animate-orb-drift bottom-[-12%] left-[18%] h-[24vmax] w-[24vmax] bg-mv-violet/[0.07]" style={{ animationDelay: '-14s' }} />
+      </div>
+
       {/* Desktop sidebar */}
       <Sidebar />
 

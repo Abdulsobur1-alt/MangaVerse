@@ -35,7 +35,7 @@ export function BookmarkButton({ titleId, title, variant = 'icon', className }: 
     e.stopPropagation();
     if (!token || busy) return;
     setFlip(true);
-    setTimeout(() => setFlip(false), 350);
+    setTimeout(() => setFlip(false), 400);
     try {
       if (saved) await removeBookmark.mutateAsync(titleId);
       else await addBookmark.mutateAsync({ titleId, listName: 'Reading' });
@@ -51,11 +51,11 @@ export function BookmarkButton({ titleId, title, variant = 'icon', className }: 
 
   const icon =
     variant === 'pill' ? (
-      <svg viewBox="0 0 24 24" fill={saved ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" className="h-3.5 w-3.5 transition-transform" style={{ transform: flip ? 'scale(1.25)' : 'scale(1)' }}>
+      <svg viewBox="0 0 24 24" fill={saved ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" className={cn('h-3.5 w-3.5', flip && 'animate-pop')}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
       </svg>
     ) : (
-      <svg viewBox="0 0 24 24" fill={saved ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" className="h-3.5 w-3.5 transition-transform" style={{ transform: flip ? 'scale(1.3)' : 'scale(1)' }}>
+      <svg viewBox="0 0 24 24" fill={saved ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" className={cn('h-3.5 w-3.5', flip && 'animate-pop')}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
       </svg>
     );

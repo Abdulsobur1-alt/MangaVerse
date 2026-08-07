@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { AppShell } from '@/components/AppShell';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { Icon } from '@/components/ui/Icon';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { CoverImage } from '@/components/CoverImage';
 import { useBookmarks, useUpdateBookmark, useDeleteBookmark, type PageBookmarkItem } from '@/lib/hooks/useBookmarks';
 import { useAuthStore } from '@/store/authStore';
@@ -230,20 +231,16 @@ export default function BookmarksPage() {
               ))}
             </div>
           ) : !data || items.length === 0 ? (
-            <div className="card flex flex-col items-center rounded-3xl px-6 py-16 text-center">
-              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-mv-purple/20 to-mv-accent/10">
-                <Icon name="bookmark" size={24} className="text-mv-violet" />
-              </div>
-              <p className="text-sm font-medium text-mv-text">
-                {query.trim() || folder || tag ? 'No bookmarks match those filters' : 'No bookmarks yet'}
-              </p>
-              <p className="mt-1 max-w-sm text-xs text-mv-text-muted">
-                {query.trim() || folder || tag
+            <EmptyState
+              icon="bookmark"
+              title={query.trim() || folder || tag ? 'No bookmarks match those filters' : 'No bookmarks yet'}
+              body={
+                query.trim() || folder || tag
                   ? 'Try a different search or clear the filters.'
-                  : 'Press B in any chapter to mark the page you\u2019re on — quotes, scenes, and notes will collect here.'}
-              </p>
-              <div className="mt-6 flex items-center gap-2">
-                {query.trim() || folder || tag ? (
+                  : 'Press B in any chapter to mark the page you\u2019re on — quotes, scenes, and notes will collect here.'
+              }
+              action={
+                query.trim() || folder || tag ? (
                   <button
                     onClick={() => {
                       setQuery('');
@@ -258,9 +255,9 @@ export default function BookmarksPage() {
                   <Link href="/browse" className="btn-primary px-5 py-2.5 text-xs">
                     <Icon name="search" size={13} className="mr-1.5 inline" /> Find something to read
                   </Link>
-                )}
-              </div>
-            </div>
+                )
+              }
+            />
           ) : (
             <>
               {/* ─── List ─────────────────────────────── */}

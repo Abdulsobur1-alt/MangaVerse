@@ -259,7 +259,7 @@ export default function CommunityPage() {
                         )}
                         <span
                           className={cn(
-                            'flex items-center gap-1.5 rounded-md px-2 py-1',
+                            'flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 transition-all duration-150 active:scale-90',
                             post.myReaction ? 'bg-mv-accent/20' : 'bg-mv-surface',
                           )}
                         >

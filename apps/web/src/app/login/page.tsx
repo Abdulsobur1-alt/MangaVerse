@@ -91,7 +91,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
-                className="w-full rounded-lg border border-mv-border-light bg-mv-surface px-4 py-2.5 text-sm text-mv-text outline-none transition-colors placeholder:text-mv-text-dim focus:border-mv-accent/50"
+                className={`w-full rounded-lg border border-mv-border-light bg-mv-surface px-4 py-2.5 text-sm text-mv-text outline-none transition-colors placeholder:text-mv-text-dim focus:border-mv-accent/50 ${error ? 'field-error' : ''}`}
                 autoComplete="email"
               />
             </div>
@@ -121,7 +121,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full rounded-lg border border-mv-border-light bg-mv-surface px-4 py-2.5 text-sm text-mv-text outline-none transition-colors placeholder:text-mv-text-dim focus:border-mv-accent/50"
+                className={`w-full rounded-lg border border-mv-border-light bg-mv-surface px-4 py-2.5 text-sm text-mv-text outline-none transition-colors placeholder:text-mv-text-dim focus:border-mv-accent/50 ${error ? 'field-error' : ''}`}
                 autoComplete="current-password"
               />
             </div>
@@ -161,7 +161,7 @@ export default function LoginPage() {
                     value={resetEmail}
                     onChange={(e) => setResetEmail(e.target.value)}
                     placeholder="you@example.com"
-                    className="w-full rounded-lg border border-mv-border-light bg-mv-surface px-3 py-2 text-sm text-mv-text outline-none transition-colors placeholder:text-mv-text-dim focus:border-mv-accent/50"
+                    className={`w-full rounded-lg border border-mv-border-light bg-mv-surface px-3 py-2 text-sm text-mv-text outline-none transition-colors placeholder:text-mv-text-dim focus:border-mv-accent/50 ${resetSent ? 'field-success' : resetError ? 'field-error' : ''}`}
                     autoComplete="email"
                   />
                   <button

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { AppShell } from '@/components/AppShell';
 import { Icon } from '@/components/ui/Icon';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { CoverImage } from '@/components/CoverImage';
 import { CollectionFormDialog } from '@/components/collections/CollectionFormDialog';
 import { useCollections, useDeleteCollection, type CollectionSummary } from '@/lib/hooks/useCollections';
@@ -67,24 +68,22 @@ export default function CollectionsPage() {
               ))}
             </div>
           ) : !collections || collections.length === 0 ? (
-            <div className="card flex flex-col items-center rounded-3xl px-6 py-16 text-center">
-              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-mv-purple/20 to-mv-accent/10">
-                <Icon name="sparkles" size={24} className="text-mv-violet" />
-              </div>
-              <p className="text-sm font-medium text-mv-text">No collections yet</p>
-              <p className="mt-1 max-w-sm text-xs text-mv-text-muted">
-                Collections are your own reading lists — “Weekend Reads”, “Peak Fiction”, “Emotional Damage”. Start with one.
-              </p>
-              <div className="mt-6 flex items-center gap-2">
-                <button onClick={() => setCreating(true)} className="btn-primary px-5 py-2.5 text-xs">
-                  <Icon name="plus" size={13} className="mr-1.5 inline" />
-                  Create your first collection
-                </button>
-                <Link href="/browse" className="btn-ghost px-5 py-2.5 text-xs">
-                  Find titles
-                </Link>
-              </div>
-            </div>
+            <EmptyState
+              icon="sparkles"
+              title="No collections yet"
+              body="Collections are your own reading lists — “Weekend Reads”, “Peak Fiction”, “Emotional Damage”. Start with one."
+              action={
+                <>
+                  <button onClick={() => setCreating(true)} className="btn-primary px-5 py-2.5 text-xs">
+                    <Icon name="plus" size={13} className="mr-1.5 inline" />
+                    Create your first collection
+                  </button>
+                  <Link href="/browse" className="btn-ghost px-5 py-2.5 text-xs">
+                    Find titles
+                  </Link>
+                </>
+              }
+            />
           ) : (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {collections.map((c) => (

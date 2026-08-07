@@ -222,7 +222,9 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
             <>
               {recent.length > 0 && (
                 <div className="px-3 pb-2 pt-2">
-                  <p className="pb-1.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-mv-text-muted">Recent</p>
+                  <p className="flex items-center gap-1.5 pb-1.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-mv-text-muted">
+                    <Icon name="history" size={11} className="text-mv-violet/70" /> Recent
+                  </p>
                   <div className="flex flex-wrap gap-1.5">
                     {recent.map((term) => (
                       <button
@@ -241,15 +243,17 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                 </div>
               )}
 
-              <p className="px-3 pb-1.5 pt-2 text-[9px] font-semibold uppercase tracking-[0.14em] text-mv-text-muted">
-                Trending now
+              <p className="flex items-center gap-1.5 px-3 pb-1.5 pt-2 text-[9px] font-semibold uppercase tracking-[0.14em] text-mv-text-muted">
+                <Icon name="trendingUp" size={11} className="text-mv-violet/70" /> Trending now
               </p>
               {trendingList.map((hit, i) => (
                 <PaletteRow key={hit.id} hit={hit} active={i === activeIndex} onSelect={() => go(hit.slug)} onHover={() => setActiveIndex(i)} />
               ))}
 
               <div className="px-3 pb-2 pt-3">
-                <p className="pb-1.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-mv-text-muted">Browse genres</p>
+                <p className="flex items-center gap-1.5 pb-1.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-mv-text-muted">
+                  <Icon name="tag" size={11} className="text-mv-violet/70" /> Browse genres
+                </p>
                 <div className="flex flex-wrap gap-1.5">
                   {GENRES.slice(0, 8).map((g) => (
                     <button
@@ -272,7 +276,9 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
           {q && (
             <>
               {showGenreSection && (
-                <p className="px-3 pb-1.5 pt-2 text-[9px] font-semibold uppercase tracking-[0.14em] text-mv-text-muted">Genres</p>
+                <p className="flex items-center gap-1.5 px-3 pb-1.5 pt-2 text-[9px] font-semibold uppercase tracking-[0.14em] text-mv-text-muted">
+                  <Icon name="tag" size={11} className="text-mv-violet/70" /> Genres
+                </p>
               )}
               {genreMatches.map((g, i) => (
                 <button
@@ -284,7 +290,9 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                   onMouseEnter={() => setActiveIndex(i)}
                   className={cn(
                     'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors',
-                    activeIndex === i ? 'bg-mv-accent/15' : 'hover:bg-white/5',
+                    activeIndex === i
+                      ? 'bg-mv-accent/15 shadow-[inset_0_0_0_1px_rgba(167,139,250,0.25)]'
+                      : 'hover:bg-white/5',
                   )}
                 >
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-mv-accent/15 text-sm">🏷️</span>
@@ -300,7 +308,10 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
               </p>
 
               {!searching && results.length === 0 && (
-                <div className="px-3 py-6 text-center">
+                <div className="px-3 py-8 text-center">
+                  <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl border border-mv-border-light bg-mv-surface">
+                    <Icon name="search" size={20} className="text-mv-text-dim" />
+                  </div>
                   <p className="text-xs text-mv-text-muted">
                     Nothing found for “{q}”
                   </p>
@@ -325,13 +336,15 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         </div>
 
         {/* Footer hints */}
-        <div className="flex items-center gap-4 border-t border-mv-border px-4 py-2.5 text-[9px] text-mv-text-dim">
-          <span><Kbd>↑↓</Kbd> navigate</span>
-          <span><Kbd>↵</Kbd> open</span>
-          <span><Kbd>esc</Kbd> close</span>
-          <Link href="/browse" onClick={onClose} className="ml-auto font-medium text-mv-violet transition-colors hover:text-mv-violet/80">
-            Advanced search →
-          </Link>
+        <div className="border-t border-mv-border px-3 py-2.5">
+          <div className="flex items-center gap-4 rounded-lg bg-white/[0.04] px-3 py-2 text-[9px] text-mv-text-dim">
+            <span><Kbd>↑↓</Kbd> navigate</span>
+            <span><Kbd>↵</Kbd> open</span>
+            <span><Kbd>esc</Kbd> close</span>
+            <Link href="/browse" onClick={onClose} className="ml-auto font-medium text-mv-violet transition-colors hover:text-mv-violet/80">
+              Advanced search →
+            </Link>
+          </div>
         </div>
       </div>
     </div>
@@ -355,7 +368,9 @@ function PaletteRow({
       onMouseEnter={onHover}
       className={cn(
         'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors',
-        active ? 'bg-mv-accent/15' : 'hover:bg-white/5',
+        active
+          ? 'bg-mv-accent/15 shadow-[inset_0_0_0_1px_rgba(167,139,250,0.25)]'
+          : 'hover:bg-white/5',
       )}
     >
       <span className="flex h-11 w-8 shrink-0 items-center justify-center overflow-hidden rounded-md bg-mv-surface text-sm">

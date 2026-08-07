@@ -21,6 +21,7 @@ import {
 } from '@/lib/hooks/useNotifications';
 import { useRealtime } from '@/lib/realtime';
 import { Icon } from '@/components/ui/Icon';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { cn } from '@/lib/cn';
 
 /* ═══════════════════════════════════════════════════════════════
@@ -333,30 +334,29 @@ export default function NotificationsPage() {
               ))}
             </div>
           ) : allItems.length === 0 ? (
-            <div className="rounded-xl border border-mv-border bg-mv-darker p-12 text-center">
-              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-mv-surface">
-                <Icon name="bell" size={24} className="text-mv-text-dim" />
-              </div>
-              <h3 className="mb-1 text-sm font-medium text-mv-text">
-                {hasFilters ? 'No matching notifications' : scope === 'archived' ? 'Nothing archived yet' : 'All caught up!'}
-              </h3>
-              <p className="mb-4 text-xs text-mv-text-muted">
-                {hasFilters ? 'Try clearing filters or searching differently.' : 'You have no notifications right now.'}
-              </p>
-              {hasFilters && (
-                <button
-                  onClick={() => { setCategory(''); setPriority(''); setQ(''); setQInput(''); setReadFilter('all'); }}
-                  className="btn-ghost px-4 py-2 text-[10px]"
-                >
-                  Clear filters
-                </button>
-              )}
-            </div>
+            <EmptyState
+              icon="bell"
+              title={hasFilters ? 'No matching notifications' : scope === 'archived' ? 'Nothing archived yet' : 'All caught up!'}
+              body={hasFilters ? 'Try clearing filters or searching differently.' : 'You have no notifications right now.'}
+              action={
+                hasFilters ? (
+                  <button
+                    onClick={() => { setCategory(''); setPriority(''); setQ(''); setQInput(''); setReadFilter('all'); }}
+                    className="btn-ghost px-4 py-2 text-[10px]"
+                  >
+                    Clear filters
+                  </button>
+                ) : undefined
+              }
+            />
           ) : (
             <div className="space-y-4">
               {[...groups.entries()].map(([day, items]) => (
                 <section key={day} aria-label={day}>
-                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-mv-text-dim">{day}</p>
+                  <p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-mv-text-dim">
+                    <Icon name="clock" size={11} className="text-mv-violet/70" />
+                    {day}
+                  </p>
                   <div className="space-y-2">
                     {items.map((notif) => (
                       <NotifRow key={notif.id} notif={notif} />

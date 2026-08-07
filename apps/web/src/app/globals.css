@@ -172,27 +172,28 @@ h1, h2, h3, h4, h5, .font-display {
   color: #fff;
 }
 
-/* ── Scrollbar ────────────────────────────────────────────────── */
+/* ── Scrollbar — thin, rounded, purple-lit, quiet until used ── */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--color-mv-dark);
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #2a2a2f;
-  border-radius: 8px;
-  border: 2px solid var(--color-mv-dark);
+  background: rgba(139, 92, 246, 0.24);
+  border-radius: 999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #3f3f46;
+  background: rgba(167, 139, 250, 0.45);
+}
+::-webkit-scrollbar-thumb:active {
+  background: rgba(167, 139, 250, 0.6);
 }
 
 :focus-visible {
   outline: var(--focus-ring-width) solid var(--focus-ring-color);
   outline-offset: var(--focus-ring-offset);
-  border-radius: 6px;
 }
 
 /* Lenis smooth-scroll compatibility */
@@ -262,6 +263,20 @@ html.lenis, html.lenis body { height: auto; }
   from { transform: scale(1.02) translateX(0); }
   to { transform: scale(1.14) translateX(-2%); }
 }
+@keyframes pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.32); }
+  100% { transform: scale(1); }
+}
+@keyframes glowPulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+@keyframes orbDrift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(40px, -30px) scale(1.08); }
+  66% { transform: translate(-30px, 24px) scale(0.96); }
+}
 
 .animate-fade-in { animation: fadeIn 0.3s ease-out both; }
 .animate-fade-up { animation: fadeUp 0.6s var(--ease-out-expo) both; }
@@ -274,6 +289,9 @@ html.lenis, html.lenis body { height: auto; }
 .animate-loading-bar { animation: loadingBar 0.5s var(--ease-out-expo) both; transform-origin: left; }
 .hero-autoplay { animation: heroProgress 8s linear both; transform-origin: left; }
 .ken-burns { animation: kenBurns 8s var(--ease-out-quart) both; will-change: transform; }
+.animate-pop { animation: pop 0.38s var(--ease-spring) both; }
+.animate-glow-pulse { animation: glowPulse 3.2s ease-in-out infinite; }
+.animate-orb-drift { animation: orbDrift 22s ease-in-out infinite; }
 
 /* ── Reveal on scroll ─────────────────────────────────────────── */
 .reveal {
@@ -357,9 +375,9 @@ html.lenis, html.lenis body { height: auto; }
 /* ═══ Component layer ═══════════════════════════════════════════ */
 @layer components {
 
-/* ── Glass surface ──────────────────────────────────────────── */
+/* ── Glass surface — soft top-light gradient for depth ─────── */
 .glass {
-  background: rgba(24, 24, 27, 0.72);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.015) 42%), rgba(24, 24, 27, 0.72);
   backdrop-filter: blur(18px) saturate(1.4);
   -webkit-backdrop-filter: blur(18px) saturate(1.4);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -375,7 +393,7 @@ html.lenis, html.lenis body { height: auto; }
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.09), transparent);
   background-size: 600px 100%;
   animation: shimmer 1.6s infinite linear;
 }
@@ -414,13 +432,24 @@ html.lenis, html.lenis body { height: auto; }
   box-shadow: 0 8px 26px -10px rgba(124, 58, 237, 0.65);
   transition: transform 0.2s var(--ease-out-expo), box-shadow 0.2s ease, filter 0.2s ease;
 }
+/* Sheen sweep across the surface on hover — crafted, not flat */
+.btn-primary::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 40%, rgba(255, 255, 255, 0.22) 50%, transparent 60%);
+  transform: translateX(-130%);
+  transition: transform 0.65s var(--ease-out-expo);
+  pointer-events: none;
+}
 .btn-primary:hover {
   transform: translateY(-1px);
-  filter: brightness(1.1);
-  box-shadow: 0 14px 34px -10px rgba(124, 58, 237, 0.75);
+  filter: brightness(1.08);
+  box-shadow: 0 14px 36px -10px rgba(124, 58, 237, 0.8);
 }
-.btn-primary:active { transform: translateY(0); }
-.btn-primary:disabled { opacity: 0.5; pointer-events: none; }
+.btn-primary:hover::after { transform: translateX(130%); }
+.btn-primary:active { transform: translateY(0) scale(0.97); }
+.btn-primary:disabled { opacity: 0.45; pointer-events: none; filter: saturate(0.4); }
 
 .btn-ghost {
   display: inline-flex;
@@ -440,6 +469,8 @@ html.lenis, html.lenis body { height: auto; }
   background: rgba(255, 255, 255, 0.06);
   transform: translateY(-1px);
 }
+.btn-ghost:active { transform: translateY(0) scale(0.98); }
+.btn-ghost:disabled { opacity: 0.45; pointer-events: none; }
 
 /* ── Form fields ────────────────────────────────────────────── */
 .field {
@@ -487,6 +518,40 @@ html.lenis, html.lenis body { height: auto; }
 } /* end @layer components */
 
 /* ── Utilities ─────────────────────────────────────────────────── */
+
+/* ── Ambient orbs — blurred light fields behind content ── */
+.orb {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(60px);
+  pointer-events: none;
+  will-change: transform;
+}
+@media (max-width: 767px) {
+  .orb { filter: blur(44px); }
+}
+
+/* ── Card lift — quiet, premium hover elevation ── */
+.card-lift {
+  transition: transform 0.25s var(--ease-out-expo), box-shadow 0.3s ease, border-color 0.25s ease;
+}
+@media (hover: hover) {
+  .card-lift:hover {
+    transform: translateY(-3px);
+    border-color: rgba(167, 139, 250, 0.24);
+    box-shadow: var(--shadow-card-hover);
+  }
+}
+
+/* ── Field state utilities (pair with .field) ── */
+.field-error {
+  border-color: rgba(239, 68, 68, 0.55) !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12) !important;
+}
+.field-success {
+  border-color: rgba(16, 185, 129, 0.55) !important;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.12) !important;
+}
 
 /* ── Safe-area helpers (iPhone notch / home indicator) ── */
 .pb-safe { padding-bottom: max(env(safe-area-inset-bottom), 0px); }
@@ -567,9 +632,10 @@ html[data-theme='light'] ::-webkit-scrollbar-thumb { background: #d4d4d8; border
 html[data-theme='light'] ::-webkit-scrollbar-thumb:hover { background: #a1a1aa; }
 html[data-theme='light'] ::selection { background: rgba(124, 58, 237, 0.25); color: #18181b; }
 
-/* Firefox scrollbar parity */
+/* Firefox scrollbar parity — thin + purple-lit */
 html {
-  scrollbar-color: #2a2a2f var(--color-mv-dark);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(139, 92, 246, 0.3) transparent;
 }
 
 /* ── Focus ring utility (for non-native focusables) ──────────── */
@@ -579,7 +645,6 @@ html {
 .focus-ring:focus-visible {
   outline: var(--focus-ring-width) solid var(--focus-ring-color);
   outline-offset: var(--focus-ring-offset);
-  border-radius: 6px;
 }
 
 /* Respect reduced motion */

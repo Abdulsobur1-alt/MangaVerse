@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { AppShell } from '@/components/AppShell';
 import { Icon } from '@/components/ui/Icon';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { CoverImage } from '@/components/CoverImage';
 import { useAuthStore } from '@/store/authStore';
 import { useLibrary, type BookmarkItem } from '@/lib/hooks/useLibrary';
@@ -433,20 +434,16 @@ export default function DownloadPage() {
 
         {/* ─── Empty state ──────────────────────────── */}
         {!active.length && bySeries.length === 0 && (
-          <div className="card mt-8 flex flex-col items-center rounded-3xl px-6 py-16 text-center">
-            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-mv-purple/20 to-mv-accent/10">
-              <Icon name="download" size={26} className="text-mv-violet" />
-            </div>
-            <p className="text-sm font-medium text-mv-text">Nothing downloaded yet</p>
-            <p className="mt-1 max-w-sm text-xs text-mv-text-muted">
-              Tap the download button in any chapter to save it for offline reading — or pull your shelf's latest chapters below.
-            </p>
-            <div className="mt-6 flex items-center gap-2">
+          <EmptyState
+            icon="download"
+            title="Nothing downloaded yet"
+            body="Tap the download button in any chapter to save it for offline reading — or pull your shelf's latest chapters below."
+            action={
               <Link href="/browse" className="btn-primary px-5 py-2.5 text-xs">
                 <Icon name="search" size={13} className="mr-1.5 inline" /> Discover Titles
               </Link>
-            </div>
-          </div>
+            }
+          />
         )}
 
         {/* ─── Shelf sync (signed in) ───────────────── */}
