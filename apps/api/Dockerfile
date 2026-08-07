@@ -40,6 +40,7 @@ RUN printf '%s\n' \
     "  '@firebase/util': true" \
     "  msgpackr-extract: true" \
     "  protobufjs: true" \
+    "  '@sentry/cli': true" \
     > pnpm-workspace.yaml
 # pnpm store cached in the BuildKit cache — retries after network hiccups
 # reuse downloaded tarballs instead of re-fetching the whole registry.
