@@ -89,7 +89,7 @@ export function CollectionFormDialog({ open, onClose, existing }: Props) {
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
       <div
         ref={dialogRef}
-        className="relative w-full max-w-md rounded-3xl border border-mv-violet/25 bg-mv-darker p-7 shadow-modal animate-scale-in"
+        className="relative max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-3xl border border-mv-violet/25 bg-mv-darker p-7 shadow-modal animate-scale-in"
       >
         <div className="mb-5 flex items-start justify-between">
           <div>
@@ -163,7 +163,7 @@ export function CollectionFormDialog({ open, onClose, existing }: Props) {
               </span>
             </span>
             <span className={cn('relative h-5 w-9 rounded-full transition-colors', isPrivate ? 'bg-mv-accent/60' : 'bg-mv-border-light')}>
-              <span className={cn('absolute top-[2px] h-4 w-4 rounded-full bg-white transition-all', isPrivate ? 'left-[18px]' : 'left-[2px]')} />
+              <span className={cn('absolute top-[2px] h-4 w-4 rounded-full bg-[#fff] transition-all', isPrivate ? 'left-[18px]' : 'left-[2px]')} />
             </span>
           </button>
 

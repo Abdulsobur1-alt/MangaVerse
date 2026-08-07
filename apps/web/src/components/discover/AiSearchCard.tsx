@@ -94,7 +94,7 @@ export function AiSearchCard() {
             aria-modal="true"
             aria-labelledby="ai-modal-title"
             onClick={(e) => e.stopPropagation()}
-            className="relative w-full max-w-lg rounded-3xl border border-mv-violet/25 bg-mv-darker p-7 shadow-modal animate-scale-in"
+            className="relative max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-3xl border border-mv-violet/25 bg-mv-darker p-7 shadow-modal animate-scale-in"
           >
             <button
               onClick={() => setOpen(false)}

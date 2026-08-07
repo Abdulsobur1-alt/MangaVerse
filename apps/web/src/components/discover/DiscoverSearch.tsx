@@ -268,7 +268,7 @@ export function DiscoverSearch({ value, onChange, onSubmit, large = false, autoF
                     <Icon name="sparkles" size={16} className="text-white" />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-semibold text-white">AI Discovery</p>
+                    <p className="text-[11px] font-semibold text-mv-text">AI Discovery</p>
                     <p className="truncate text-[10px] text-mv-text-muted">“find a slow-burn romance with an OP villainess lead”</p>
                   </div>
                   <button
@@ -389,7 +389,7 @@ export function DiscoverSearch({ value, onChange, onSubmit, large = false, autoF
             aria-modal="true"
             aria-labelledby="ai-teaser-title"
             onClick={(e) => e.stopPropagation()}
-            className="relative w-full max-w-md rounded-3xl border border-mv-violet/25 bg-mv-darker p-7 shadow-modal animate-scale-in"
+            className="relative max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-3xl border border-mv-violet/25 bg-mv-darker p-7 shadow-modal animate-scale-in"
           >
             <button
               onClick={() => setShowAi(false)}

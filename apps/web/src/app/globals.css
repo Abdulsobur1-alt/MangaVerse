@@ -654,7 +654,28 @@ html, body { overflow-x: clip; }
    sets the attribute after the migration completes.
    ═══════════════════════════════════════════════════════════════ */html[data-theme='light'] {
   color-scheme: light;
-  --color-app: #fafafa;
+
+  /* ── Value tokens (mv-*) — flipped app-wide so the ENTIRE app switches ── */
+  --color-mv-dark: #f6f6f7;          /* app background            */
+  --color-mv-darker: #ffffff;        /* surfaces / panels         */
+  --color-mv-surface: #f1f1f3;       /* cards / inputs            */
+  --color-mv-card: #f1f1f3;          /* alias for cards           */
+  --color-mv-border: #e5e5e8;        /* hairline borders          */
+  --color-mv-border-light: #d4d4d8;  /* raised borders            */
+  --color-mv-accent: #7c3aed;        /* primary (kept)            */
+  --color-mv-purple: #8b5cf6;
+  --color-mv-violet: #6d28d9;        /* accent text — darker for contrast */
+  --color-mv-gold: #d97706;          /* ratings / highlights      */
+  --color-mv-success: #059669;
+  --color-mv-warning: #d97706;
+  --color-mv-danger: #dc2626;
+  --color-mv-text: #18181b;          /* text primary              */
+  --color-mv-text-secondary: #52525b;
+  --color-mv-text-muted: #71717a;
+  --color-mv-text-dim: #a1a1aa;
+
+  /* ── Semantic tokens (shell / migrated components) ── */
+  --color-app: #f6f6f7;
   --color-app-elevated: #ffffff;
   --color-surface: #f4f4f5;
   --color-surface-raised: #ffffff;
@@ -666,12 +687,103 @@ html, body { overflow-x: clip; }
   --color-faint: #a1a1aa;
   --color-brand: #7c3aed;
   --color-brand-hover: #6d28d9;
-  --color-brand-soft: #7c3aed;
-  scrollbar-color: #d4d4d8 #f4f4f5;
+  --color-brand-soft: #6d28d9;
+
+  /* White → ink: text-white reads as dark ink on light surfaces and
+     bg-white/N / border-white/N become dark overlays & borders. */
+  --color-white: #18181b;
+
+  --focus-ring-color: rgba(109, 40, 217, 0.55);
+  scrollbar-color: #c8c8cd #f1f1f3;
 }
-html[data-theme='light'] ::-webkit-scrollbar-track { background: #f4f4f5; }
-html[data-theme='light'] ::-webkit-scrollbar-thumb { background: #d4d4d8; border-color: #f4f4f5; }
-html[data-theme='light'] ::-webkit-scrollbar-thumb:hover { background: #a1a1aa; }
+
+/* Keep TRUE white where the fill is still dark or brand-colored:
+   brand gradients (from-mv-purple → to-mv-accent), solid status/accent
+   fills, and dark image overlays (bg-black/N). */
+html[data-theme='light'] .text-white[class*='from-mv-purple'],
+html[data-theme='light'] .text-white[class*='from-mv-accent'],
+html[data-theme='light'] .text-white[class*='to-mv-accent'],
+html[data-theme='light'] .text-white[class*='to-mv-purple'],
+html[data-theme='light'] .text-white[class*='from-mv-violet'],
+html[data-theme='light'] .text-white[class*='to-mv-violet'],
+html[data-theme='light'] .text-white[class*='bg-mv-danger'],
+html[data-theme='light'] .text-white[class*='bg-mv-success'],
+html[data-theme='light'] .text-white[class*='bg-mv-warning'],
+html[data-theme='light'] .text-white[class*='bg-mv-accent'],
+html[data-theme='light'] .text-white[class*='bg-black/'],
+html[data-theme='light'] [class*='from-mv-purple'] .text-white,
+html[data-theme='light'] [class*='from-mv-accent'] .text-white,
+html[data-theme='light'] [class*='to-mv-accent'] .text-white,
+html[data-theme='light'] [class*='to-mv-purple'] .text-white,
+html[data-theme='light'] [class*='from-mv-violet'] .text-white,
+html[data-theme='light'] [class*='to-mv-violet'] .text-white,
+html[data-theme='light'] [class*='bg-mv-danger'] .text-white,
+html[data-theme='light'] [class*='bg-mv-success'] .text-white,
+html[data-theme='light'] [class*='bg-mv-warning'] .text-white,
+html[data-theme='light'] [class*='bg-mv-accent'] .text-white,
+html[data-theme='light'] [class*='bg-black/'] .text-white {
+  color: #fff;
+}
+
+/* ── Light-aware component overrides ── */
+html[data-theme='light'] .glass {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.78));
+  border-color: rgba(0, 0, 0, 0.08);
+}
+html[data-theme='light'] .skeleton { background: #e7e7ea; }
+html[data-theme='light'] .skeleton::after {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.75), transparent);
+}
+html[data-theme='light'] .btn-ghost {
+  border-color: rgba(0, 0, 0, 0.14);
+  background: rgba(0, 0, 0, 0.03);
+  color: var(--color-mv-text-secondary);
+}
+html[data-theme='light'] .btn-ghost:hover {
+  border-color: rgba(124, 58, 237, 0.5);
+  color: var(--color-mv-text);
+  background: rgba(0, 0, 0, 0.05);
+}
+html[data-theme='light'] .tag-pill {
+  border-color: rgba(0, 0, 0, 0.12);
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--color-mv-text-secondary);
+}
+html[data-theme='light'] .tag-pill:hover {
+  border-color: rgba(124, 58, 237, 0.5);
+  color: #6d28d9;
+  background: rgba(124, 58, 237, 0.08);
+}
+html[data-theme='light'] .text-gradient {
+  background: linear-gradient(100deg, #7c3aed, #6d28d9 45%, #8b5cf6);
+}
+html[data-theme='light'] .eyebrow { color: var(--color-mv-text-muted); }
+
+/* ── Cinematic home hero stays dark in light mode ──
+   The hero is a self-contained dark stage (literal dark base gradient +
+   cover art); scoping the dark tokens back onto .hero-cinematic keeps its
+   scrims dark and its white/light text readable instead of inverting. */
+html[data-theme='light'] .hero-cinematic {
+  --color-mv-dark: #09090b;
+  --color-mv-text: #fafafa;
+  --color-mv-text-secondary: #d4d4d8;
+  --color-mv-text-muted: #a1a1aa;
+  --color-mv-text-dim: #8a8a96;
+  --color-mv-violet: #a78bfa;
+  --color-mv-gold: #fbbf24;
+  --color-mv-success: #34d399;
+  --color-mv-border: #27272a;
+  --color-mv-border-light: #3f3f46;
+  --color-white: #ffffff;
+}
+html[data-theme='light'] .hero-cinematic .glass {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+html[data-theme='light'] ::-webkit-scrollbar-track { background: #f1f1f3; }
+html[data-theme='light'] ::-webkit-scrollbar-thumb { background: #c8c8cd; border-color: #f1f1f3; }
+html[data-theme='light'] ::-webkit-scrollbar-thumb:hover { background: #a8a8ae; }
 html[data-theme='light'] ::selection { background: rgba(124, 58, 237, 0.25); color: #18181b; }
 
 /* Firefox scrollbar parity — thin + purple-lit */

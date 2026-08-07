@@ -59,6 +59,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
+      {/* Apply the persisted theme BEFORE first paint so the page never
+          flashes dark for light-theme users. Must match ThemeSwitcher's key. */}
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `try{if(localStorage.getItem('mangaverse_theme')==='light')document.documentElement.setAttribute('data-theme','light')}catch(e){}`,
+        }}
+      />
       <body className={`${inter.variable} ${spaceGrotesk.variable} bg-mv-dark text-mv-text antialiased`}>
         <Providers>
           <AuthInitializer />

@@ -97,7 +97,7 @@ export function Hero({
           setPaused(false);
         }
       }}
-      className="group relative h-[440px] overflow-hidden outline-none focus-visible:ring-2 focus-visible:ring-mv-violet/60 sm:h-[500px] md:h-[560px]"
+      className="hero-cinematic group relative h-[440px] overflow-hidden outline-none focus-visible:ring-2 focus-visible:ring-mv-violet/60 sm:h-[500px] md:h-[560px]"
     >
       {/* ── Background layers ── */}
       <div className="absolute inset-0 bg-gradient-to-br from-[#150b2e] via-[#1a0f38] to-[#0d0d12]" />

@@ -157,7 +157,10 @@ export default function HomePage() {
 
       <div className="mx-auto max-w-7xl space-y-12 px-5 py-10 sm:px-6 md:space-y-16 md:px-8">
         {/* ─── Search preview ──────────────────────────────── */}
-        <Reveal>
+        {/* relative z-40: Reveal applies a transform (stacking context), so
+            without an explicit z the dropdown would paint BEHIND the page
+            sections that follow it in the DOM. */}
+        <Reveal className="relative z-40">
           <section aria-label="Search">
             <p className="eyebrow mb-3 justify-center sm:justify-start">Discover</p>
             <HomeSearch />

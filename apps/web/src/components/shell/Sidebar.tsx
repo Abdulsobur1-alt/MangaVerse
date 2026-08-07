@@ -126,64 +126,68 @@ export function Sidebar() {
           </span>
         </Link>
 
-        {/* Primary */}
-        <nav aria-label="Primary" className="flex flex-col gap-1">
-          <SectionLabel>Discover</SectionLabel>
-          {PRIMARY.map((item) => (
-            <NavLink key={item.href} item={item} pathname={pathname} />
-          ))}
-        </nav>
-
-        {/* Continue reading */}
-        {resumeEntries.length > 0 && (
-          <div className="mt-2 border-t border-mv-border/50 pt-1">
-            <SectionLabel>Continue Reading</SectionLabel>
-            <div className="hidden group-hover/side:block">
-              <ContinueReading entries={resumeEntries} limit={3} />
-            </div>
-          </div>
-        )}
-
-        {/* Overview */}
-        <nav aria-label="Overview" className="mt-2 flex flex-col gap-1 border-t border-mv-border/50 pt-1">
-          <SectionLabel>Overview</SectionLabel>
-          {overview.map((item) => (
-            <NavLink key={item.href} item={item} pathname={pathname} />
-          ))}
-        </nav>
-
-        {/* Staff Studio — content workspace (editors/uploaders/admin) */}
-        {staff && (
-          <nav aria-label="Staff" className="mt-2 flex flex-col gap-1 border-t border-mv-border/50 pt-1">
-            <SectionLabel>Staff</SectionLabel>
-            <NavLink item={{ href: '/studio', label: 'Studio', icon: 'sparkles' }} pathname={pathname} />
+        {/* Scrollable nav area — short viewports can reach every section
+            while the logo and footer stay pinned. */}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          {/* Primary */}
+          <nav aria-label="Primary" className="flex flex-col gap-1">
+            <SectionLabel>Discover</SectionLabel>
+            {PRIMARY.map((item) => (
+              <NavLink key={item.href} item={item} pathname={pathname} />
+            ))}
           </nav>
-        )}
 
-        {/* Recently viewed */}
-        {recent.length > 0 && (
-          <div className="mt-2 border-t border-mv-border/50 pt-1">
-            <SectionLabel>Recently Viewed</SectionLabel>
-            <div className="hidden space-y-0.5 group-hover/side:block">
-              {recent.map((entry: any) => (
-                <Link
-                  key={entry.id}
-                  href={`/reader/${entry.chapter.id}`}
-                  title={entry.chapter.series.title}
-                  className="flex items-center gap-2.5 rounded-xl px-2 py-1.5 transition-colors hover:bg-white/5"
-                >
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-mv-surface text-[10px]">
-                    {entry.chapter.series.title.charAt(0).toUpperCase()}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[10px] text-mv-text-muted">{entry.chapter.series.title}</span>
-                    <span className="text-[8px] text-mv-text-dim">Ch. {entry.chapter.number}</span>
-                  </span>
-                </Link>
-              ))}
+          {/* Continue reading */}
+          {resumeEntries.length > 0 && (
+            <div className="mt-2 border-t border-mv-border/50 pt-1">
+              <SectionLabel>Continue Reading</SectionLabel>
+              <div className="hidden group-hover/side:block">
+                <ContinueReading entries={resumeEntries} limit={3} />
+              </div>
             </div>
-          </div>
-        )}
+          )}
+
+          {/* Overview */}
+          <nav aria-label="Overview" className="mt-2 flex flex-col gap-1 border-t border-mv-border/50 pt-1">
+            <SectionLabel>Overview</SectionLabel>
+            {overview.map((item) => (
+              <NavLink key={item.href} item={item} pathname={pathname} />
+            ))}
+          </nav>
+
+          {/* Staff Studio — content workspace (editors/uploaders/admin) */}
+          {staff && (
+            <nav aria-label="Staff" className="mt-2 flex flex-col gap-1 border-t border-mv-border/50 pt-1">
+              <SectionLabel>Staff</SectionLabel>
+              <NavLink item={{ href: '/studio', label: 'Studio', icon: 'sparkles' }} pathname={pathname} />
+            </nav>
+          )}
+
+          {/* Recently viewed */}
+          {recent.length > 0 && (
+            <div className="mt-2 border-t border-mv-border/50 pt-1">
+              <SectionLabel>Recently Viewed</SectionLabel>
+              <div className="hidden space-y-0.5 group-hover/side:block">
+                {recent.map((entry: any) => (
+                  <Link
+                    key={entry.id}
+                    href={`/reader/${entry.chapter.id}`}
+                    title={entry.chapter.series.title}
+                    className="flex items-center gap-2.5 rounded-xl px-2 py-1.5 transition-colors hover:bg-white/5"
+                  >
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-mv-surface text-[10px]">
+                      {entry.chapter.series.title.charAt(0).toUpperCase()}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[10px] text-mv-text-muted">{entry.chapter.series.title}</span>
+                      <span className="text-[8px] text-mv-text-dim">Ch. {entry.chapter.number}</span>
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Footer */}
         <div className="mt-auto flex flex-col gap-1.5 border-t border-mv-border/50 pt-2">

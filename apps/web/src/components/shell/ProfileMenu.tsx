@@ -177,11 +177,11 @@ export function ProfileMenu({ className }: ProfileMenuProps) {
     const rect = btnRef.current.getBoundingClientRect();
     const below = window.innerHeight - rect.bottom - 16;
     const above = rect.top - 16;
-    const fitBelow = below >= 260;
-    const fitAbove = above >= 260;
+    const fitBelow = below >= 320;
+    const fitAbove = above >= 320;
     const pos: 'down' | 'up' = !fitBelow && fitAbove ? 'up' : 'down';
     setDropPos(pos);
-    setDropMaxH(Math.min(560, Math.max(260, pos === 'down' ? below : above)));
+    setDropMaxH(Math.min(560, Math.max(320, pos === 'down' ? below : above)));
   }, [open, isMobile]);
 
   // Focus the first menu row when the dropdown opens.
@@ -215,8 +215,15 @@ export function ProfileMenu({ className }: ProfileMenuProps) {
   );
 
   // ── Profile header — avatar, name, username, rank, level, streak ──
-  const profileHeader = (
-    <div className="relative overflow-hidden border-b border-mv-border/70 px-4 pb-4 pt-1">
+  // `compact` (dropdown) shows identity only; the mobile sheet keeps the
+  // full header with XP progress + quick stats.
+  const profileHeader = (compact: boolean) => (
+    <div
+      className={cn(
+        'relative overflow-hidden border-b border-mv-border/70',
+        compact ? 'px-4 pb-3 pt-3' : 'px-4 pb-4 pt-1',
+      )}
+    >
       {/* Purple radial glow behind the avatar */}
       <div
         aria-hidden="true"
@@ -269,40 +276,44 @@ export function ProfileMenu({ className }: ProfileMenuProps) {
         </Link>
       </div>
 
-      {/* XP progress */}
-      {identity?.readingLevel && (
-        <div className="relative mt-3">
-          <div className="mb-1 flex items-center justify-between text-[9px] text-mv-text-dim">
-            <span>
-              {level?.label ?? 'Level'} {level ? `· next ${identity.readingLevel.next?.label ?? 'max'}` : ''}
-            </span>
-            <span className="font-semibold text-mv-violet">{Math.round(identity.readingLevel.progress)}%</span>
-          </div>
-          <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
-            <motion.div
-              initial={reducedMotion ? false : { width: 0 }}
-              animate={{ width: `${Math.min(100, identity.readingLevel.progress)}%` }}
-              transition={{ duration: 0.6, ease: 'easeOut', delay: 0.15 }}
-              className="h-full rounded-full bg-gradient-to-r from-mv-purple to-mv-accent"
-            />
-          </div>
-        </div>
-      )}
+      {!compact && (
+        <>
+          {/* XP progress */}
+          {identity?.readingLevel && (
+            <div className="relative mt-3">
+              <div className="mb-1 flex items-center justify-between text-[9px] text-mv-text-dim">
+                <span>
+                  {level?.label ?? 'Level'} {level ? `· next ${identity.readingLevel.next?.label ?? 'max'}` : ''}
+                </span>
+                <span className="font-semibold text-mv-violet">{Math.round(identity.readingLevel.progress)}%</span>
+              </div>
+              <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+                <motion.div
+                  initial={reducedMotion ? false : { width: 0 }}
+                  animate={{ width: `${Math.min(100, identity.readingLevel.progress)}%` }}
+                  transition={{ duration: 0.6, ease: 'easeOut', delay: 0.15 }}
+                  className="h-full rounded-full bg-gradient-to-r from-mv-purple to-mv-accent"
+                />
+              </div>
+            </div>
+          )}
 
-      {/* Quick stats row */}
-      <div className="relative mt-3.5 grid grid-cols-3 gap-2">
-        {[
-          { icon: 'book' as IconName, label: 'Chapters', value: stats?.totalChapters?.toLocaleString() ?? '—' },
-          { icon: 'flame' as IconName, label: 'Streak', value: streakValue },
-          { icon: 'trophy' as IconName, label: 'Rank', value: rank?.label?.split(' ')[0] ?? '—' },
-        ].map((s) => (
-          <div key={s.label} className="rounded-xl border border-mv-border/80 bg-mv-surface/50 px-2.5 py-2 text-center">
-            <Icon name={s.icon} size={13} className="mx-auto text-mv-violet/80" />
-            <p className="mt-1 truncate text-[11px] font-bold text-white">{s.value}</p>
-            <p className="text-[8px] uppercase tracking-wider text-mv-text-dim">{s.label}</p>
+          {/* Quick stats row */}
+          <div className="relative mt-3.5 grid grid-cols-3 gap-2">
+            {[
+              { icon: 'book' as IconName, label: 'Chapters', value: stats?.totalChapters?.toLocaleString() ?? '—' },
+              { icon: 'flame' as IconName, label: 'Streak', value: streakValue },
+              { icon: 'trophy' as IconName, label: 'Rank', value: rank?.label?.split(' ')[0] ?? '—' },
+            ].map((s) => (
+              <div key={s.label} className="rounded-xl border border-mv-border/80 bg-mv-surface/50 px-2.5 py-2 text-center">
+                <Icon name={s.icon} size={13} className="mx-auto text-mv-violet/80" />
+                <p className="mt-1 truncate text-[11px] font-bold text-white">{s.value}</p>
+                <p className="text-[8px] uppercase tracking-wider text-mv-text-dim">{s.label}</p>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </>
+      )}
     </div>
   );
 
@@ -326,14 +337,15 @@ export function ProfileMenu({ className }: ProfileMenuProps) {
     </Link>
   ) : null;
 
-  // ── Menu list ──
+  // ── Menu list (sectioned: Library / General) ──
   const menuList = (
     <div ref={menuRef} className="space-y-0.5">
       {continueShortcut}
+      <p className="px-3 pb-1 pt-2 text-[9px] font-semibold uppercase tracking-[0.14em] text-mv-text-dim">Library</p>
       {primaries.map((item) => (
         <MenuRow key={item.href} item={item} onNavigate={navigate} active={pathname === item.href} />
       ))}
-      <div className="my-2 h-px bg-mv-border/70" />
+      <p className="px-3 pb-1 pt-2.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-mv-text-dim">General</p>
       {secondaries.map((item) => (
         <MenuRow key={item.href} item={item} onNavigate={navigate} active={pathname === item.href} />
       ))}
@@ -405,7 +417,9 @@ export function ProfileMenu({ className }: ProfileMenuProps) {
         {avatar}
       </motion.button>
 
-      {/* ── Desktop / tablet dropdown (≥768px) ── */}
+      {/* ── Desktop / tablet dropdown (≥768px) ──
+          Decluttered: compact identity header (sticky top), sectioned menu
+          in a scrollable body, sign-out pinned to the bottom. */}
       <AnimatePresence>
         {open && !isMobile && (
           <motion.div
@@ -414,21 +428,25 @@ export function ProfileMenu({ className }: ProfileMenuProps) {
             exit={reducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: dropPos === 'up' ? -6 : 6 }}
             transition={{ type: 'spring', stiffness: 420, damping: 32 }}
             aria-label="Account menu"
-            style={{ maxHeight: dropMaxH, overflowY: 'auto' }}
+            style={{ maxHeight: dropMaxH }}
             className={cn(
-              'glass absolute right-0 z-50 w-72 overflow-hidden rounded-2xl p-2 shadow-modal',
+              'glass absolute right-0 z-50 flex w-80 flex-col overflow-hidden rounded-2xl shadow-modal',
               dropPos === 'up' ? 'bottom-full mb-2 origin-bottom-right' : 'top-full mt-2 origin-top-right',
             )}
           >
             {token ? (
               <>
-                {profileHeader}
-                <div className="px-2 pt-2">{menuList}</div>
-                <div className="mx-2 my-2 h-px bg-mv-border/70" />
-                <div className="px-2 pb-1">{dangerZone}</div>
+                {/* Sticky compact identity header */}
+                <div className="shrink-0">{profileHeader(true)}</div>
+                {/* Scrollable, sectioned menu body */}
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-2">
+                  {menuList}
+                </div>
+                {/* Sticky sign-out footer */}
+                <div className="shrink-0 border-t border-mv-border/70 p-2">{dangerZone}</div>
               </>
             ) : (
-              <div className="p-2">
+              <div className="p-3">
                 <Link
                   href="/login"
                   onClick={navigate}
@@ -457,7 +475,7 @@ export function ProfileMenu({ className }: ProfileMenuProps) {
           setConfirming(false);
         }}
         title="Account"
-        header={token ? profileHeader : undefined}
+        header={token ? profileHeader(false) : undefined}
         footer={
           <div className="pb-2">
             {themeRow}

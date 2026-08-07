@@ -191,7 +191,7 @@ export default function CollectionDetailPage() {
                       />
                     </div>
                     {debounced && (
-                      <div className="absolute left-0 right-0 top-full z-30 mt-2 overflow-hidden rounded-xl border border-mv-border-light bg-mv-darker/95 shadow-modal backdrop-blur-xl">
+                      <div className="absolute left-0 right-0 top-full z-30 mt-2 max-h-[60vh] overflow-y-auto rounded-xl border border-mv-border-light bg-mv-darker/95 shadow-modal backdrop-blur-xl">
                         {searching ? (
                           <div className="flex items-center justify-center gap-2 px-4 py-6 text-[11px] text-mv-text-dim">
                             <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-mv-violet border-t-transparent" />

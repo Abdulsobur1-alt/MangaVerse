@@ -311,7 +311,7 @@ export default function ListsPage() {
       {creating && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="list-dialog-title">
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-          <div ref={dialogRef} className="relative w-full max-w-md rounded-3xl border border-mv-violet/25 bg-mv-darker p-7 shadow-modal animate-scale-in">
+          <div ref={dialogRef} className="relative max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-3xl border border-mv-violet/25 bg-mv-darker p-7 shadow-modal animate-scale-in">
             <div className="mb-5 flex items-start justify-between">
               <div>
                 <p className="eyebrow mb-1">New public list</p>
