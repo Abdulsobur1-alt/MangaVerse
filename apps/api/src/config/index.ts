@@ -33,7 +33,12 @@ export const config = {
   // access-token JWTs against the project's JWKS, so the URL is what
   // matters here; the anon key powers the web/mobile client signups.
   supabase: {
-    url: process.env.SUPABASE_URL || '',
+    // Plain project URL (https://<ref>.supabase.co). The dashboard's "API
+    // URL" field includes /rest/v1 — normalize it away so a copy-paste can't
+    // break JWT verification (JWKS + issuer would point at /rest/v1/auth/v1).
+    url: (process.env.SUPABASE_URL || '')
+      .replace(/\/rest\/v1\/?$/, '')
+      .replace(/\/+$/, ''),
     anonKey: process.env.SUPABASE_ANON_KEY || '',
   },
 

@@ -213,6 +213,8 @@ You already have a Supabase project (the database) — the auth provider lives i
 
 1. [supabase.com/dashboard](https://supabase.com/dashboard) → your project → **Authentication → Sign in method → Email** → enable it. For instant sign-ups (no confirmation step), turn **Confirm email OFF**; leave it ON if you want email verification before first login.
 2. **Project settings → API keys** → copy the **Project URL** (`https://<project-ref>.supabase.co`) and the **anon public** key.
+
+   > ⚠️ Use the **Project URL** — NOT the **API URL** also shown on that page (it ends in `/rest/v1`). Pasting the `/rest/v1` variant breaks auth: every call hits `/rest/v1/auth/v1/...` → 404 → "Supabase authentication failed" in the login form. The code now strips a trailing `/rest/v1` automatically, but the dashboard value should still be the plain URL.
 3. Wire them up: API service → `SUPABASE_URL` + `SUPABASE_ANON_KEY`. Web service → `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` (inlined at **build** time — redeploy after changing). Mobile → `EXPO_PUBLIC_SUPABASE_URL` + `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
 
 The app's `users` table stays separate from Supabase's `auth.users`; accounts link by the auth UID on first sign-in (existing rows with a matching email are adopted). Without Supabase configured, the app runs in dev mode (`dev_` tokens) — useful for local work but **not** for production.

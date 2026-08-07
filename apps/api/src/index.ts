@@ -157,6 +157,17 @@ app.use(errorHandler);
 // ─── Start Server ─────────────────────────────────────
 
 async function start() {
+  // Listen FIRST — the API must answer health checks even while the
+  // background setup below (Redis workers, seed scheduling, DB queries) is
+  // running. A slow or hung setup step (e.g. an unreachable DATABASE_URL
+  // stalling prisma.title.count()) must never block the server, or Render
+  // marks the deploy live but every request hangs.
+  const server = app.listen(PORT, () => {
+    console.log(`⚡ MangaVerse API running on http://localhost:${PORT}`);
+    console.log(`   Health check: http://localhost:${PORT}/api/health`);
+  });
+  startRealtimeServer(server);
+
   // Initialize Meilisearch index on startup
   try {
     await meilisearch.initIndex();
@@ -218,13 +229,6 @@ async function start() {
     // Redis unavailable — reminders degrade to no-ops
   }
 
-  const server = app.listen(PORT, () => {
-    console.log(`⚡ MangaVerse API running on http://localhost:${PORT}`);
-    console.log(`   Health check: http://localhost:${PORT}/api/health`);
-  });
-
-  // Mount the WebSocket realtime hub on the same HTTP server
-  startRealtimeServer(server);
 }
 
 start().catch(console.error);

@@ -51,6 +51,10 @@ services:
       - key: VAPID_SUBJECT
         value: mailto:admin@mangaverse.app
       # ── Supabase Auth (same project as the DB — Settings → API) ──
+      # ⚠️ Use the plain Project URL (https://<ref>.supabase.co), NOT the
+      # "API URL" shown on the same page — it ends in /rest/v1 and breaks
+      # JWT verification (JWKS/issuer would point at /rest/v1/auth/v1). The
+      # code strips a trailing /rest/v1 defensively, but keep it clean here.
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_ANON_KEY

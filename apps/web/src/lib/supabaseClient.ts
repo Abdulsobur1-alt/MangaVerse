@@ -6,7 +6,12 @@
 // both web and mobile on the same lightweight flow without adding the
 // Supabase JS SDK.
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+// Accept the plain project URL (https://<ref>.supabase.co). The dashboard's
+// "API URL" field includes /rest/v1 — normalize it away so a copy-paste
+// can't turn every auth call into /rest/v1/auth/v1/... 404s.
+const SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || '')
+  .replace(/\/rest\/v1\/?$/, '')
+  .replace(/\/+$/, '');
 const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
 export function supabaseAuthConfigured(): boolean {
