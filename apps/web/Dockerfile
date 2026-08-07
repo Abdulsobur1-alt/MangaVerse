@@ -16,6 +16,32 @@ COPY apps/web ./apps/web
 
 # ─── Dependencies ───────────────────────────────────────────────────
 FROM base AS deps
+# Scope the install to ONLY this image's packages. `pnpm install --filter`
+# does NOT restrict downloads (verified against pnpm docs + a live test:
+# it still installs every importer in the lockfile) — but trimming the
+# workspace manifest does: with the lockfile frozen, pnpm installs exactly
+# the workspace projects that are present. Without this, every image drags
+# in apps/api (prisma), apps/mobile (react-native!) and all of next's
+# optional platform binaries (@next/swc-win32-x64-msvc etc.) — ~1190
+# packages measured, vs 166 with the trim — tripling install time and
+# memory (an OOM/timeout risk on Render's free tier, 512 MB). allowBuilds
+# is copied verbatim: entries for packages that never get installed are
+# simply ignored.
+RUN printf '%s\n' \
+    "packages:" \
+    "  - 'apps/web'" \
+    "  - 'packages/shared'" \
+    "  - 'packages/config-typescript'" \
+    "allowBuilds:" \
+    "  sharp: true" \
+    "  esbuild: true" \
+    "  prisma: true" \
+    "  '@prisma/client': true" \
+    "  '@prisma/engines': true" \
+    "  '@firebase/util': true" \
+    "  msgpackr-extract: true" \
+    "  protobufjs: true" \
+    > pnpm-workspace.yaml
 # pnpm store cached in the BuildKit cache — retries after network hiccups
 # reuse downloaded tarballs instead of re-fetching the whole registry.
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile

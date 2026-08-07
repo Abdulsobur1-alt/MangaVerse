@@ -16,6 +16,31 @@ COPY apps/api ./apps/api
 
 # ─── Dependencies ───────────────────────────────────────────────────
 FROM base AS deps
+# Scope the install to ONLY this image's packages. `pnpm install --filter`
+# does NOT restrict downloads (verified against pnpm docs + a live test:
+# it still installs every importer in the lockfile) — but trimming the
+# workspace manifest does: with the lockfile frozen, pnpm installs exactly
+# the workspace projects that are present. Without this, every image drags
+# in apps/web (next), apps/mobile (react-native!) and all of next's
+# optional platform binaries (~1190 packages measured; 166 with the trim),
+# tripling install time and memory — an OOM/timeout risk on Render's free
+# tier (512 MB). allowBuilds is copied verbatim: entries for packages that
+# never get installed are simply ignored.
+RUN printf '%s\n' \
+    "packages:" \
+    "  - 'apps/api'" \
+    "  - 'packages/shared'" \
+    "  - 'packages/config-typescript'" \
+    "allowBuilds:" \
+    "  sharp: true" \
+    "  esbuild: true" \
+    "  prisma: true" \
+    "  '@prisma/client': true" \
+    "  '@prisma/engines': true" \
+    "  '@firebase/util': true" \
+    "  msgpackr-extract: true" \
+    "  protobufjs: true" \
+    > pnpm-workspace.yaml
 # pnpm store cached in the BuildKit cache — retries after network hiccups
 # reuse downloaded tarballs instead of re-fetching the whole registry.
 # The /root/.cache/prisma mount (same default cache id as the build stage)
