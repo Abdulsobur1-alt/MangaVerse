@@ -15,6 +15,7 @@ import { useOwnIdentity } from '@/lib/hooks/useIdentity';
 import { useReadingHistory } from '@/lib/hooks/useReadingStats';
 import { useAchievements } from '@/lib/hooks/useAchievements';
 import { useGoals, GOAL_TYPE_META } from '@/lib/hooks/useGoals';
+import { Avatar } from '@/components/ui/Avatar';
 import { cn } from '@/lib/cn';
 
 /* ═══════════════════════════════════════════════════════════════
@@ -76,14 +77,7 @@ export default function DashboardPage() {
             <div className="pointer-events-none absolute -bottom-24 left-1/3 h-48 w-48 rounded-full bg-mv-accent/10 blur-3xl" aria-hidden="true" />
             <div className="relative flex flex-wrap items-center justify-between gap-5">
               <div className="flex items-center gap-4">
-                {user?.avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={user.avatarUrl} alt="" className="h-16 w-16 rounded-2xl object-cover ring-2 ring-mv-border-light" />
-                ) : (
-                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-mv-purple to-mv-accent text-2xl font-bold text-white shadow-glow-sm">
-                    {user?.displayName?.charAt(0)?.toUpperCase() || 'R'}
-                  </div>
-                )}
+                <Avatar src={user?.avatarUrl} name={user?.displayName || 'Reader'} size="xl" rounded="2xl" ring className="shadow-glow-sm" />
                 <div>
                   <p className="eyebrow mb-1">Your Story</p>
                   <h1 className="text-2xl font-bold tracking-tight text-white md:text-3xl">

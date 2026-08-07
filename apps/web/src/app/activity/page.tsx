@@ -7,6 +7,7 @@ import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useActivityFeed, type ActivityItem } from '@/lib/hooks/useActivity';
 import { useRealtime } from '@/lib/realtime';
 import { Icon } from '@/components/ui/Icon';
+import { Avatar } from '@/components/ui/Avatar';
 import { cn } from '@/lib/cn';
 
 /* ═══════════════════════════════════════════════════════════════
@@ -39,21 +40,9 @@ function timeAgo(dateStr: string): string {
 
 function ActorAvatar({ actor }: { actor: ActivityItem['actor'] }) {
   if (!actor) {
-    return (
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-mv-violet to-mv-accent text-xs">
-        🪐
-      </span>
-    );
+    return <Avatar name="MangaVerse" emoji="🪐" size="sm" />;
   }
-  if (actor.avatar) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={actor.avatar} alt={actor.name} className="h-9 w-9 shrink-0 rounded-full object-cover ring-1 ring-mv-border-light" />;
-  }
-  return (
-    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-mv-purple to-mv-accent text-xs font-bold text-white">
-      {actor.name.charAt(0).toUpperCase()}
-    </span>
-  );
+  return <Avatar src={actor.avatar} name={actor.name} size="sm" ring />;
 }
 
 function FeedRow({ item }: { item: ActivityItem }) {

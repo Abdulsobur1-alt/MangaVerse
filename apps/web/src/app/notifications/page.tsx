@@ -66,6 +66,77 @@ function NotifRow({ notif }: { notif: NotificationItem }) {
   const pinned = !!notif.pinnedAt;
   const isDigest = (notif.data as { digest?: boolean } | null)?.digest === true;
 
+  // ── Swipe-to-delete (touch) — desktop keeps the hover quick actions ──
+  const [isTouch, setIsTouch] = useState(false);
+  const [dx, setDx] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const [dismissing, setDismissing] = useState(false);
+  const drag = useRef<{ startX: number; startY: number; engaged: boolean } | null>(null);
+  const suppressClick = useRef(false);
+  const dxRef = useRef(0);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') setIsTouch(window.matchMedia('(pointer: coarse)').matches);
+  }, []);
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    if (!isTouch || dismissing) return;
+    const t = e.touches[0];
+    drag.current = { startX: t.clientX, startY: t.clientY, engaged: false };
+    setDragging(true);
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    const d = drag.current;
+    if (!d || dismissing) return;
+    const t = e.touches[0];
+    const deltaX = t.clientX - d.startX;
+    const deltaY = t.clientY - d.startY;
+    // Engage only after a clear horizontal intent (keeps vertical scroll intact).
+    if (!d.engaged && Math.abs(deltaX) > 10 && Math.abs(deltaX) > Math.abs(deltaY)) d.engaged = true;
+    if (d.engaged) {
+      // Mirror into a ref too — on fast flings the last touchmove may not have
+      // rendered before touchend, so state alone can lag the real position.
+      const v = Math.max(-160, Math.min(0, deltaX));
+      setDx(v);
+      dxRef.current = v;
+    }
+  };
+
+  const onTouchEnd = () => {
+    const d = drag.current;
+    drag.current = null;
+    setDragging(false);
+    if (!d?.engaged) return;
+    suppressClick.current = true;
+    if (dxRef.current < -80) {
+      setDismissing(true);
+      setDx(-480);
+      setTimeout(() => {
+        deleteNotif.mutate(notif.id, {
+          // Roll back the fly-out if the request fails — the row must never
+          // get stuck invisible off-screen.
+          onError: () => {
+            setDismissing(false);
+            setDx(0);
+            dxRef.current = 0;
+          },
+        });
+      }, 170);
+    } else {
+      setDx(0);
+      dxRef.current = 0;
+    }
+  };
+
+  const onClickGuard = (e: React.MouseEvent) => {
+    if (suppressClick.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      suppressClick.current = false;
+    }
+  };
+
   const inner = (
     <div className={cn('flex items-start gap-3 p-4', isDigest && 'border-l-2 border-mv-violet/60 bg-gradient-to-r from-mv-violet/10 to-transparent')}>
       <div className="relative">
@@ -107,47 +178,72 @@ function NotifRow({ notif }: { notif: NotificationItem }) {
   );
 
   return (
-    <div className={cn('group relative rounded-xl border transition-all', !notif.read ? 'border-mv-accent/20 bg-mv-darker' : 'border-mv-border bg-mv-darker/50 hover:bg-mv-darker')}>
-      {notif.link ? (
-        <Link href={notif.link} className="block" onClick={() => { if (!notif.read) markRead.mutate(notif.id); }}>
-          {inner}
-        </Link>
-      ) : (
-        inner
-      )}
+    <div
+      className="relative overflow-hidden rounded-xl"
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      onClick={onClickGuard}
+    >
+      {/* Reveal layer — the delete action slides in behind the row */}
+      <div
+        aria-hidden="true"
+        className="absolute inset-y-0 right-0 flex w-20 items-center justify-center bg-mv-danger/15 text-mv-danger"
+        style={{ opacity: isTouch ? Math.min(1, -dx / 140) : 0 }}
+      >
+        <Icon name="trash" size={15} />
+      </div>
 
-      {/* Actions */}
-      <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-        {!notif.read && (
-          <button
-            onClick={() => markRead.mutate(notif.id)}
-            className="rounded-md bg-mv-surface px-2 py-1 text-[9px] text-mv-text-secondary transition-colors hover:text-mv-accent"
-            title="Mark as read"
-          >
-            Read
-          </button>
+      <div
+        className={cn('group relative rounded-xl border', !notif.read ? 'border-mv-accent/20 bg-mv-darker' : 'border-mv-border bg-mv-darker/50 hover:bg-mv-darker')}
+        style={{
+          transform: dismissing ? 'translateX(-480px)' : `translateX(${dx}px)`,
+          opacity: dismissing ? 0 : 1 - Math.min(1, -dx / 240),
+          transition: dragging ? 'none' : 'transform 0.25s ease, opacity 0.25s ease, background-color 0.2s ease',
+          touchAction: isTouch ? 'pan-y' : undefined,
+        }}
+      >
+        {notif.link ? (
+          <Link href={notif.link} className="block" onClick={() => { if (!notif.read) markRead.mutate(notif.id); }}>
+            {inner}
+          </Link>
+        ) : (
+          inner
         )}
-        <button
-          onClick={() => pin.mutate({ id: notif.id, pinned })}
-          className={cn('rounded-md bg-mv-surface px-2 py-1 text-[9px] transition-colors', pinned ? 'text-mv-violet' : 'text-mv-text-secondary hover:text-mv-violet')}
-          title={pinned ? 'Unpin' : 'Pin'}
-        >
-          {pinned ? 'Unpin' : 'Pin'}
-        </button>
-        <button
-          onClick={() => archive.mutate({ id: notif.id, archived: false })}
-          className="rounded-md bg-mv-surface px-2 py-1 text-[9px] text-mv-text-secondary transition-colors hover:text-mv-violet"
-          title="Archive"
-        >
-          Archive
-        </button>
-        <button
-          onClick={() => deleteNotif.mutate(notif.id)}
-          className="rounded-md bg-mv-surface px-2 py-1 text-[9px] text-red-400/70 transition-colors hover:text-red-400"
-          title="Delete"
-        >
-          Delete
-        </button>
+
+        {/* Actions */}
+        <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+          {!notif.read && (
+            <button
+              onClick={() => markRead.mutate(notif.id)}
+              className="rounded-md bg-mv-surface px-2 py-1 text-[9px] text-mv-text-secondary transition-colors hover:text-mv-accent"
+              title="Mark as read"
+            >
+              Read
+            </button>
+          )}
+          <button
+            onClick={() => pin.mutate({ id: notif.id, pinned })}
+            className={cn('rounded-md bg-mv-surface px-2 py-1 text-[9px] transition-colors', pinned ? 'text-mv-violet' : 'text-mv-text-secondary hover:text-mv-violet')}
+            title={pinned ? 'Unpin' : 'Pin'}
+          >
+            {pinned ? 'Unpin' : 'Pin'}
+          </button>
+          <button
+            onClick={() => archive.mutate({ id: notif.id, archived: false })}
+            className="rounded-md bg-mv-surface px-2 py-1 text-[9px] text-mv-text-secondary transition-colors hover:text-mv-violet"
+            title="Archive"
+          >
+            Archive
+          </button>
+          <button
+            onClick={() => deleteNotif.mutate(notif.id)}
+            className="rounded-md bg-mv-surface px-2 py-1 text-[9px] text-red-400/70 transition-colors hover:text-red-400"
+            title="Delete"
+          >
+            Delete
+          </button>
+        </div>
       </div>
     </div>
   );

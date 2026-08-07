@@ -73,7 +73,7 @@ export function StatsSection({ stats, className }: { stats: AnalyticsData; class
               {week.map((day) => (
                 <div
                   key={day.date}
-                  className="h-3 w-3 rounded-[3px] transition-colors"
+                  className="h-3 w-3 rounded-[3px] transition-colors hover:scale-125"
                   style={{
                     background: day.read
                       ? day.count >= 4 ? '#e94560' : day.count >= 2 ? 'rgba(233,69,96,0.75)' : 'rgba(233,69,96,0.45)'
@@ -100,11 +100,11 @@ export function StatsSection({ stats, className }: { stats: AnalyticsData; class
           <Icon name="trendingUp" size={13} /> Reading rhythm
         </h3>
         <div className="flex h-28 items-end gap-1.5">
-          {stats.readingByMonth.map((m) => (
+          {stats.readingByMonth.map((m, mi) => (
             <div key={m.key} className="group relative flex flex-1 flex-col items-center gap-1">
               <div
-                className="w-full rounded-t-md bg-gradient-to-t from-mv-purple to-mv-accent transition-all duration-500 group-hover:from-mv-accent group-hover:to-mv-violet"
-                style={{ height: `${Math.max(6, (m.chapters / maxMonth) * 100)}%` }}
+                className="animate-grow-bar w-full rounded-full bg-gradient-to-t from-mv-purple to-mv-accent transition-all duration-500 group-hover:from-mv-accent group-hover:to-mv-violet"
+                style={{ height: `${Math.max(6, (m.chapters / maxMonth) * 100)}%`, animationDelay: `${Math.min(mi * 45, 400)}ms` }}
               />
               <span className="text-[8px] text-mv-text-dim">{m.label}</span>
               <span className="pointer-events-none absolute -top-7 whitespace-nowrap rounded-md border border-mv-border-light bg-mv-darker px-2 py-1 text-[9px] font-medium text-mv-text opacity-0 shadow-modal transition-opacity group-hover:opacity-100">

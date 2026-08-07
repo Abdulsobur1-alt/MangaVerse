@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { FollowButton } from '@/components/social/FollowButton';
+import { Avatar } from '@/components/ui/Avatar';
 import { cn } from '@/lib/cn';
 
 /* ═══════════════════════════════════════════════════════════════
@@ -109,19 +110,15 @@ export function ProfileHero({ profile, isMe, onEdit, onShowFollowers, onShowFoll
         {/* ─── Avatar + identity row ─────────────── */}
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div className="flex items-end gap-4">
-            <div
-              className="-mt-12 h-24 w-24 shrink-0 overflow-hidden rounded-3xl bg-gradient-to-br from-mv-purple to-mv-accent ring-4 md:-mt-14 md:h-28 md:w-28"
-              style={accent ? { boxShadow: `0 0 0 4px ${accent}33`, borderColor: accent } : undefined}
-            >
-              {profile.avatarUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={profile.avatarUrl} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <span className="flex h-full w-full items-center justify-center text-3xl font-bold text-white md:text-4xl">
-                  {profile.displayName.charAt(0).toUpperCase()}
-                </span>
-              )}
-            </div>
+            <Avatar
+              src={profile.avatarUrl}
+              name={profile.displayName}
+              size="2xl"
+              rounded="3xl"
+              ring="ring-4 ring-white/20"
+              className="-mt-12 md:-mt-14"
+              style={accent ? { boxShadow: `0 0 0 4px ${accent}33` } : undefined}
+            />
             <div className="min-w-0 pb-1">
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-2xl font-bold tracking-tight text-white md:text-3xl">{profile.displayName}</h1>

@@ -125,14 +125,14 @@ export function AchievementsGrid({ achievements, className, limit }: { achieveme
                 className={cn(
                   'group relative overflow-hidden rounded-2xl border p-4 text-center transition-all duration-300',
                   badge.earned
-                    ? 'border-mv-gold/25 bg-gradient-to-b from-mv-gold/10 to-mv-darker hover:-translate-y-0.5 hover:border-mv-gold/50 hover:shadow-card-hover'
+                    ? 'badge-shine animate-pop border-mv-gold/25 bg-gradient-to-b from-mv-gold/10 to-mv-darker hover:-translate-y-0.5 hover:border-mv-gold/50 hover:shadow-card-hover'
                     : 'border-mv-border bg-mv-darker/60 opacity-70',
                 )}
                 style={{ animationDelay: `${Math.min(i * 40, 400)}ms` }}
                 title={hidden ? 'Hidden achievement — keep exploring to uncover it' : `${badge.name}: ${badge.description}`}
               >
                 {badge.earned && (
-                  <span className="pointer-events-none absolute -right-5 -top-5 h-14 w-14 rounded-full bg-mv-gold/20 blur-2xl" aria-hidden="true" />
+                  <span className="animate-glow-pulse pointer-events-none absolute -right-5 -top-5 h-14 w-14 rounded-full bg-mv-gold/20 blur-2xl" aria-hidden="true" />
                 )}
                 <div className={cn('relative flex justify-center', badge.earned && 'animate-scale-in')}>
                   {badge.earned ? (

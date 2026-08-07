@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { CoverImage } from '@/components/CoverImage';
 import { BookmarkButton } from './BookmarkButton';
 import { Magnetic } from './primitives';
@@ -104,6 +104,11 @@ export function Hero({
       <div className="animate-aurora absolute -left-24 top-0 h-96 w-96 rounded-full bg-mv-accent/30 blur-3xl" />
       <div className="animate-aurora absolute right-0 top-10 h-[28rem] w-[28rem] rounded-full bg-mv-purple/25 blur-3xl" style={{ animationDelay: '-7s' }} />
       <div className="absolute inset-0 bg-grid opacity-50" />
+
+      {/* Floating ambient accents — subtle depth, GPU-friendly */}
+      <div aria-hidden="true" className="animate-float pointer-events-none absolute right-[13%] top-[15%] h-9 w-9 rounded-2xl border border-mv-violet/20 bg-mv-violet/[0.08]" style={{ '--float-rot': '6deg' } as CSSProperties} />
+      <div aria-hidden="true" className="animate-float pointer-events-none absolute bottom-[24%] right-[5%] h-5 w-5 rounded-full bg-mv-accent/25 blur-[6px]" style={{ animationDelay: '-3s' }} />
+      <div aria-hidden="true" className="animate-float pointer-events-none absolute left-[36%] top-[10%] h-2.5 w-2.5 rounded-full bg-mv-violet/50 blur-[1px]" style={{ animationDelay: '-1.4s' }} />
       <div className="absolute inset-0 bg-gradient-to-t from-mv-dark via-transparent to-transparent" />
 
       {/* Artwork — ken-burns on the active slide */}
@@ -162,7 +167,7 @@ export function Hero({
                   <Link
                     key={g}
                     href={`/browse?genres=${g}`}
-                    className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] text-mv-text-secondary transition-colors hover:border-mv-violet/50 hover:text-mv-violet"
+                    className="tag-pill"
                   >
                     {g.replace(/_/g, ' ')}
                   </Link>
@@ -178,7 +183,7 @@ export function Hero({
                 <Link
                   key={g}
                   href={`/browse?genres=${g}`}
-                  className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] text-mv-text-secondary transition-colors hover:border-mv-violet/50 hover:text-mv-violet"
+                  className="tag-pill"
                 >
                   {g.replace(/_/g, ' ')}
                 </Link>
