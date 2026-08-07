@@ -57,6 +57,15 @@ Create the root `.env` (the compose file reads it). There is no committed root `
 SUPABASE_URL=https://<project-ref>.supabase.co
 SUPABASE_ANON_KEY=eyJhbGciOi...
 
+# ── Supabase Storage (Studio uploads) ────────────────────
+# REQUIRED for durable uploads: without the service-role key, covers and
+# chapter pages land on the container's ephemeral disk and vanish on
+# redeploy/restart. Server-only secret — never expose to the browser.
+# Supabase dashboard → Project settings → API keys → service_role (secret).
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOi...
+# Bucket for uploaded images (created automatically on first upload).
+# SUPABASE_STORAGE_BUCKET=mangaverse
+
 # ── Web push (VAPID) ────────────────────────────────────
 # Generate locally with:  pnpm --filter @mangaverse/api webpush:generate-keys
 # then paste the two keys here:
@@ -161,13 +170,15 @@ This path costs **nothing and requires no credit card** — ideal if you can't p
 
 **Supabase Auth (optional)** — only if you want real auth: `SUPABASE_URL` + `SUPABASE_ANON_KEY` (API) and `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` (web), all from the same Supabase project as the database. Without it the app runs in dev mode (`dev_` tokens).
 
+**Supabase Storage (for Studio uploads)** — Render's filesystem is **ephemeral**, so staff uploads (covers, chapter pages) written to local disk **vanish on the next restart**. To make uploads durable, add the **service_role secret** (`Project settings → API keys → service_role`) as `SUPABASE_SERVICE_ROLE_KEY` on the API service — uploads then go to Supabase Storage (public bucket, auto-created on first upload; override the name with `SUPABASE_STORAGE_BUCKET`, default `mangaverse`). The service-role key is server-only; never put it in the web service or any client env.
+
 ### 2. Deploy on Render
 
 1. Push this repo to GitHub (already done — `render.yaml` lives at the root).
 2. [render.com](https://render.com) → sign up with GitHub (no card) → **New → Blueprint**.
 3. Pick the MangaVerse repo → Render reads `render.yaml` and creates **mangaverse-api** + **mangaverse-web**.
 4. In the **Environment** tab of each service, fill the `sync: false` secrets **before the first deploy** (a blank `DATABASE_URL` skips the boot-time schema sync — the API still boots, but data routes fail):
-   - `mangaverse-api`: `DATABASE_URL`, `REDIS_URL`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`
+   - `mangaverse-api`: `DATABASE_URL`, `REDIS_URL`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (needed for durable Studio uploads — see above; `SUPABASE_STORAGE_BUCKET` defaults to `mangaverse`)
    - `mangaverse-web`: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 5. **Deploy**. On boot the API syncs the schema to `schema.prisma` (`prisma db push` — it strips `?pgbouncer=true` from `DATABASE_URL` so the schema is created through Supabase's session pooler; a sync failure is logged but doesn't fail the deploy), then the scraper worker seeds ~100 titles from MangaDex 30 s later. Watch `mangaverse-api` logs for `🌱 Seeding database`.
 

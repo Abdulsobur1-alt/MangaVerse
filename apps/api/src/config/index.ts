@@ -72,6 +72,7 @@ function warnOnMissingEnv(): void {
     ['REDIS_URL', 'queues/scraper are disabled and the database stays empty'],
     ['SUPABASE_URL', 'auth falls back to dev mode (dev_ tokens) — never for production'],
     ['SUPABASE_ANON_KEY', 'Supabase auth is configured but the anon key is missing'],
+    ['SUPABASE_SERVICE_ROLE_KEY', 'Studio uploads (covers/chapter pages) fall back to the ephemeral local disk and vanish on redeploy — add the Supabase service_role secret for durable storage'],
     ['VAPID_PUBLIC_KEY', 'web push is disabled'],
     ['VAPID_PRIVATE_KEY', 'web push is disabled'],
     ['CORS_ORIGIN', 'CORS reflects the request origin — set it explicitly before going public'],
