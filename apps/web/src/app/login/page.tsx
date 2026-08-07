@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
+import { supabaseResetPassword, supabaseAuthConfigured } from '@/lib/supabaseClient';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -11,6 +12,14 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+
+  // Password reset (Supabase-backed). Hidden in dev mode — there is no
+  // provider to send the reset email through.
+  const [showReset, setShowReset] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetError, setResetError] = useState('');
+  const [resetSent, setResetSent] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,6 +35,27 @@ export default function LoginPage() {
       router.push('/');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Login failed. Please try again.');
+    }
+  };
+
+  const handleResetSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetError('');
+    setResetSent(false);
+
+    if (!resetEmail) {
+      setResetError('Enter your account email');
+      return;
+    }
+
+    try {
+      setIsResetting(true);
+      await supabaseResetPassword(resetEmail);
+      setResetSent(true);
+    } catch (err: unknown) {
+      setResetError(err instanceof Error ? err.message : 'Could not send the reset link. Please try again.');
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -67,9 +97,24 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label htmlFor="password" className="mb-1 block text-[11px] font-medium text-mv-text-secondary">
-                Password
-              </label>
+              <div className="mb-1 flex items-center justify-between">
+                <label htmlFor="password" className="block text-[11px] font-medium text-mv-text-secondary">
+                  Password
+                </label>
+                {supabaseAuthConfigured() && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowReset((v) => !v);
+                      setResetError('');
+                      setResetSent(false);
+                    }}
+                    className="text-[11px] text-mv-text-muted transition-colors hover:text-mv-accent"
+                  >
+                    Forgot password?
+                  </button>
+                )}
+              </div>
               <input
                 id="password"
                 type="password"
@@ -89,6 +134,47 @@ export default function LoginPage() {
               {isLoading ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
+
+          {/* Password reset panel — intentionally OUTSIDE the main form:
+              a nested <form> is invalid HTML (the parser drops the inner
+              tag and the stray </form> closes the outer one, breaking the
+              Sign In button). */}
+          {showReset && supabaseAuthConfigured() && (
+            <div className="mt-4 rounded-lg border border-mv-border bg-mv-surface/50 p-4">
+              {resetSent ? (
+                <p className="text-xs text-mv-text-secondary">
+                  If an account exists for <span className="text-mv-text">{resetEmail}</span>, a
+                  reset link is on its way. Check your inbox (and spam folder).
+                </p>
+              ) : (
+                <form onSubmit={handleResetSubmit} className="space-y-3">
+                  <p className="text-xs text-mv-text-secondary">
+                    Enter your email and we&apos;ll send a link to reset your password.
+                  </p>
+                  {resetError && (
+                    <p className="rounded-md bg-red-900/30 border border-red-800/40 px-3 py-2 text-[11px] text-red-400">
+                      {resetError}
+                    </p>
+                  )}
+                  <input
+                    type="email"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    className="w-full rounded-lg border border-mv-border-light bg-mv-surface px-3 py-2 text-sm text-mv-text outline-none transition-colors placeholder:text-mv-text-dim focus:border-mv-accent/50"
+                    autoComplete="email"
+                  />
+                  <button
+                    type="submit"
+                    disabled={isResetting}
+                    className="w-full rounded-lg border border-mv-accent/40 py-2 text-xs font-medium text-mv-accent transition-all hover:bg-mv-accent/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isResetting ? 'Sending…' : 'Send reset link'}
+                  </button>
+                </form>
+              )}
+            </div>
+          )}
 
           <div className="mt-6 text-center">
             <p className="text-xs text-mv-text-muted">

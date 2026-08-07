@@ -21,19 +21,40 @@ export function supabaseAuthConfigured(): boolean {
 interface SupabaseAuthResponse {
   access_token?: string;
   user?: { id?: string; email?: string | null; user_metadata?: Record<string, unknown> };
-  error?: { message?: string } | string;
+  error?: { message?: string; code?: string } | string;
+  error_code?: string;
   error_description?: string;
   msg?: string;
 }
 
+// GoTrue returns machine-readable codes alongside its messages
+// (e.g. {"code":400,"error_code":"invalid_credentials","msg":"Invalid login credentials"}).
+// Map the codes users actually hit to messages that say what to DO.
+const GO_TRUE_ERROR_MESSAGES: Record<string, string> = {
+  invalid_credentials: 'Incorrect email or password.',
+  email_not_confirmed: 'Please confirm your email first, then sign in.',
+  email_exists: 'An account with this email already exists — sign in instead.',
+  user_already_exists: 'An account with this email already exists — sign in instead.',
+  weak_password: 'That password is too weak (minimum 8 characters).',
+  signup_disabled: 'Sign-ups are currently disabled.',
+  captcha_failed: 'Could not verify you are human — please try again.',
+  captcha_invalid: 'Could not verify you are human — please try again.',
+  over_request_rate_limit: 'Too many attempts — please wait a minute and try again.',
+  invalid_jwt: 'Your session has expired — please sign in again.',
+};
+
 function errorMessage(json: SupabaseAuthResponse): string {
   if (typeof json.error === 'string') return json.error;
-  return (
+  const raw =
     json.error?.message ||
     json.msg ||
     json.error_description ||
-    'Supabase authentication failed'
-  );
+    'Supabase authentication failed';
+  // Prefer the friendly mapping when we recognize the code; otherwise fall
+  // back to the raw (already human-readable) GoTrue message.
+  const code = json.error_code || (typeof json.error === 'object' ? json.error?.code : undefined);
+  if (code && GO_TRUE_ERROR_MESSAGES[code]) return GO_TRUE_ERROR_MESSAGES[code];
+  return raw;
 }
 
 async function supabaseRequest<T>(path: string, body: Record<string, unknown>): Promise<T> {
@@ -128,4 +149,19 @@ export async function supabaseSignUp(
     throw new Error('That email is already registered — sign in instead.');
   }
   return null;
+}
+
+/**
+ * Send a password-reset email for the given account.
+ *
+ * GoTrue deliberately answers 200 with an empty body even when the email is
+ * unknown (email-enumeration protection), so the UI should show the generic
+ * "if an account exists…" message on success.
+ *
+ * Note: the reset link in the email points at Supabase's configured Site URL
+ * (Auth → URL Configuration). Make sure it's the production web origin, or
+ * the link lands on the default http://localhost:3000.
+ */
+export async function supabaseResetPassword(email: string): Promise<void> {
+  await supabaseRequest<SupabaseAuthResponse>('/recover', { email });
 }
