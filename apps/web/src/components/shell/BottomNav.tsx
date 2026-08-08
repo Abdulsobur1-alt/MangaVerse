@@ -106,7 +106,10 @@ export function BottomNav({ onOpenSearch }: BottomNavProps) {
           <Link
             href="/studio"
             aria-label="Content Studio"
-            className="tap-target absolute -top-14 left-3 flex items-center gap-1.5 rounded-full border border-mv-violet/30 bg-mv-darker/95 py-1.5 pl-2.5 pr-3.5 shadow-glow-sm backdrop-blur-xl transition-all duration-300 ease-out"
+            className={cn(
+              'tap-target absolute left-3 flex items-center gap-1.5 rounded-full border border-mv-violet/30 bg-mv-darker/95 py-1.5 pl-2.5 pr-3.5 shadow-glow-sm backdrop-blur-xl transition-all duration-300 ease-out',
+              token && latest ? '-top-26' : '-top-14',
+            )}
           >
             <Icon name="sparkles" size={13} className="text-mv-violet" strokeWidth={2} />
             <span className="text-[11px] font-medium text-mv-text-secondary">Studio</span>

@@ -17,6 +17,8 @@ import {
 } from '@/lib/hooks/useNotifications';
 import { useRealtime } from '@/lib/realtime';
 import { Icon } from '@/components/ui/Icon';
+import { BottomSheet } from '@/components/ui/BottomSheet';
+import { useMediaQuery } from '@/lib/hooks/useMediaQuery';
 import { cn } from '@/lib/cn';
 
 /* ═══════════════════════════════════════════════════════════════
@@ -141,6 +143,7 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<'all' | 'unread'>('all');
   const ref = useRef<HTMLDivElement>(null);
+  const isMobile = useMediaQuery('(max-width: 767px)');
 
   // Live updates: invalidates the notification queries on new events
   useRealtime();
@@ -192,6 +195,68 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
     groups.get(key)!.push(n);
   }
 
+  const actions = (
+    <div className="flex items-center justify-between gap-3 px-4 py-3">
+      <p className="hidden text-xs font-semibold text-white md:block">Notifications</p>
+      <div className="flex shrink-0 items-center gap-3">
+        {unreadCount > 0 && (
+          <button onClick={() => markAllRead.mutate()} className="min-h-11 text-[10px] text-mv-violet hover:underline">
+            Mark all read
+          </button>
+        )}
+        <Link href="/notifications" onClick={() => setOpen(false)} className="flex min-h-11 items-center text-[10px] text-mv-text-muted hover:text-mv-text">
+          View all
+        </Link>
+      </div>
+    </div>
+  );
+
+  const notificationContent = (
+    <>
+      <div className="border-b border-white/10">{actions}</div>
+      <div className="flex gap-1 border-b border-white/5 px-3 py-2">
+        {(['all', 'unread'] as const).map((t) => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            aria-pressed={tab === t}
+            className={cn(
+              'min-h-11 rounded-full px-3 text-[10px] font-medium transition-colors',
+              tab === t ? 'bg-mv-accent/15 text-mv-violet' : 'text-mv-text-muted hover:text-mv-text',
+            )}
+          >
+            {t === 'all' ? 'All' : `Unread${unreadCount > 0 ? ` (${unreadCount})` : ''}`}
+          </button>
+        ))}
+      </div>
+
+      {notifs.length === 0 ? (
+        <div className="px-4 py-8 text-center">
+          <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-white/5">
+            <Icon name="bell" size={20} className="text-mv-text-dim" />
+          </div>
+          <p className="text-[11px] text-mv-text-muted">
+            {tab === 'unread' ? 'You’re all caught up!' : 'No notifications yet'}
+          </p>
+          <p className="mt-1 text-[9px] text-mv-text-dim">We’ll notify you about new chapters and activity</p>
+        </div>
+      ) : (
+        <div className="max-h-[56dvh] overflow-y-auto overscroll-contain sm:max-h-80">
+          {[...groups.entries()].map(([day, items]) => (
+            <div key={day}>
+              <p className="px-4 pb-1 pt-3 text-[9px] font-semibold uppercase tracking-[0.14em] text-mv-text-dim">{day}</p>
+              {items.map((notif) => (
+                <div key={notif.id} className="relative">
+                  <NotifRow notif={notif} onOpen={handleOpen} />
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+
   return (
     <div className={cn('relative', className)} ref={ref}>
       <button
@@ -208,65 +273,23 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
         )}
       </button>
 
-      {open && (
-        <div className="glass fixed inset-x-2 bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] z-[60] max-h-[72vh] w-auto overflow-hidden rounded-2xl shadow-modal animate-slide-up sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:bottom-auto sm:mt-2 sm:w-[22rem] sm:max-h-none sm:animate-scale-in">
-          <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-            <p className="text-xs font-semibold text-white">Notifications</p>
-            <div className="flex items-center gap-3">
-              {unreadCount > 0 && (
-                <button onClick={() => markAllRead.mutate()} className="text-[9px] text-mv-violet hover:underline">
-                  Mark all read
-                </button>
-              )}
-              <Link href="/notifications" onClick={() => setOpen(false)} className="text-[9px] text-mv-text-muted hover:text-mv-text">
-                View all
-              </Link>
-            </div>
-          </div>
-
-          {/* Tabs */}
-          <div className="flex gap-1 border-b border-white/5 px-3 py-2">
-            {(['all', 'unread'] as const).map((t) => (
-              <button
-                key={t}
-                onClick={() => setTab(t)}
-                aria-pressed={tab === t}
-                className={cn(
-                  'rounded-full px-3 py-1 text-[10px] font-medium transition-colors',
-                  tab === t ? 'bg-mv-accent/15 text-mv-violet' : 'text-mv-text-muted hover:text-mv-text',
-                )}
-              >
-                {t === 'all' ? 'All' : `Unread${unreadCount > 0 ? ` (${unreadCount})` : ''}`}
-              </button>
-            ))}
-          </div>
-
-          {notifs.length === 0 ? (
-            <div className="px-4 py-8 text-center">
-              <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-white/5">
-                <Icon name="bell" size={20} className="text-mv-text-dim" />
-              </div>
-              <p className="text-[11px] text-mv-text-muted">
-                {tab === 'unread' ? 'You’re all caught up!' : 'No notifications yet'}
-              </p>
-              <p className="mt-1 text-[9px] text-mv-text-dim">We’ll notify you about new chapters and activity</p>
-            </div>
-          ) : (
-            <div className="max-h-[60vh] overflow-y-auto overscroll-contain sm:max-h-80">
-              {[...groups.entries()].map(([day, items]) => (
-                <div key={day}>
-                  <p className="px-4 pb-1 pt-3 text-[9px] font-semibold uppercase tracking-[0.14em] text-mv-text-dim">{day}</p>
-                  {items.map((notif) => (
-                    <div key={notif.id} className="relative">
-                      <NotifRow notif={notif} onOpen={handleOpen} />
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-          )}
+      {open && !isMobile && (
+        <div className="glass absolute right-0 top-full z-[60] mt-2 w-[22rem] overflow-hidden rounded-2xl shadow-modal animate-scale-in">
+          {notificationContent}
         </div>
       )}
+
+      <BottomSheet
+        open={open && isMobile}
+        onClose={() => setOpen(false)}
+        title="Notifications"
+        initialHeight={72}
+        expandedHeight={94}
+        showCloseButton
+        header={<div className="px-4 pb-3 pt-1"><p className="text-sm font-semibold text-white">Notifications</p></div>}
+      >
+        {notificationContent}
+      </BottomSheet>
     </div>
   );
 }

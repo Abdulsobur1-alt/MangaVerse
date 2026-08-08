@@ -33,6 +33,8 @@ export interface BottomSheetProps {
   initialHeight?: number;
   /** Expanded height as % of viewport (default 95). */
   expandedHeight?: number;
+  /** Adds a persistent, accessible close control beside the drag handle. */
+  showCloseButton?: boolean;
   className?: string;
 }
 
@@ -50,6 +52,7 @@ export function BottomSheet({
   children,
   initialHeight = 60,
   expandedHeight = 95,
+  showCloseButton = false,
   className,
 }: BottomSheetProps) {
   const reducedMotion = useReducedMotion();
@@ -162,7 +165,7 @@ export function BottomSheet({
           <motion.div
             aria-hidden="true"
             initial={{ opacity: 0 }}
-            animate={{ opacity: 0.45 }}
+            animate={{ opacity: 0.6 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.22 }}
             className="absolute inset-0 bg-black backdrop-blur-sm"
@@ -207,6 +210,17 @@ export function BottomSheet({
                 </div>
                 {header}
               </div>
+              {showCloseButton && (
+                <button
+                  type="button"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={onClose}
+                  aria-label={`Close ${title ?? 'sheet'}`}
+                  className="tap-target absolute right-3 top-2.5 z-10 flex h-10 w-10 items-center justify-center rounded-xl text-mv-text-muted transition-colors hover:bg-white/5 hover:text-white"
+                >
+                  <Icon name="close" size={16} />
+                </button>
+              )}
 
               {/* Scrollable body */}
               <div className={cn('min-h-0 flex-1 overflow-y-auto overscroll-contain px-4', !header && title && 'pt-2')}>

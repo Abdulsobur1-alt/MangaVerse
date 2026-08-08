@@ -475,7 +475,26 @@ export function ProfileMenu({ className }: ProfileMenuProps) {
           setConfirming(false);
         }}
         title="Account"
-        header={token ? profileHeader(false) : undefined}
+        header={
+          <div>
+            <div className="flex items-center justify-between px-4 pb-2 pt-1">
+              <p className="text-sm font-semibold text-white">Account</p>
+              <button
+                type="button"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => {
+                  setOpen(false);
+                  setConfirming(false);
+                }}
+                aria-label="Close account menu"
+                className="tap-target flex h-10 w-10 items-center justify-center rounded-xl text-mv-text-muted transition-colors hover:bg-white/5 hover:text-white"
+              >
+                <Icon name="close" size={16} />
+              </button>
+            </div>
+            {token ? profileHeader(false) : null}
+          </div>
+        }
         footer={
           <div className="pb-2">
             {themeRow}

@@ -67,7 +67,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <main
           key={pathname}
           tabIndex={-1}
-          className="animate-page-enter min-h-[calc(100dvh-56px)] outline-none pb-[calc(4.5rem+env(safe-area-inset-bottom)+3.5rem)] md:pb-10"
+          className="animate-page-enter min-h-[calc(100dvh-56px)] outline-none pb-[calc(7rem+env(safe-area-inset-bottom)+4rem)] md:pb-10"
         >
           {children}
         </main>
