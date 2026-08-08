@@ -117,12 +117,12 @@ export function BottomNav({ onOpenSearch }: BottomNavProps) {
         <button
           onClick={onOpenSearch}
           aria-label="Search"
-          className="absolute -top-7 left-1/2 flex h-14 w-14 -translate-x-1/2 items-center justify-center rounded-full bg-gradient-to-br from-mv-purple to-mv-accent text-white shadow-glow transition-transform active:scale-95"
+          className="absolute -top-7 left-1/2 flex h-12 w-12 -translate-x-1/2 items-center justify-center rounded-full bg-gradient-to-br from-mv-purple to-mv-accent text-white shadow-glow transition-transform active:scale-95"
         >
-          <Icon name="search" size={24} strokeWidth={2.2} />
+          <Icon name="search" size={21} strokeWidth={2.2} />
         </button>
 
-        <div className="grid h-16 grid-cols-5 px-2">
+        <div className="grid h-[72px] grid-cols-5 px-2">
           {TABS.map((tab) => {
             const active = isActive(pathname, tab.href);
             return (
@@ -130,7 +130,10 @@ export function BottomNav({ onOpenSearch }: BottomNavProps) {
                 key={tab.href}
                 href={tab.href}
                 aria-current={active ? 'page' : undefined}
-                className="relative flex min-h-11 flex-col items-center justify-center gap-1 rounded-xl transition-colors"
+                className={cn(
+                  'relative flex min-h-11 flex-col items-center justify-center gap-1 rounded-xl transition-colors',
+                  tab.href === '/library' && 'pt-6',
+                )}
               >
                 <span
                   className={cn(
