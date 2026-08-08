@@ -17,8 +17,7 @@ const THEME_EVENT = 'mangaverse:theme';
 
 function applyTheme(theme: 'dark' | 'light') {
   const root = document.documentElement;
-  if (theme === 'light') root.setAttribute('data-theme', 'light');
-  else root.removeAttribute('data-theme');
+  root.setAttribute('data-theme', theme);
 }
 
 export interface ThemeSwitcherProps {
@@ -28,7 +27,9 @@ export interface ThemeSwitcherProps {
 }
 
 export function ThemeSwitcher({ labelled = false, className }: ThemeSwitcherProps) {
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [theme, setTheme] = useState<'dark' | 'light'>(() =>
+    typeof document !== 'undefined' && document.documentElement.dataset.theme === 'light' ? 'light' : 'dark',
+  );
 
   useEffect(() => {
     // Hydrate from storage and keep every instance in sync

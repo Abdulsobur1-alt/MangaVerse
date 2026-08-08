@@ -96,7 +96,6 @@ const CreateTitleSchema = z.object({
   coverUrl: z.string().url().max(500).nullable().optional(),
   bannerUrl: z.string().url().max(500).nullable().optional(),
   releaseYear: z.number().int().min(1900).max(2100).nullable().optional(),
-  sourceUrl: z.string().url().max(500).nullable().optional(),
 });
 
 const CreateChapterSchema = z.object({
@@ -105,7 +104,6 @@ const CreateChapterSchema = z.object({
   // Uploaded page image URLs (staff uploads). When present, the reader
   // serves these instead of MangaDex/placeholders.
   pageUrls: z.array(z.string().max(2000)).max(500).default([]),
-  sourceUrl: z.string().url().max(500).nullable().optional(),
   contentText: z.string().max(200_000).nullable().optional(),
   coinLocked: z.boolean().default(false),
   freeAt: z.string().datetime().nullable().optional(),
@@ -170,7 +168,6 @@ adminStudioRouter.post('/studio/titles', requirePermission('titles:create'), val
         bannerUrl: body.bannerUrl ?? null,
         synopsis: body.synopsis ?? null,
         releaseYear: body.releaseYear ?? null,
-        sourceUrl: body.sourceUrl ?? null,
       },
       select: { id: true, slug: true, title: true, type: true },
     });
@@ -204,7 +201,6 @@ adminStudioRouter.post('/studio/titles/:id/chapters', requirePermission('chapter
         title: body.title ?? null,
         pageUrls: body.pageUrls,
         pageCount: body.pageUrls.length > 0 ? body.pageUrls.length : undefined,
-        sourceUrl: body.sourceUrl ?? null,
         contentText: body.contentText ?? null,
         coinLocked: body.coinLocked,
         freeAt: body.freeAt ? new Date(body.freeAt) : null,

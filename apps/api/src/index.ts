@@ -32,8 +32,6 @@ import { socialRouter } from './routes/social.js';
 import { adminRouter } from './routes/admin/index.js';
 import { pushRouter } from './routes/push.js';
 import { healthRouter } from './routes/health.js';
-import { createImageProxyHandler } from './services/image-proxy.js';
-import { getScraperQueue, startScraperWorker } from './queues/scraper.js';
 import { startPredictionsWorker } from './queues/predictions.js';
 import { startEngagementWorker } from './queues/engagement.js';
 import { startRealtimeServer } from './lib/realtime.js';
@@ -67,7 +65,7 @@ app.use(express.urlencoded({ extended: true }));
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 60_000,
-  max: 100,
+  max: 300,
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, error: { code: 'RATE_LIMITED', message: 'Too many requests, please try again later.' } },
@@ -146,7 +144,6 @@ app.use('/api/push', pushRouter);
 
 // ─── Image Proxy ──────────────────────────────────────
 
-app.get('/api/proxy/image', createImageProxyHandler());
 // Placeholder images are served through the proxy: /api/proxy/image?url=%2Fapi%2Fproxy%2Fplaceholder%3F...
 // The standalone /api/proxy/placeholder route is not registered to avoid 400 errors —
 // it's handled inline by createImageProxyHandler() when imageUrl includes '/api/proxy/placeholder'.

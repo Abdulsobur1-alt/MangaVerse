@@ -5,7 +5,6 @@ import { cacheGet, cacheSet } from '../lib/redis.js';
 import { validate } from '../middleware/validate.js';
 import { requireAuth, optionalAuth } from '../middleware/auth.js';
 import { NotFoundError } from '../lib/errors.js';
-import { mangadex } from '../services/mangadex.js';
 import { getChapterLockInfo, isChapterUnlockedByUser, resolveUserId, unlockChapter } from '../services/coins.js';
 
 export const chaptersRouter = Router();
@@ -149,7 +148,7 @@ chaptersRouter.get('/:id/pages', optionalAuth, async (req, res, next) => {
 
     const chapter = await prisma.chapter.findUnique({
       where: { id },
-      select: { id: true, number: true, pageCount: true, sourceUrl: true, pageUrls: true, titleId: true, coinLocked: true, freeAt: true },
+      select: { id: true, number: true, pageCount: true, pageUrls: true, titleId: true, coinLocked: true, freeAt: true },
     });
 
     if (!chapter) throw new NotFoundError('Chapter', id);
@@ -201,37 +200,12 @@ chaptersRouter.get('/:id/pages', optionalAuth, async (req, res, next) => {
       });
     }
 
-    // Try to get real pages from MangaDex if we have a source URL
-    // MangaDex source URLs look like: https://mangadex.org/chapter/{chapterId}
-    const mangadexMatch = chapter.sourceUrl?.match(/mangadex\.org\/chapter\/([a-f0-9-]+)/i);
-    if (mangadexMatch) {
-      try {
-        const pageUrls = await mangadex.getChapterPageUrls(mangadexMatch[1]);
-        return res.json({
-          success: true,
-          data: {
-            pages: pageUrls.map((url: string, i: number) => ({
-              index: i,
-              url: `/api/proxy/image?url=${encodeURIComponent(url)}`,
-              width: 800,
-              height: 1200,
-            })),
-            total: pageUrls.length,
-            chapterId: chapter.id,
-            chapterNumber: chapter.number,
-          },
-        });
-      } catch {
-        // Fall through to placeholder generation
-      }
-    }
-
-    // Generate placeholder images wrapped through the image proxy
+    // Generate local placeholders until an uploader adds chapter pages.
     const pages = Array.from({ length: pageCount }, (_, i) => {
       const placeholderUrl = `/api/proxy/placeholder?chapter=${chapter.number}&page=${i + 1}&total=${pageCount}`;
       return {
         index: i,
-        url: `/api/proxy/image?url=${encodeURIComponent(placeholderUrl)}`,
+        url: placeholderUrl,
         width: 800,
         height: 1200,
       };
