@@ -157,14 +157,15 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
   const allNotifs = notifData?.items || [];
   const notifs = tab === 'unread' ? allNotifs.filter((n) => !n.read) : allNotifs;
 
-  // Close on outside click
+  // Desktop dropdown only: the mobile sheet owns backdrop dismissal.
   useEffect(() => {
+    if (isMobile) return;
     function handleClick(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     }
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
-  }, []);
+  }, [isMobile]);
 
   // Close on route change
   useEffect(() => {

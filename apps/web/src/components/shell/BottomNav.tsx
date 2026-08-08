@@ -75,45 +75,44 @@ export function BottomNav({ onOpenSearch }: BottomNavProps) {
   return (
     <nav className="fixed inset-x-0 bottom-0 z-50 md:hidden" aria-label="Mobile navigation">
       <div className="relative border-t border-mv-border/70 bg-mv-darker/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl">
-        {/* Sticky Continue pill — docked above the tab row */}
-        {token && latest && (
-          <Link
-            href={`/reader/${latest.chapterId}`}
-            aria-label={`Continue reading ${latest.title}, chapter ${latest.chapterNumber}`}
-            className={cn(
-              'tap-target absolute -top-14 right-3 max-w-[calc(100vw-5rem)] gap-2 rounded-full border border-mv-violet/30 bg-mv-darker/95 py-1.5 pl-2 pr-3.5 shadow-glow-sm backdrop-blur-xl transition-all duration-300 ease-out',
-              pillHidden ? 'pointer-events-none -translate-y-2 opacity-0' : 'translate-y-0 opacity-100',
-            )}
-          >
-            <span className="relative flex h-7 w-7 shrink-0 items-center justify-center">
-              <svg className="h-7 w-7 -rotate-90" viewBox="0 0 24 24" aria-hidden="true">
-                <circle cx="12" cy="12" r="10" fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="2.5" />
-                <circle
-                  cx="12" cy="12" r="10" fill="none" stroke="#8b5cf6" strokeWidth="2.5" strokeLinecap="round"
-                  strokeDasharray={`${Math.min(62.8, Math.max(0, (latest.pct / 100) * 62.8))} 62.8`}
-                />
-              </svg>
-              <Icon name="play" size={10} className="absolute text-mv-violet" strokeWidth={2.4} />
-            </span>
-            <span className="min-w-0 truncate text-[11px] font-medium text-mv-text-secondary">
-              {latest.title} <span className="text-mv-violet">· Ch. {latest.chapterNumber}</span>
-            </span>
-          </Link>
-        )}
-
-        {/* Staff Studio — floating pill, mirrored to the Continue pill */}
-        {staff && !pillHidden && (
-          <Link
-            href="/studio"
-            aria-label="Content Studio"
-            className={cn(
-              'tap-target absolute left-3 flex items-center gap-1.5 rounded-full border border-mv-violet/30 bg-mv-darker/95 py-1.5 pl-2.5 pr-3.5 shadow-glow-sm backdrop-blur-xl transition-all duration-300 ease-out',
-              token && latest ? '-top-26' : '-top-14',
-            )}
-          >
-            <Icon name="sparkles" size={13} className="text-mv-violet" strokeWidth={2} />
-            <span className="text-[11px] font-medium text-mv-text-secondary">Studio</span>
-          </Link>
+        {/* Mobile utility tray — attached to the dock so actions never compete
+            with each other or appear as independent floating page controls. */}
+        {!pillHidden && (staff || (token && latest)) && (
+          <div className="absolute inset-x-0 bottom-full px-3 pb-2">
+            <div className="flex min-h-11 items-center gap-1.5 rounded-2xl border border-mv-border-light bg-mv-darker px-1.5 shadow-modal">
+              {staff && (
+                <Link
+                  href="/studio"
+                  aria-label="Content Studio"
+                  className="tap-target flex h-11 shrink-0 items-center gap-1.5 rounded-xl px-2.5 text-mv-text-secondary transition-colors hover:bg-white/5 hover:text-mv-violet"
+                >
+                  <Icon name="sparkles" size={14} className="text-mv-violet" strokeWidth={2} />
+                  <span className="text-[11px] font-medium">Studio</span>
+                </Link>
+              )}
+              {token && latest && (
+                <Link
+                  href={`/reader/${latest.chapterId}`}
+                  aria-label={`Continue reading ${latest.title}, chapter ${latest.chapterNumber}`}
+                  className="tap-target flex h-11 min-w-0 flex-1 items-center gap-2 rounded-xl px-1.5 text-mv-text-secondary transition-colors hover:bg-white/5"
+                >
+                  <span className="relative flex h-7 w-7 shrink-0 items-center justify-center">
+                    <svg className="h-7 w-7 -rotate-90" viewBox="0 0 24 24" aria-hidden="true">
+                      <circle cx="12" cy="12" r="10" fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="2.5" />
+                      <circle
+                        cx="12" cy="12" r="10" fill="none" stroke="#8b5cf6" strokeWidth="2.5" strokeLinecap="round"
+                        strokeDasharray={`${Math.min(62.8, Math.max(0, (latest.pct / 100) * 62.8))} 62.8`}
+                      />
+                    </svg>
+                    <Icon name="play" size={10} className="absolute text-mv-violet" strokeWidth={2.4} />
+                  </span>
+                  <span className="min-w-0 truncate text-[11px] font-medium">
+                    {latest.title} <span className="text-mv-violet">· Ch. {latest.chapterNumber}</span>
+                  </span>
+                </Link>
+              )}
+            </div>
+          </div>
         )}
 
         {/* Floating search */}

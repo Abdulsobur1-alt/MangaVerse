@@ -2,6 +2,7 @@
 
 import { AnimatePresence, motion, useDragControls, useReducedMotion, type PanInfo } from 'framer-motion';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Icon } from './Icon';
 import { cn } from '@/lib/cn';
 
@@ -61,8 +62,15 @@ export function BottomSheet({
   const dragControls = useDragControls();
   const sheetRef = useRef<HTMLDivElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
+  const [mounted, setMounted] = useState(false);
 
   const height = `${expanded ? expandedHeight : initialHeight}dvh`;
+
+  // Sheets can be opened from inside blurred/sticky header controls. Render
+  // at the document root so those containing blocks cannot clip a viewport UI.
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Reset to the initial snap whenever the sheet re-opens.
   useEffect(() => {
@@ -157,7 +165,7 @@ export function BottomSheet({
     ? { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 }, transition: { duration: 0.15 } }
     : { initial: { y: '100%' }, animate: { y: 0 }, exit: { y: '100%' }, transition: SPRING };
 
-  return (
+  const sheet = (
     <AnimatePresence>
       {open && (
         <div className="fixed inset-0 z-[80]">
@@ -235,6 +243,8 @@ export function BottomSheet({
       )}
     </AnimatePresence>
   );
+
+  return mounted ? (createPortal(sheet, document.body) as unknown as React.ReactElement) : null;
 }
 
 /** Slim default sheet header with title + close button (not draggable). */
