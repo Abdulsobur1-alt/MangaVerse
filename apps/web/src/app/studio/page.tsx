@@ -249,7 +249,6 @@ function CreateTitleForm({ onDone }: { onDone: () => void }) {
     releaseYear: '',
     synopsis: '',
     alternativeTitles: '',
-    sourceUrl: '',
     coverUrl: '',
     genres: [] as string[],
   });
@@ -274,7 +273,6 @@ function CreateTitleForm({ onDone }: { onDone: () => void }) {
         releaseYear: form.releaseYear ? Number(form.releaseYear) : null,
         synopsis: form.synopsis.trim() || null,
         alternativeTitles: form.alternativeTitles.trim() || null,
-        sourceUrl: form.sourceUrl.trim() || null,
         coverUrl: form.coverUrl.trim() || null,
         genres: form.genres,
       });
@@ -342,11 +340,6 @@ function CreateTitleForm({ onDone }: { onDone: () => void }) {
           Alternative titles
           <input value={form.alternativeTitles} onChange={(e) => set('alternativeTitles', e.target.value)} placeholder="나 혼자만 레벨업 (comma separated)" className="field mt-1 w-full" />
         </label>
-        <label className="text-[9px] uppercase tracking-wider text-mv-text-dim">
-          Source URL (optional, MangaDex link enables chapter sync)
-          <input value={form.sourceUrl} onChange={(e) => set('sourceUrl', e.target.value)} placeholder="https://mangadex.org/title/…" className="field mt-1 w-full" />
-        </label>
-
         <div className="lg:col-span-2">
           <span className="text-[9px] uppercase tracking-wider text-mv-text-dim">Cover image</span>
           <div className="mt-1 flex flex-wrap items-center gap-2">
@@ -575,11 +568,10 @@ function ChapterManager({ titleId }: { titleId: string }) {
   const update = useStudioUpdateChapter();
   const upload = useStudioUpload();
 
-  const [mode, setMode] = useState<'upload' | 'prose' | 'link'>('upload');
+  const [mode, setMode] = useState<'upload' | 'prose'>('upload');
   const [editId, setEditId] = useState<string | null>(null);
   const [number, setNumber] = useState('');
   const [chTitle, setChTitle] = useState('');
-  const [sourceUrl, setSourceUrl] = useState('');
   const [prose, setProse] = useState('');
   const [pageUrls, setPageUrls] = useState<string[]>([]);
   const [coinLocked, setCoinLocked] = useState(false);
@@ -628,7 +620,6 @@ function ChapterManager({ titleId }: { titleId: string }) {
     if (Number.isNaN(num) || num < 0) { setError('Chapter number is required'); return; }
     if (mode === 'upload' && pageUrls.length === 0) { setError('Upload at least one page image'); return; }
     if (mode === 'prose' && !prose.trim()) { setError('Prose content is required'); return; }
-    if (mode === 'link' && !sourceUrl.trim()) { setError('Source URL is required'); return; }
     setError(null);
 
     const chapter: Record<string, unknown> = {
@@ -638,11 +629,10 @@ function ChapterManager({ titleId }: { titleId: string }) {
     };
     if (mode === 'upload') chapter.pageUrls = pageUrls;
     if (mode === 'prose') chapter.contentText = prose;
-    if (mode === 'link') chapter.sourceUrl = sourceUrl.trim();
 
     try {
       await create.mutateAsync({ titleId, chapter });
-      setChTitle(''); setProse(''); setSourceUrl(''); setPageUrls([]); setCoinLocked(false);
+      setChTitle(''); setProse(''); setPageUrls([]); setCoinLocked(false);
       setNumber(String(num + 1));
     } catch (err) {
       setError((err as { message?: string })?.message ?? 'Could not create chapter');
@@ -726,7 +716,6 @@ function ChapterManager({ titleId }: { titleId: string }) {
           {([
             ['upload', '🖼️ Pages'],
             ['prose', '📝 Prose'],
-            ['link', '🔗 Source link'],
           ] as const).map(([m, label]) => (
             <button
               key={m}
@@ -787,17 +776,6 @@ function ChapterManager({ titleId }: { titleId: string }) {
             placeholder="Paste the chapter's prose here… (light novels & novels)"
             className="field mt-3 w-full resize-none"
           />
-        )}
-
-        {mode === 'link' && (
-          <div className="mt-3">
-            <input
-              value={sourceUrl}
-              onChange={(e) => setSourceUrl(e.target.value)}
-              placeholder="https://mangadex.org/chapter/… — pages stream from the source"
-              className="field w-full"
-            />
-          </div>
         )}
 
         <label className="mt-3 flex items-center gap-2 text-[9px] text-mv-text-secondary">
